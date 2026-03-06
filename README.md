@@ -17,6 +17,6 @@ The app uses Expo Router v3. Always clear the Metro cache when starting to ensur
 ```bash
 # Start the dev server
 npx expo start
-
+# or
 npm start
 ```
