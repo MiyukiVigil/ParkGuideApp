@@ -9,7 +9,6 @@ npm install --legacy-peer-deps
 ```
 
 ### 2. Startup
-The app uses Expo Router v3. Always clear the Metro cache when starting to ensure the file-based routes are mapped correctly.
 
 ```bash
 # Start the dev server
