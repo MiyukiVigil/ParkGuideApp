@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, StyleSheet, Alert, Image } from 'react-native';
+import { ScrollView, View, StyleSheet, Alert } from 'react-native';
 import { Text, Card, Button, RadioButton, Surface, IconButton, Portal, Modal, useTheme, ProgressBar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 
@@ -21,26 +21,26 @@ export default function TrainingModule() {
   };
 
   return (
-    <View style={styles.master}>
+    <View style={[styles.master, { backgroundColor: theme.colors.background }]}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* 1. Progress Header */}
-        <Surface style={styles.header} elevation={1}>
-          <Text variant="labelLarge" style={{ color: '#2E7D32' }}>MODULE 1.2</Text>
-          <Text variant="headlineSmall" style={styles.title}>Orangutan Safety</Text>
+        <Surface style={[styles.header, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}>
+          <Text variant="labelLarge" style={{ color: theme.colors.primary }}>MODULE 1.2</Text>
+          <Text variant="headlineSmall" style={[styles.title, { color: theme.colors.onSurface }]}>Orangutan Safety</Text>
         </Surface>
 
-        {/* 2. Multimedia Content (The "UI" phase) */}
-        <Card style={styles.videoCard}>
-          <View style={styles.videoPlaceholder}>
-             <IconButton icon="play-circle" size={64} iconColor="#fff" />
-             <Text style={{ color: '#fff' }}>Watch Training Video</Text>
+        {/* 2. Multimedia Content */}
+        <Card style={[styles.videoCard, { backgroundColor: theme.colors.surfaceVariant }]}>
+          <View style={[styles.videoPlaceholder, { backgroundColor: theme.dark ? '#1A1A1A' : theme.colors.primaryContainer }]}>
+            <IconButton icon="play-circle" size={64} iconColor={theme.colors.primary} />
+            <Text style={{ color: theme.colors.onPrimary }}>Watch Training Video</Text>
           </View>
         </Card>
 
-        <Card style={styles.contentCard}>
+        <Card style={[styles.contentCard, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
-            <Text variant="titleMedium" style={styles.subHeader}>Proximity Protocols</Text>
-            <Text variant="bodyMedium" style={styles.bodyText}>
+            <Text variant="titleMedium" style={[styles.subHeader, { color: theme.colors.onSurface }]}>Proximity Protocols</Text>
+            <Text variant="bodyMedium" style={[styles.bodyText, { color: theme.colors.onSurfaceVariant }]}>
               Bako National Park requires all guides to maintain a strict 10-meter perimeter. 
               This prevents the transmission of human diseases to primates and ensures the 
               animals do not become habituated to human presence.
@@ -51,25 +51,25 @@ export default function TrainingModule() {
         <Button 
           mode="contained" 
           icon="pencil-box-outline"
-          style={styles.mainActionBtn}
+          style={[styles.mainActionBtn, { backgroundColor: isPassed ? theme.colors.secondary : theme.colors.primary }]}
           onPress={() => setShowQuiz(true)}
-          buttonColor={isPassed ? '#4CAF50' : '#2E7D32'}
+          textColor={theme.colors.onPrimary}
         >
           {isPassed ? "Retake Assessment" : "Take Module Quiz"}
         </Button>
       </ScrollView>
 
-      {/* 3. The Quiz Modal (The "Click into it" phase) */}
+      {/* 3. Quiz Modal */}
       <Portal>
         <Modal 
           visible={showQuiz} 
           onDismiss={() => setShowQuiz(false)} 
-          contentContainerStyle={styles.modalStyle}
+          contentContainerStyle={[styles.modalStyle, { backgroundColor: theme.colors.surface }]}
         >
-          <Text variant="titleLarge" style={styles.modalTitle}>Knowledge Check</Text>
-          <ProgressBar progress={0.5} color="#2E7D32" style={{ marginVertical: 10 }} />
+          <Text variant="titleLarge" style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Knowledge Check</Text>
+          <ProgressBar progress={0.5} color={theme.colors.primary} style={{ marginVertical: 10 }} />
           
-          <Text variant="bodyLarge" style={{ marginBottom: 15 }}>
+          <Text variant="bodyLarge" style={{ marginBottom: 15, color: theme.colors.onSurfaceVariant }}>
             What is the minimum safe distance required for a guided group?
           </Text>
 
@@ -77,14 +77,14 @@ export default function TrainingModule() {
             {['10 Meters', '2 Meters', '5 Meters'].map((label, index) => (
               <View key={label} style={styles.radioRow}>
                 <RadioButton value={index === 0 ? 'first' : index === 1 ? 'second' : 'third'} />
-                <Text>{label}</Text>
+                <Text style={{ color: theme.colors.onSurface }}>{label}</Text>
               </View>
             ))}
           </RadioButton.Group>
 
           <View style={styles.modalActions}>
-            <Button onPress={() => setShowQuiz(false)}>Cancel</Button>
-            <Button mode="contained" onPress={handleQuizSubmit} disabled={!checked}>
+            <Button onPress={() => setShowQuiz(false)} textColor={theme.colors.primary}>Cancel</Button>
+            <Button mode="contained" onPress={handleQuizSubmit} disabled={!checked} textColor={theme.colors.onPrimary} buttonColor={theme.colors.primary}>
               Submit
             </Button>
           </View>
@@ -95,18 +95,33 @@ export default function TrainingModule() {
 }
 
 const styles = StyleSheet.create({
-  master: { flex: 1, backgroundColor: '#F8F9FA' },
-  container: { flex: 1, padding: 20 },
-  header: { padding: 20, borderRadius: 20, marginBottom: 20, backgroundColor: '#fff' },
+  master: { flex: 1},
+  container: { flex: 1, padding: 20, marginTop:20},
+
+  header: { 
+    padding: 20, 
+    borderRadius: 20, 
+    marginBottom: 20,
+    elevation: 2,
+  },
   title: { fontWeight: 'bold', marginTop: 4 },
+
   videoCard: { borderRadius: 24, overflow: 'hidden', marginBottom: 20 },
-  videoPlaceholder: { height: 200, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center' },
-  contentCard: { borderRadius: 20, backgroundColor: '#fff', marginBottom: 30 },
+  videoPlaceholder: { 
+    height: 200, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    borderRadius: 24,
+  },
+
+  contentCard: { borderRadius: 20, marginBottom: 30 },
   subHeader: { fontWeight: 'bold', marginBottom: 8 },
-  bodyText: { lineHeight: 24, color: '#444' },
+  bodyText: { lineHeight: 24 },
+
   mainActionBtn: { paddingVertical: 8, borderRadius: 15 },
-  modalStyle: { backgroundColor: 'white', padding: 30, margin: 20, borderRadius: 24 },
+
+  modalStyle: { padding: 30, margin: 20, borderRadius: 24 },
   modalTitle: { fontWeight: 'bold', marginBottom: 10 },
   radioRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 5 },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 25 }
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 25 },
 });

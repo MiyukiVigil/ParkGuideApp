@@ -4,9 +4,6 @@
 Because the project uses **React 19**, you must bypass peer dependency conflicts to ensure `react-native-paper` and `expo-router` install correctly.
 
 ```bash
-# Navigate to project
-cd park-guide-app
-
 # Install dependencies
 npm install --legacy-peer-deps
 ```

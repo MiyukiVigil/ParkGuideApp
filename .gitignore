@@ -1,3 +1,5 @@
+# Do not changes anything here unless there's a file you want to exclude from the GitHub Repo
+
 # Dependency directories
 node_modules/
 jspm_packages/

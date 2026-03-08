@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, FlatList, Platform } from 'react-native';
-import { List, Text, Surface, TouchableRipple, Avatar } from 'react-native-paper';
+import { View, StyleSheet, FlatList } from 'react-native';
+import { List, Text, Surface, TouchableRipple, Avatar, useTheme } from 'react-native-paper';
 import * as WebBrowser from 'expo-web-browser';
 
 const STUDY_MATERIALS = [
@@ -9,41 +9,90 @@ const STUDY_MATERIALS = [
 ];
 
 export default function Materials() {
+  const theme = useTheme();
+
   const openPDF = async (url) => {
-    // This opens the PDF in a "Slick" in-app modal
     await WebBrowser.openBrowserAsync(url, {
-      toolbarColor: '#2E7D32',
+      toolbarColor: theme.colors.primary,
       showTitle: true,
       enableBarCollapsing: true,
     });
   };
 
+  const renderItem = ({ item }) => (
+    <Surface
+      style={[
+        styles.card,
+        {
+          // 1. Light mode uses 'surface' (white) for a cleaner look than 'surfaceVariant'
+          backgroundColor: theme.dark ? theme.colors.surfaceVariant : theme.colors.surface,
+          // 2. Add a crisp border instead of a blurry shadow
+          borderWidth: 1,
+          borderColor: theme.dark ? 'transparent' : 'rgba(0,0,0,0.05)',
+        },
+      ]}
+      // 3. Lower elevation for a modern, flatter feel
+      elevation={theme.dark ? 2 : 0} 
+    >
+      <TouchableRipple
+        onPress={() => openPDF(item.url)}
+        borderRadius={18}
+        style={styles.ripple}
+      >
+        <List.Item
+          title={item.title}
+          titleStyle={{ color: theme.colors.onSurface, fontWeight: '700' }}
+          description={item.sub}
+          descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
+          left={(props) => (
+            <Avatar.Icon
+              {...props}
+              icon="file-pdf-box"
+              size={40}
+              color={theme.colors.error}
+              style={{ backgroundColor: theme.colors.errorContainer }}
+            />
+          )}
+          right={(props) => (
+            <List.Icon
+              {...props}
+              icon="open-in-new"
+              color={theme.colors.onSurfaceVariant}
+            />
+          )}
+        />
+      </TouchableRipple>
+    </Surface>
+  );
+
   return (
-    <View style={styles.container}>
-      <Text variant="headlineSmall" style={styles.header}>Learning Materials</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text
+        variant="headlineSmall"
+        style={[styles.header, { color: theme.colors.onBackground }]}
+      >
+        Learning Materials
+      </Text>
+
       <FlatList
         data={STUDY_MATERIALS}
-        renderItem={({ item }) => (
-          <Surface style={styles.card} elevation={1}>
-            <TouchableRipple onPress={() => openPDF(item.url)} style={styles.ripple}>
-              <List.Item
-                title={item.title}
-                description={item.sub}
-                left={props => <Avatar.Icon {...props} icon="file-pdf-box" color="#D32F2F" style={styles.iconBg} />}
-                right={props => <List.Icon {...props} icon="open-in-new" />}
-              />
-            </TouchableRipple>
-          </Surface>
-        )}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
-  header: { marginBottom: 25, fontWeight: '900', color: '#1A1A1A' },
-  card: { marginBottom: 15, borderRadius: 16, backgroundColor: '#fff', overflow: 'hidden' },
-  ripple: { padding: 4 },
-  iconBg: { backgroundColor: '#FFEBEE' }
+  container: { flex: 1, padding: 20 },
+  header: { marginTop: 15, marginBottom: 20, fontWeight: '900', letterSpacing: 0.5 },
+  card: {
+    marginBottom: 14,
+    borderRadius: 20, // Increased to 20 to match your dashboard grid
+    overflow: 'hidden',
+    // 4. REMOVED manual shadow properties to fix the "weird" look
+  },
+  ripple: { paddingVertical: 4, paddingLeft: 8 },
 });
