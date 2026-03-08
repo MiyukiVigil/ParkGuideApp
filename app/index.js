@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { View, StyleSheet, KeyboardAvoidingView, Platform, Image } from "react-native";
 import { TextInput, Button, Text, Avatar, Surface, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
+import { useTranslation } from 'react-i18next';
 
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const router = useRouter();
     const theme = useTheme();
+    const { t } = useTranslation();
 
     return (
         <KeyboardAvoidingView 
@@ -27,20 +29,20 @@ export default function Login() {
                         variant="headlineMedium" 
                         style={[styles.title, { color: theme.colors.onBackground }]}
                     >
-                        SFC Guide Portal
+                        {t("loginHeadline")}
                     </Text>
                     <Text 
                         variant="bodyMedium" 
                         style={{ color: theme.colors.onBackgroundVariant, marginTop: 5 }}
                     >
-                        Secure Access for Park Professionals
+                        {t("loginMedium")}
                     </Text>
                 </View>
 
                 {/* 2. Form Section */}
                 <Surface style={[styles.formCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
                     <TextInput
-                        label="Guide Email"
+                        label={t("loginEmail")}
                         value={email}
                         onChangeText={setEmail}
                         mode="flat"
@@ -50,7 +52,7 @@ export default function Login() {
                         placeholderTextColor={theme.colors.onSurfaceVariant}
                     />
                     <TextInput
-                        label="Password"
+                        label={t("loginPassword")}
                         value={password}
                         onChangeText={setPassword}
                         secureTextEntry
@@ -69,7 +71,7 @@ export default function Login() {
                         buttonColor={theme.colors.primary}
                         textColor={theme.colors.onPrimary}
                     >
-                        Secure Login
+                        {t("loginButton")}
                     </Button>
                 </Surface>
 
@@ -83,11 +85,11 @@ export default function Login() {
                             color={theme.colors.primary} 
                         />
                         <Text variant="bodySmall" style={[styles.securityText, { color: theme.colors.primary }]}>
-                            AES-256 Encrypted Connection
+                            {t('securityText')}
                         </Text>
                     </View>
                     <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                        v1.0.4 - Sarawak Forestry Corporation
+                        v1.0.0 - Sarawak Forestry Corporation
                     </Text>
                 </View>
             </View>

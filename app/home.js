@@ -2,11 +2,13 @@ import React from 'react';
 import { ScrollView, View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { Text, ProgressBar, Avatar, Surface, TouchableRipple, useTheme, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 export default function Home() {
   const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const { t } = useTranslation();
 
   const isWeb = Platform.OS === 'web';
   const contentWidth = isWeb && width > 1200 ? 800 : '100%';
@@ -53,7 +55,7 @@ export default function Home() {
         >
           <View style={styles.featureBadge}>
             <Text style={[styles.badgeText, { color: theme.colors.onPrimary }]}>
-              IN PROGRESS
+              {t('inProgress')}
             </Text>
           </View>
 
@@ -66,7 +68,7 @@ export default function Home() {
 
           <View style={styles.progressInfo}>
             <Text style={[styles.featureSub, { color: theme.colors.onPrimary }]}>
-              Course Completion
+              {t('courseCompletion')}
             </Text>
 
             <Text
@@ -88,7 +90,7 @@ export default function Home() {
           variant="titleMedium"
           style={[styles.sectionHeader, { color: theme.colors.onSurfaceVariant }]}
         >
-          Guide Operations
+          {t('guideOperations')}
         </Text>
 
         {/* Grid */}
@@ -96,44 +98,44 @@ export default function Home() {
           <OperationCard
             theme={theme}
             icon="book-open-variant"
-            label="Materials"
+            label={t('materials')}
             progress={0.6}
-            subtitle="6 Modules Left"
+            subtitle={`6 ${t('remainingDesc')}`}
             onPress={() => router.push('/materials')}
           />
 
           <OperationCard
             theme={theme}
             icon="school"
-            label="Training"
+            label={t('training')}
             progress={0.4}
-            subtitle="4 Modules Left"
+            subtitle={`4 ${t('remainingDesc')}`}
             onPress={() => router.push('/training')}
           />
 
           <OperationCard
             theme={theme}
             icon="map-marker-path"
-            label="Map"
-            subtitle="Live Map"
+            label={t('map')}
+            subtitle={t('mapDesc')}
             onPress={() => router.push('/map')}
           />
 
           <OperationCard
             theme={theme}
             icon="certificate"
-            label="Certs"
+            label={t('certs')}
             progress={1.0}
-            subtitle="Verified"
+            subtitle={t('certsDesc')}
             onPress={() => router.push('/cert')}
           />
 
           <OperationCard
             theme={theme}
             icon="video-check"
-            label="Tour Monitor"
+            label={t('tourMonitor')}
             isLive
-            subtitle="IoT Stream Active"
+            subtitle={t('monitorDesc')}
             color={theme.colors.primaryContainer}
             onPress={() => router.push('/monitor')}
           />
@@ -141,8 +143,8 @@ export default function Home() {
           <OperationCard
             theme={theme}
             icon="cog"
-            label="Settings"
-            subtitle="Customize App"
+            label={t('settings')}
+            subtitle={t('settingsDesc')}
             onPress={() => router.push('/settings')}
           />
         </View>

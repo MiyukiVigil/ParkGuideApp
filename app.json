@@ -16,8 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.sfc.parkguideapp",
       "infoPlist": {
-          "UIUserInterfaceStyle": "Automatic"
-        }
+        "UIUserInterfaceStyle": "Automatic"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +32,8 @@
       "favicon": "./assets/icon.png"
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-localization"
     ]
   }
 }

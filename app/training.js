@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet, Alert } from 'react-native';
 import { Text, Card, Button, RadioButton, Surface, IconButton, Portal, Modal, useTheme, ProgressBar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 export default function TrainingModule() {
   const [showQuiz, setShowQuiz] = useState(false);
@@ -9,6 +10,7 @@ export default function TrainingModule() {
   const [isPassed, setIsPassed] = useState(false);
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const handleQuizSubmit = () => {
     if (checked === 'first') {

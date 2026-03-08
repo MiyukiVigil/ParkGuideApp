@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, ScrollView, Animated, Easing } from 'react-native';
 import { Text, Surface, TouchableRipple, Avatar, Button, Portal, Modal, IconButton, useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 const NOTIFICATIONS = [
   { id: '1', title: 'New Module Available', description: 'Advanced Biodiversity 2.0 is unlocked.', fullText: 'Complete the new module within 14 days to maintain guide status.', time: '10 mins ago', isRead: false },
@@ -12,6 +13,7 @@ const NOTIFICATIONS = [
 export default function Notifications() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
   const [selected, setSelected] = useState(null);
@@ -78,7 +80,7 @@ export default function Notifications() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text variant="headlineSmall" style={[styles.header, { color: theme.colors.onBackground }]}>Notifications</Text>
+      <Text variant="headlineSmall" style={[styles.header, { color: theme.colors.onBackground }]}>{t("notiHeadline")}</Text>
 
       <FlatList
         data={notifications}
@@ -91,7 +93,7 @@ export default function Notifications() {
       {/* Footer */}
       <Surface style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: theme.colors.surface }]} elevation={4}>
         <Button mode="contained" onPress={clearRead} style={{ borderRadius: 12 }} buttonColor={theme.colors.primary} icon="check-all">
-          Clear All Read Notifications
+          {t("clearButton")}
         </Button>
       </Surface>
 
@@ -100,7 +102,6 @@ export default function Notifications() {
         <Modal
             visible={isModalVisible}
             onDismiss={closeModal}
-            // Move the styling directly to the contentContainerStyle
             contentContainerStyle={[
             styles.modalContainer, 
             { backgroundColor: theme.colors.surface }
@@ -110,7 +111,6 @@ export default function Notifications() {
             <View>
                 <View style={styles.modalHeader}>
                 <Avatar.Icon size={48} icon="email" style={{ backgroundColor: theme.colors.primaryContainer }} color={theme.colors.primary} />
-                <IconButton icon="close" size={24} onPress={closeModal} />
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false}>
@@ -123,7 +123,7 @@ export default function Notifications() {
                 </ScrollView>
 
                 <Button mode="contained" onPress={closeModal} style={styles.modalButton}>
-                Close
+                {t("closeButton")}
                 </Button>
             </View>
             )}

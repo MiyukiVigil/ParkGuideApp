@@ -1,0 +1,16 @@
+export default {
+    inProgress: "IN PROGRESS",
+    courseCompletion: "Course Completion",
+    guideOperations: "Guide Operations",
+    map: "Map",
+    mapDesc: "Live Map",
+    certs: "Certs",
+    certsDesc: "Verified",
+    tourMonitor: "Tour Monitor",
+    monitorDesc: "IoT Stream Active",
+    materials: "Materials",
+    training: "Training",
+    remainingDesc: "Modules Left",
+    settings: "Settings",
+    settingsDesc: "Customize App",
+};
