@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import { List, Text, Surface, TouchableRipple, Avatar, useTheme } from 'react-native-paper';
 import * as WebBrowser from 'expo-web-browser';
+import { useTranslation } from 'react-i18next';
 
 const STUDY_MATERIALS = [
   { id: '1', title: 'Bako Flora Guide', sub: 'PDF • 2.4 MB', url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' },
@@ -10,6 +11,7 @@ const STUDY_MATERIALS = [
 
 export default function Materials() {
   const theme = useTheme();
+   const { t } = useTranslation();
 
   const openPDF = async (url) => {
     await WebBrowser.openBrowserAsync(url, {
@@ -71,7 +73,7 @@ export default function Materials() {
         variant="headlineSmall"
         style={[styles.header, { color: theme.colors.onBackground }]}
       >
-        Learning Materials
+        {t('matHeadline')}
       </Text>
 
       <FlatList

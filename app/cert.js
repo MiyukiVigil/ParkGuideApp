@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Card, Text, Avatar, Divider, List, Chip, useTheme } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 
 export default function Certification() {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -25,7 +27,7 @@ export default function Certification() {
               variant="bodyMedium" 
               style={{ color: theme.colors.onPrimary, marginTop: 2 }}
             >
-              Official Park Guide
+              {t("certMedium")}
             </Text>
             <Text 
               variant="labelSmall" 
@@ -44,7 +46,7 @@ export default function Certification() {
             style={[styles.chip, { backgroundColor: theme.colors.surface }]}
             textStyle={{ color: theme.colors.onSurface, fontWeight: '600' }}
           >
-            Verified Guide
+            {t("verifiedGuide")}
           </Chip>
           <Text style={{ color: theme.colors.onPrimary, fontSize: 10 }}>Exp: 12/2026</Text>
         </View>
@@ -55,7 +57,7 @@ export default function Certification() {
         variant="titleMedium" 
         style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
       >
-        Completed Modules
+        {t("comModules")}
       </Text>
 
       <Card style={{ marginBottom: 20, backgroundColor: theme.colors.surface }}>
@@ -80,7 +82,7 @@ export default function Certification() {
         variant="bodySmall" 
         style={[styles.disclaimer, { color: theme.colors.onSurfaceVariant }]}
       >
-        Digital certificates are encrypted and stored securely on the SFC private server.
+        {t("certSecDesc")}
       </Text>
     </View>
   );
