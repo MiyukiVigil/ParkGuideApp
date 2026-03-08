@@ -47,7 +47,10 @@ export default function Notifications() {
     <Surface
       style={[
         styles.card,
-        { backgroundColor: item.isRead ? theme.colors.surfaceVariant : theme.colors.surface },
+        { backgroundColor: item.isRead ? theme.colors.surfaceVariant : theme.colors.surface,
+          borderColor: theme.colors.outline,
+          borderWidth: 1
+        },
       ]}
       elevation={item.isRead ? 0 : 2}
     >
@@ -88,7 +91,7 @@ export default function Notifications() {
       {/* Footer */}
       <Surface style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: theme.colors.surface }]} elevation={4}>
         <Button mode="contained" onPress={clearRead} style={{ borderRadius: 12 }} buttonColor={theme.colors.primary} icon="check-all">
-          Clear All Read
+          Clear All Read Notifications
         </Button>
       </Surface>
 
@@ -136,7 +139,7 @@ const styles = StyleSheet.create({
   card: { marginBottom: 15, borderRadius: 16, overflow: 'hidden' },
   ripple: { padding: 15 },
   cardContent: { flexDirection: 'row', alignItems: 'center' },
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  footer: { position: 'absolute', bottom: 20, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   modalContainer: {
     width: '90%',
     alignSelf: 'center',
