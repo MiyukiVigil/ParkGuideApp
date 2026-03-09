@@ -54,23 +54,33 @@ export default function RootLayout() {
     loadSettings();
   }, []);
 
-  // Apply Font Scaling to the theme
+  // Apply font scaling across all React Native Paper typography variants.
   const baseTheme = isDarkMode ? darkTheme : lightTheme;
+  const scaledFonts = Object.fromEntries(
+    Object.entries(baseTheme.fonts).map(([key, value]) => {
+      if (typeof value?.fontSize === "number") {
+        return [key, { ...value, fontSize: value.fontSize * fontScale }];
+      }
+      return [key, value];
+    })
+  );
+
   const theme = {
     ...baseTheme,
-    fonts: {
-      ...baseTheme.fonts,
-      bodyLarge: { ...baseTheme.fonts.bodyLarge, fontSize: 16 * fontScale },
-      bodyMedium: { ...baseTheme.fonts.bodyMedium, fontSize: 14 * fontScale },
-      titleLarge: { ...baseTheme.fonts.titleLarge, fontSize: 22 * fontScale },
-      labelLarge: { ...baseTheme.fonts.labelLarge, fontSize: 14 * fontScale },
-    },
+    fonts: scaledFonts,
   };
 
   return (
     <ThemeContext.Provider value={{ isDarkMode, toggleTheme, fontScale, setFontScale }}>
       <PaperProvider theme={theme}>
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            headerTitleStyle: {
+              fontSize: (baseTheme.fonts.titleLarge?.fontSize || 22) * fontScale,
+            },
+          }}
+        />
       </PaperProvider>
     </ThemeContext.Provider>
   );
