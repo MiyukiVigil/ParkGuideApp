@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
-import Pdf from "react-native-pdf"; // Requires native build: npx expo run:ios
+import Pdf from "react-native-pdf";
 import { useTheme, Appbar } from "react-native-paper";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from 'react-i18next';
@@ -11,25 +11,34 @@ export default function PDFViewer() {
   const { t } = useTranslation();
   const { url } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
+  
+  // Track dimensions to force re-render on rotation
+  const [dimensions, setDimensions] = useState(Dimensions.get("window"));
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener("change", ({ window }) => {
+      setDimensions(window);
+    });
+    return () => subscription?.remove();
+  }, []);
 
   const source = { uri: decodeURIComponent(url || ""), cache: true };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header style={{ backgroundColor: theme.colors.surface }}>
-        <Appbar.BackAction onPress={() => router.back()} color={theme.colors.onSurface} />
-        <Appbar.Content 
-          title={t('pdfViewerTitle') || "PDF Viewer"} 
-          titleStyle={{ color: theme.colors.onSurface }} 
-        />
+        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.Content title={t('pdfViewerTitle') || "PDF Viewer"} />
       </Appbar.Header>
 
-      <View style={{ flex: 1, width: '100%' }}>
+      <View style={styles.pdfWrapper}>
         <Pdf
           source={source}
           horizontal={true}
           enablePaging={true}
           trustAllCerts={false}
+          // fitPolicy={0} ensures the PDF width matches the screen width
+          fitPolicy={0} 
           scale={1.0}
           minScale={1.0}
           maxScale={3.0}
@@ -38,7 +47,8 @@ export default function PDFViewer() {
             console.log(error);
             setLoading(false);
           }}
-          style={styles.pdf}
+          // Passing dimensions here forces the component to adapt to rotation
+          style={[styles.pdf, { width: dimensions.width, height: dimensions.height }]}
         />
 
         {loading && (
@@ -55,17 +65,20 @@ export default function PDFViewer() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  pdfWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#333', 
+  },
   pdf: {
     flex: 1,
-    width: Dimensions.get("window").width,
-    height: Dimensions.get("window").height,
-    backgroundColor: '#000', // Black background looks better for paging
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
   },
   loader: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginTop: -20,
-    marginLeft: -20,
+    alignSelf: 'center',
+    top: '45%',
   }
 });
