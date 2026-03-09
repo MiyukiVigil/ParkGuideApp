@@ -27,9 +27,9 @@ export default function PDFViewer() {
       <View style={{ flex: 1, width: '100%' }}>
         <Pdf
           source={source}
-          // THE MAGIC PROPS FOR HORIZONTAL SWIPING
           horizontal={true}
           enablePaging={true}
+          trustAllCerts={false}
           scale={1.0}
           minScale={1.0}
           maxScale={3.0}
