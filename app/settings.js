@@ -9,82 +9,68 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function Settings() {
   const theme = useTheme();
   const { t } = useTranslation();
-  
-  // Toggles State
-  const { isDarkMode, toggleTheme } = useThemeContext();
+  const { isDarkMode, toggleTheme, fontScale, setFontScale } = useThemeContext();
 
-  // TTS State
+  const [langMenuVisible, setLangMenuVisible] = useState(false);
+  const [fontMenuVisible, setFontMenuVisible] = useState(false);
   const [isTTS, setIsTTS] = useState(false);
 
-  // Language Menu State
-  const [visible, setVisible] = useState(false);
-  const initialLangLabel = i18n.language === 'en' ? 'English' :
-                         i18n.language === 'ms' ? 'Bahasa Melayu' : '中文';
-  const [language, setLanguage] = useState(initialLangLabel);
+  // Helper for Language Label
+  const getLangLabel = () => {
+    switch (i18n.language) {
+      case 'ms': return 'Bahasa Melayu';
+      case 'zh': return '中文';
+      default: return 'English';
+    }
+  };
 
-  const changeLanguage = async (lang, label) => {
-    setLanguage(label);
+  // Helper for Font Label
+  const getFontLabel = (scale) => {
+    if (scale < 1) return 'Small';
+    if (scale > 1) return 'Large';
+    return 'Standard';
+  };
+
+  const updateLanguage = async (lang) => {
     i18n.changeLanguage(lang);
     await AsyncStorage.setItem('appLanguage', lang);
+    setLangMenuVisible(false);
   };
-  
-  useEffect(() => {
-    const loadLanguage = async () => {
-      const savedLang = await AsyncStorage.getItem('appLanguage');
-      if (savedLang) {
-        i18n.changeLanguage(savedLang);
-        setLanguage(savedLang === 'en' ? 'English' : savedLang === 'ms' ? 'Bahasa Melayu' : '中文');
-      }
-    };
-    loadLanguage();
-  }, []);
+
+  const updateFontScale = async (scale) => {
+    setFontScale(scale);
+    await AsyncStorage.setItem('appFontScale', scale.toString());
+    setFontMenuVisible(false);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <List.Section>
-        <List.Subheader style={[styles.subheader, { color: theme.colors.onSurfaceVariant }]}>
-          {t("setHeader")}
-        </List.Subheader>
+       <List.Subheader style={[styles.Subheader, { color: theme.colors.onSurfaceVariant }]}>{t("setHeader")}</List.Subheader>
         
+        {/* Dark Mode Toggle */}
         <List.Item
           title={t("darkMode")}
           description={t("darkModeDesc")}
           left={props => <List.Icon {...props} icon="weather-night" />}
-          right={() => (
-            <Switch 
-              value={isDarkMode} 
-              onValueChange={toggleTheme}
-            />
-          )}
+          right={() => <Switch value={isDarkMode} onValueChange={toggleTheme} />}
         />
 
-        {/* Functional Language Selection */}
+        {/* Language Selection */}
         <Menu
-          visible={visible}
-          onDismiss={() => setVisible(false)}
-          contentStyle={{ backgroundColor: theme.colors.surface }}
+          visible={langMenuVisible}
+          onDismiss={() => setLangMenuVisible(false)}
           anchor={
             <List.Item
               title={t("langSwitch")}
-              description={language}
+              description={getLangLabel()}
               left={props => <List.Icon {...props} icon="translate" />}
-              onPress={() => setVisible(true)}
+              onPress={() => setLangMenuVisible(true)}
             />
           }>
-          <Menu.Item
-            onPress={() => changeLanguage('en', 'English')}
-            title="English"
-          />
-
-          <Menu.Item
-            onPress={() => changeLanguage('ms', 'Bahasa Melayu')}
-            title="Bahasa Melayu"
-          />
-
-          <Menu.Item
-            onPress={() => changeLanguage('zh', 'Mandarin')}
-            title="中文"
-          />
+          <Menu.Item onPress={() => updateLanguage('en')} title="English" />
+          <Menu.Item onPress={() => updateLanguage('ms')} title="Bahasa Melayu" />
+          <Menu.Item onPress={() => updateLanguage('zh')} title="中文" />
         </Menu>
       </List.Section>
 
@@ -92,17 +78,30 @@ export default function Settings() {
 
       <List.Section>
         <List.Subheader style={{ color: theme.colors.onSurfaceVariant }}>{t("accessSet")}</List.Subheader>
+        
+        {/* TTS Toggle */}
         <List.Item
           title={t("ttsSwitch")}
           description={t("ttsSwitchDesc")}
           right={() => <Switch value={isTTS} onValueChange={() => setIsTTS(!isTTS)} />}
         />
-        <List.Item
-          title={t("fontSet")}
-          description={t("fontDesc")}
-          left={props => <List.Icon {...props} icon="format-size" />}
-          onPress={() => { /* Navigate to Font settings */ }}
-        />
+
+        {/* Font Size Selection */}
+        <Menu
+          visible={fontMenuVisible}
+          onDismiss={() => setFontMenuVisible(false)}
+          anchor={
+            <List.Item
+              title={t("fontSet")}
+              description={getFontLabel(fontScale)}
+              left={props => <List.Icon {...props} icon="format-size" />}
+              onPress={() => setFontMenuVisible(true)}
+            />
+          }>
+          <Menu.Item onPress={() => updateFontScale(0.85)} title="Small" />
+          <Menu.Item onPress={() => updateFontScale(1.0)} title="Standard" />
+          <Menu.Item onPress={() => updateFontScale(1.25)} title="Large" />
+        </Menu>
       </List.Section>
 
       <Divider />
@@ -111,6 +110,7 @@ export default function Settings() {
         mode="outlined"
         textColor={theme.colors.error}
         style={[styles.logout, { borderColor: theme.colors.error }]}
+        onPress={() => { /* Handle Logout */ }}
       >
         {t("logoutButton")}
       </Button>
@@ -119,17 +119,7 @@ export default function Settings() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  },
-
-  subheader: {
-    marginTop: 20,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-
-  logout: {
-    margin: 20
-  }
+  container: { flex: 1 },
+  Subheader: { marginTop: 20},
+  logout: { margin: 20 }
 });
