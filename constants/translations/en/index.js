@@ -5,6 +5,7 @@ import notification from './notification';
 import training from './training';
 import cert from './cert';
 import settings from './settings';
+import pdfViewer from './pdfViewer';
 
 export default {
   ...home,
@@ -13,5 +14,6 @@ export default {
   ...notification,
   ...training,
   ...cert,
-  ...settings
+  ...settings,
+  ...pdfViewer
 };

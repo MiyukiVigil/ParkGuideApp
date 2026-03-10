@@ -4,7 +4,7 @@
     "slug": "park-guide-app",
     "version": "1.0.0",
     "scheme": "park-guide-app",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "Automatic",
     "splash": {

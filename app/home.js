@@ -3,6 +3,7 @@ import { ScrollView, View, StyleSheet, Platform, useWindowDimensions } from 'rea
 import { Text, ProgressBar, Avatar, Surface, TouchableRipple, useTheme, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import * as Haptics from 'expo-haptics'; // Haptic Feedback
 
 export default function Home() {
   const router = useRouter();
@@ -168,7 +169,11 @@ const OperationCard = ({ icon, label, progress, subtitle, color, isLive, onPress
     ]}
     elevation={theme.dark ? 2 : 1}
   >
-    <TouchableRipple onPress={onPress} style={styles.ripple} borderRadius={20}>
+    <TouchableRipple onPress={() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onPress();
+    }} 
+    style={styles.ripple} borderRadius={20}>
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
 
         <View style={styles.cardTop}>
