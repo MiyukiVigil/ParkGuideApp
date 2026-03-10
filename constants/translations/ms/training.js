@@ -1,5 +1,21 @@
-// Place holder as this part is basically just an example
-
 export default {
-
+    TrainingModules: "Modul Latihan",
+    TrainingModuleR: "modul baki",
+    success: "Berjaya",
+    moduleCompleted: "Modul telah selesai!",
+    moduleLocked: "Modul Dikunci",
+    completePrevModule: "Sila lengkapkan modul sebelumnya terlebih dahulu",
+    incorrect: "Salah",
+    reviewContent: "Semak kandungan dan cuba lagi.",
+    retakeAssessment: "Ulang Penilaian",
+    takeModuleQuiz: "Ambil Kuiz Modul",
+    backToCourses: "Kembali ke Kursus",
+    backToModules: "Kembali ke Modul",
+    knowledgeCheck: "Ujian Pengetahuan",
+    cancel: "Batal",
+    submitAssessment: "Hantar",
+    modulesCount: "modul",
+    completed: "Sudah Selesai",
+    available: "Tersedia",
+    locked: "Terkunci"
 }

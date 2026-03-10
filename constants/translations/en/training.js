@@ -1,5 +1,21 @@
-// Place holder as this part is basically just an example
-
 export default {
-
+    TrainingModules: "Traning Modules",
+    TrainingModuleR: "modules remaining",
+    success: "Success",
+    moduleCompleted: "Module completed!",
+    moduleLocked: "Module Locked",
+    completePrevModule: "Please complete previous module first",
+    incorrect: "Incorrect",
+    reviewContent: "Review the content and try again.",
+    retakeAssessment: "Retake Assessment",
+    takeModuleQuiz: "Take Module Quiz",
+    backToCourses: "Back to Courses",
+    backToModules: "Back to Modules",
+    knowledgeCheck: "Knowledge Check",
+    cancel: "Cancel",
+    submitAssessment: "Submit",
+    modulesCount: "modules",
+    completed: "Completed",
+    available: "Available",
+    locked: "Locked"
 }

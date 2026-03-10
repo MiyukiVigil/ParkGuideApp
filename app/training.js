@@ -1,95 +1,235 @@
-import React, { useState } from 'react';
-import { ScrollView, View, StyleSheet, Alert } from 'react-native';
-import { Text, Card, Button, RadioButton, Surface, IconButton, Portal, Modal, useTheme, ProgressBar } from 'react-native-paper';
-import { useRouter } from 'expo-router';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { ScrollView, View, StyleSheet, Alert, Animated, Dimensions } from 'react-native';
+import { 
+  Text, Surface, TouchableRipple, useTheme, IconButton, 
+  ProgressBar, Portal, Modal, Button, RadioButton 
+} from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import { TRAINING_COURSES } from '../constants/courses';
+
+const { width, height } = Dimensions.get('window');
+
+const getLocalizedText = (textObj, lang) => {
+  if (!textObj) return "";
+  if (typeof textObj === "string") return textObj;
+  return textObj[lang] || textObj.en || "";
+};
 
 export default function TrainingModule() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [checked, setChecked] = useState('');
-  const [isPassed, setIsPassed] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [selectedModule, setSelectedModule] = useState(null);
+  const [completedModules, setCompletedModules] = useState([]);
+  const insets = useSafeAreaInsets();
+  
   const theme = useTheme();
-  const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const handleQuizSubmit = () => {
-    if (checked === 'first') {
-      setIsPassed(true);
+  useFocusEffect(
+    useCallback(() => {
+      const loadProgress = async () => {
+        try {
+          const stored = await AsyncStorage.getItem("completedModules");
+          if (stored) setCompletedModules(JSON.parse(stored));
+          Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+        } catch (err) {
+          console.log("Failed to load progress", err);
+        }
+      };
+      loadProgress();
+    }, [])
+  );
+
+  const getCourseProgress = (course) => {
+    const completedCount = course.modules.filter(m => completedModules.includes(m.id)).length;
+    return completedCount / course.modules.length;
+  };
+
+  const handleQuizSubmit = async () => {
+    const correctValue = String(selectedModule.quiz.correctIndex);
+    if (checked === correctValue) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const updatedModules = Array.from(new Set([...completedModules, selectedModule.id]));
+      setCompletedModules(updatedModules);
+      await AsyncStorage.setItem("completedModules", JSON.stringify(updatedModules));
+      
       setShowQuiz(false);
-      Alert.alert("Certification Updated", "You've successfully completed this module.");
+      Alert.alert(t("success"), t("moduleCompleted"));
+      setSelectedModule(null);
     } else {
-      Alert.alert("Incorrect", "Please review the safety distance protocols again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(t("incorrect"), t("reviewContent"));
     }
+    setChecked('');
   };
 
   return (
     <View style={[styles.master, { backgroundColor: theme.colors.background }]}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* 1. Progress Header */}
-        <Surface style={[styles.header, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}>
-          <Text variant="labelLarge" style={{ color: theme.colors.primary }}>MODULE 1.2</Text>
-          <Text variant="headlineSmall" style={[styles.title, { color: theme.colors.onSurface }]}>Orangutan Safety</Text>
-        </Surface>
+      
+      {/* 1. COURSE SELECTION VIEW */}
+      {!selectedCourse && (
+        <View style={styles.flexOne}>
+          <Animated.ScrollView 
+            style={[styles.container, { opacity: fadeAnim }]} 
+            contentContainerStyle={{ 
+              paddingTop: insets.top + 20, 
+              paddingBottom: insets.bottom + 40 
+            }} 
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.headerSpacer}>
+              <Text variant="headlineMedium" style={[styles.boldText, { color: theme.colors.onBackground }]}>{t("TrainingModules")}</Text>
+            </View>
 
-        {/* 2. Multimedia Content */}
-        <Card style={[styles.videoCard, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <View style={[styles.videoPlaceholder, { backgroundColor: theme.dark ? '#1A1A1A' : theme.colors.primaryContainer }]}>
-            <IconButton icon="play-circle" size={64} iconColor={theme.colors.primary} />
-            <Text style={{ color: theme.colors.onPrimary }}>Watch Training Video</Text>
-          </View>
-        </Card>
+            {TRAINING_COURSES.map((course) => {
+              const progress = getCourseProgress(course);
+              return (
+                <Surface key={course.id} style={[styles.flatCard, { backgroundColor: theme.colors.surfaceVariant }]} elevation={0}>
+                  <TouchableRipple onPress={() => setSelectedCourse(course)} borderRadius={32}>
+                    <View style={styles.cardInternal}>
+                      <View style={styles.cardHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text variant="titleLarge" style={[styles.boldText, { color: theme.colors.onSurfaceVariant }]}>
+                            {getLocalizedText(course.title, i18n.language)}
+                          </Text>
+                          <Text variant="labelLarge" style={{ color: theme.colors.primary, marginTop: 4 }}>
+                            {course.modules.length} {t("modulesCount").toUpperCase()}
+                          </Text>
+                        </View>
+                        <IconButton icon="arrow-right-drop-circle" iconColor={theme.colors.primary} size={32} />
+                      </View>
+                      
+                      <View style={styles.progressSection}>
+                        <View style={[styles.barWrapper, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                          <ProgressBar progress={progress} color={theme.colors.primary} style={styles.mainBar} />
+                        </View>
+                        <Text variant="labelLarge" style={[styles.progressLabel, { color: theme.colors.onSurface }]}>
+                          {Math.round(progress * 100)}%
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableRipple>
+                </Surface>
+              );
+            })}
+          </Animated.ScrollView>
+        </View>
+      )}
 
-        <Card style={[styles.contentCard, { backgroundColor: theme.colors.surface }]}>
-          <Card.Content>
-            <Text variant="titleMedium" style={[styles.subHeader, { color: theme.colors.onSurface }]}>Proximity Protocols</Text>
-            <Text variant="bodyMedium" style={[styles.bodyText, { color: theme.colors.onSurfaceVariant }]}>
-              Bako National Park requires all guides to maintain a strict 10-meter perimeter. 
-              This prevents the transmission of human diseases to primates and ensures the 
-              animals do not become habituated to human presence.
+      {/* 2. MODULE LINEAGE VIEW */}
+      {selectedCourse && !selectedModule && (
+        <View style={[styles.flexOne, { paddingTop: insets.top }]}>
+          <View style={styles.navHeader}>
+            <IconButton icon="chevron-left" iconColor={theme.colors.primary} onPress={() => setSelectedCourse(null)} style={styles.backBtn} />
+            <Text variant="titleLarge" style={[styles.boldText, { color: theme.colors.onBackground }]} numberOfLines={1}>
+              {getLocalizedText(selectedCourse.title, i18n.language)}
             </Text>
-          </Card.Content>
-        </Card>
+          </View>
 
-        <Button 
-          mode="contained" 
-          icon="pencil-box-outline"
-          style={[styles.mainActionBtn, { backgroundColor: isPassed ? theme.colors.secondary : theme.colors.primary }]}
-          onPress={() => setShowQuiz(true)}
-          textColor={theme.colors.onPrimary}
-        >
-          {isPassed ? "Retake Assessment" : "Take Module Quiz"}
-        </Button>
-      </ScrollView>
+          <ScrollView 
+            style={styles.container} 
+            contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} 
+            showsVerticalScrollIndicator={false}
+          >
+            {selectedCourse.modules.map((module, index) => {
+              const isCompleted = completedModules.includes(module.id);
+              const isLocked = index !== 0 && !completedModules.includes(selectedCourse.modules[index - 1].id);
 
-      {/* 3. Quiz Modal */}
-      <Portal>
-        <Modal 
-          visible={showQuiz} 
-          onDismiss={() => setShowQuiz(false)} 
-          contentContainerStyle={[styles.modalStyle, { backgroundColor: theme.colors.surface }]}
-        >
-          <Text variant="titleLarge" style={[styles.modalTitle, { color: theme.colors.onSurface }]}>Knowledge Check</Text>
-          <ProgressBar progress={0.5} color={theme.colors.primary} style={{ marginVertical: 10 }} />
+              return (
+                <Surface key={module.id} style={[styles.moduleTile, { backgroundColor: theme.colors.surfaceVariant }, isLocked && styles.locked]} elevation={0}>
+                  <TouchableRipple disabled={isLocked} onPress={() => setSelectedModule(module)} borderRadius={24}>
+                    <View style={styles.moduleRow}>
+                      <View style={[styles.statusCircle, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }, isCompleted && { backgroundColor: theme.colors.primary }]}>
+                        {isCompleted ? (
+                          <IconButton icon="check" iconColor="white" size={18} />
+                        ) : (
+                          <Text style={[styles.numberText, { color: theme.colors.onSurface }]}>{index + 1}</Text>
+                        )}
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 16 }}>
+                        <Text variant="titleMedium" style={[styles.boldText, { color: theme.colors.onSurface }]}>{getLocalizedText(module.title, i18n.language)}</Text>
+                        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, opacity: 0.6 }}>
+                          {isCompleted ? t("completed") : isLocked ? t("locked") : t("available")}
+                        </Text>
+                      </View>
+                      {!isLocked && <IconButton icon="play-circle-outline" iconColor={theme.colors.primary} />}
+                    </View>
+                  </TouchableRipple>
+                </Surface>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* 3. CONTENT & ASSESSMENT VIEW */}
+      {selectedModule && (
+        <View style={[styles.flexOne, { paddingTop: insets.top }]}>
+          <View style={styles.headerActionRow}>
+            <IconButton icon="close-circle" iconColor={theme.colors.primary} size={32} onPress={() => setSelectedModule(null)} />
+          </View>
           
-          <Text variant="bodyLarge" style={{ marginBottom: 15, color: theme.colors.onSurfaceVariant }}>
-            What is the minimum safe distance required for a guided group?
-          </Text>
+          <ScrollView 
+            style={styles.container} 
+            contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} 
+            showsVerticalScrollIndicator={false}
+          >
+            <Text variant="labelLarge" style={{ color: theme.colors.primary, marginTop: 10 }}>
+              {t("module").toUpperCase()} {selectedModule.id}
+            </Text>
+            <Text variant="headlineSmall" style={[styles.boldText, { marginBottom: 25, color: theme.colors.onBackground }]}>
+              {getLocalizedText(selectedModule.title, i18n.language)}
+            </Text>
+            
+            <Surface style={[styles.mediaFrame, { backgroundColor: theme.colors.surfaceVariant }]} elevation={0}>
+               <IconButton icon="play-circle" size={60} iconColor={theme.colors.primary} />
+               <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                 {getLocalizedText(selectedModule.videoLabel, i18n.language)}
+               </Text>
+            </Surface>
 
+            <View style={styles.textSection}>
+              <Text variant="titleLarge" style={[styles.boldText, { color: theme.colors.onSurface }]}>{getLocalizedText(selectedModule.contentTitle, i18n.language)}</Text>
+              <Text variant="bodyLarge" style={[styles.contentText, { color: theme.colors.onSurface, opacity: 0.8 }]}>{getLocalizedText(selectedModule.content, i18n.language)}</Text>
+            </View>
+            
+            <Button mode="contained" onPress={() => setShowQuiz(true)} style={styles.actionFab} contentStyle={{ height: 60 }}>
+              {completedModules.includes(selectedModule.id) ? t("retakeAssessment") : t("takeModuleQuiz")}
+            </Button>
+          </ScrollView>
+        </View>
+      )}
+
+      <Portal>
+        <Modal visible={showQuiz} onDismiss={() => setShowQuiz(false)} contentContainerStyle={[styles.modernQuizModal, { backgroundColor: theme.colors.surface }]}>
+          <Text variant="headlineSmall" style={[styles.boldText, { color: theme.colors.onSurface }]}>{t("knowledgeCheck")}</Text>
+          <View style={[styles.modalDivider, { backgroundColor: theme.colors.outline }]} />
+          <Text variant="bodyLarge" style={[styles.questionText, { color: theme.colors.onSurface }]}>
+            {getLocalizedText(selectedModule?.quiz.question, i18n.language)}
+          </Text>
+          
           <RadioButton.Group onValueChange={val => setChecked(val)} value={checked}>
-            {['10 Meters', '2 Meters', '5 Meters'].map((label, index) => (
-              <View key={label} style={styles.radioRow}>
-                <RadioButton value={index === 0 ? 'first' : index === 1 ? 'second' : 'third'} />
-                <Text style={{ color: theme.colors.onSurface }}>{label}</Text>
-              </View>
+            {selectedModule?.quiz.options[i18n.language].map((option, index) => (
+              <Surface key={index} style={[styles.optionTile, { backgroundColor: theme.colors.surfaceVariant }, checked === String(index) && { borderColor: theme.colors.primary, borderWidth: 1.5, backgroundColor: theme.dark ? 'rgba(76, 175, 80, 0.15)' : 'rgba(46, 125, 50, 0.05)' }]} elevation={0}>
+                <TouchableRipple onPress={() => setChecked(String(index))} borderRadius={16}>
+                  <View style={styles.optionContent}>
+                    <RadioButton value={String(index)} />
+                    <Text style={[styles.optionLabel, { color: theme.colors.onSurface }]}>{option}</Text>
+                  </View>
+                </TouchableRipple>
+              </Surface>
             ))}
           </RadioButton.Group>
 
-          <View style={styles.modalActions}>
-            <Button onPress={() => setShowQuiz(false)} textColor={theme.colors.primary}>Cancel</Button>
-            <Button mode="contained" onPress={handleQuizSubmit} disabled={!checked} textColor={theme.colors.onPrimary} buttonColor={theme.colors.primary}>
-              Submit
-            </Button>
-          </View>
+          <Button mode="contained" onPress={handleQuizSubmit} disabled={!checked} style={styles.submitBtn}>
+            {t("submitAssessment")}
+          </Button>
         </Modal>
       </Portal>
     </View>
@@ -97,33 +237,35 @@ export default function TrainingModule() {
 }
 
 const styles = StyleSheet.create({
-  master: { flex: 1},
-  container: { flex: 1, padding: 20, marginTop:20},
-
-  header: { 
-    padding: 20, 
-    borderRadius: 20, 
-    marginBottom: 20,
-    elevation: 2,
-  },
-  title: { fontWeight: 'bold', marginTop: 4 },
-
-  videoCard: { borderRadius: 24, overflow: 'hidden', marginBottom: 20 },
-  videoPlaceholder: { 
-    height: 200, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    borderRadius: 24,
-  },
-
-  contentCard: { borderRadius: 20, marginBottom: 30 },
-  subHeader: { fontWeight: 'bold', marginBottom: 8 },
-  bodyText: { lineHeight: 24 },
-
-  mainActionBtn: { paddingVertical: 8, borderRadius: 15 },
-
-  modalStyle: { padding: 30, margin: 20, borderRadius: 24 },
-  modalTitle: { fontWeight: 'bold', marginBottom: 10 },
-  radioRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 5 },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 25 },
+  master: { flex: 1 },
+  flexOne: { flex: 1 },
+  container: { flex: 1, paddingHorizontal: 22 },
+  boldText: { fontWeight: '900' },
+  headerSpacer: { marginBottom: 35 },
+  headerActionRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20 },
+  flatCard: { borderRadius: 32, marginBottom: 18, overflow: 'hidden' },
+  cardInternal: { padding: 26 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  progressSection: { flexDirection: 'row', alignItems: 'center', width: '100%' },
+  barWrapper: { flex: 1, height: 12, borderRadius: 6, overflow: 'hidden' },
+  mainBar: { height: 12, borderRadius: 6 },
+  progressLabel: { marginLeft: 15, fontWeight: '900', fontSize: 16, minWidth: 45, textAlign: 'right' },
+  navHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 20 },
+  backBtn: { marginLeft: -5 },
+  moduleTile: { borderRadius: 24, marginBottom: 14, overflow: 'hidden' },
+  moduleRow: { flexDirection: 'row', alignItems: 'center', padding: 18 },
+  statusCircle: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
+  numberText: { fontWeight: '900', fontSize: 16 },
+  locked: { opacity: 0.35 },
+  mediaFrame: { height: 210, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginVertical: 20 },
+  textSection: { marginTop: 10 },
+  contentText: { lineHeight: 28, marginTop: 15 },
+  actionFab: { marginTop: 40, borderRadius: 20 },
+  modernQuizModal: { padding: 28, margin: 20, borderRadius: 38 },
+  modalDivider: { height: 4, width: 40, borderRadius: 2, marginVertical: 15 },
+  questionText: { marginBottom: 25, lineHeight: 28 },
+  optionTile: { borderRadius: 18, marginBottom: 12, overflow: 'hidden' },
+  optionContent: { flexDirection: 'row', alignItems: 'center', padding: 14 },
+  optionLabel: { flex: 1, marginLeft: 12, fontWeight: '600' },
+  submitBtn: { marginTop: 30, borderRadius: 18, height: 55, justifyContent: 'center' }
 });

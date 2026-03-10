@@ -1,5 +1,21 @@
-// Place holder as this part is basically just an example
-
 export default {
-
+    TrainingModules: "培训模块",
+    TrainingModuleR: "剩余模块",
+    moduleLocked: "模块已锁定",
+    completePrevModule: "请先完成前一个模块",
+    success: "成功",
+    moduleCompleted: "模块已完成！",
+    incorrect: "错误",
+    reviewContent: "请复习内容并重试。",
+    retakeAssessment: "重新评估",
+    takeModuleQuiz: "参加模块测验",
+    backToCourses: "返回课程",
+    backToModules: "返回模块",
+    knowledgeCheck: "知识检测",
+    cancel: "取消",
+    submitAssessment: "提交",
+    modulesCount: "模块",
+    completed: "完成",
+    available: "可完成",
+    locked: "锁定"
 }

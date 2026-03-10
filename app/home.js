@@ -1,136 +1,213 @@
-import React from 'react';
-import { ScrollView, View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
-import { Text, ProgressBar, Avatar, Surface, TouchableRipple, useTheme, IconButton } from 'react-native-paper';
-import { useRouter } from 'expo-router';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated, Easing } from 'react-native';
+import { Text, Avatar, Surface, TouchableRipple, useTheme, IconButton } from 'react-native-paper';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import * as Haptics from 'expo-haptics'; // Haptic Feedback
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TRAINING_COURSES } from '../constants/courses'; 
 
 export default function Home() {
   const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  const [trainingProgress, setTrainingProgress] = useState(0);
+  const [remainingModules, setRemainingModules] = useState(0);
+  const [completedModules, setCompletedModules] = useState([]);
+  
+  // Animation Refs
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const tiltAnim = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   const isWeb = Platform.OS === 'web';
   const contentWidth = isWeb && width > 1200 ? 800 : '100%';
 
+  // Sync data on focus to ensure progress updates immediately after training
+  useFocusEffect(
+    useCallback(() => {
+      const loadTrainingProgress = async () => {
+        try {
+          const stored = await AsyncStorage.getItem('completedModules');
+          const completed = stored ? JSON.parse(stored) : [];
+
+          const current = TRAINING_COURSES.find(course =>
+            course.modules.some(mod => !completed.includes(mod.id))
+          ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
+
+          const completedInCourse = current.modules.filter(mod =>
+            completed.includes(mod.id)
+          ).length;
+          
+          const currentCourseProgress = completedInCourse / current.modules.length;
+
+          const totalIncomplete = TRAINING_COURSES.reduce((acc, course) => {
+             return acc + course.modules.filter(m => !completed.includes(m.id)).length;
+          }, 0);
+
+          setCompletedModules(completed);
+          setTrainingProgress(currentCourseProgress);
+          setRemainingModules(totalIncomplete);
+        } catch (err) {
+          console.log('Failed to load progress', err);
+        }
+      };
+
+      loadTrainingProgress();
+    }, [])
+  );
+
+  // Background loops and entrance animations
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(tiltAnim, { toValue: 1, duration: 3000, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(tiltAnim, { toValue: 0, duration: 3000, easing: Easing.linear, useNativeDriver: true }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.timing(shimmerAnim, { toValue: 1, duration: 2200, easing: Easing.linear, useNativeDriver: false })
+    ).start();
+  }, []);
+
+  // Smooth spring for progress bar
+  useEffect(() => {
+    Animated.spring(progressAnim, {
+      toValue: trainingProgress,
+      tension: 15,
+      friction: 6,
+      useNativeDriver: false,
+    }).start();
+  }, [trainingProgress]);
+
+  // Interpolations
+  const rotateX = tiltAnim.interpolate({ inputRange: [0, 1], outputRange: ['-1.2deg', '1.2deg'] });
+  const rotateY = tiltAnim.interpolate({ inputRange: [0, 1], outputRange: ['-1.2deg', '1.2deg'] });
+  const barWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  const shimmerTranslate = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: ['-150%', '350%'] });
+
+  const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true }).start();
+  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, friction: 3, tension: 40, useNativeDriver: true }).start();
+
+  const currentCourse = TRAINING_COURSES.find(course =>
+    course.modules.some(mod => !completedModules.includes(mod.id))
+  ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
+
+  const getLocalizedTitle = (titleData) => {
+    if (typeof titleData === 'string') return titleData;
+    return titleData[i18n.language] || titleData['en'] || "Untitled Course";
+  };
+
   return (
     <View style={[styles.masterContainer, { backgroundColor: theme.colors.background }]}>
-      <ScrollView
-        style={[styles.container, { alignSelf: 'center', width: contentWidth }]}
-        showsVerticalScrollIndicator={false}
-      >
-
-        {/* Top Bar */}
-        <View style={styles.topBar}>
-           <View style={styles.topIcons}>
-            <Avatar.Image
-              size={48}
-              source={{ uri: 'https://api.dicebear.com/7.x/avataaars/png?seed=Miyuki' }}
-            />
-          </View>
-          <View>
-            <Text
-              variant="labelLarge"
-              style={{ color: theme.colors.primary, fontWeight: '900', letterSpacing: 1 }}
-            >
-              SARAWAK FORESTRY
-            </Text>
-
-            <Text
-              variant="headlineMedium"
-              style={[styles.nameText, { color: theme.colors.onBackground }]}
-            >
-              Miyuki Vigil
-            </Text>
-          </View>
-          <View>
-            <IconButton icon="bell-badge-outline" iconColor={theme.colors.primary} size={28} onPress={() => router.push('/notification')}/>
-          </View>
+      
+      {/* STICKY HEADER: Placed outside ScrollView to stay on top */}
+      <Animated.View style={[styles.topBar, { opacity: fadeAnim, alignSelf: 'center', width: contentWidth }]}>
+        <View style={styles.topIcons}>
+          <Avatar.Image 
+            size={54} 
+            source={{ uri: 'https://api.dicebear.com/7.x/avataaars/png?seed=Miyuki' }} 
+          />
         </View>
-
-        {/* Main Feature Card */}
-        <Surface
-          style={[styles.mainFeature, { backgroundColor: theme.colors.primary }]}
-          elevation={5}
-        >
-          <View style={styles.featureBadge}>
-            <Text style={[styles.badgeText, { color: theme.colors.onPrimary }]}>
-              {t('inProgress')}
-            </Text>
-          </View>
-
-          <Text
-            variant="headlineSmall"
-            style={[styles.featureTitle, { color: theme.colors.onPrimary }]}
-          >
-            Advanced Biodiversity
+        <View style={{ flex: 1, marginLeft: 15 }}>
+          <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: '900', letterSpacing: 2 }}>
+            SARAWAK FORESTRY
           </Text>
+          <Text variant="headlineMedium" style={[styles.nameText, { color: theme.colors.onBackground }]}>
+            Miyuki Vigil
+          </Text>
+        </View>
+        <IconButton 
+          icon="bell-badge-outline" 
+          iconColor={theme.colors.primary} 
+          size={28} 
+          onPress={() => router.push('/notification')}
+        />
+      </Animated.View>
 
-          <View style={styles.progressInfo}>
-            <Text style={[styles.featureSub, { color: theme.colors.onPrimary }]}>
-              {t('courseCompletion')}
-            </Text>
-
-            <Text
-              style={[styles.percentText, { color: theme.colors.percentageText }]}
+      <ScrollView 
+        style={[styles.container, { alignSelf: 'center', width: contentWidth }]} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: 10 }}
+      >
+        
+        {/* Hero Card */}
+        <Animated.View style={{ transform: [{ scale: scaleAnim }, { rotateX }, { rotateY }], opacity: fadeAnim }}>
+          <Surface style={[styles.mainFeature, { backgroundColor: theme.colors.primary }]} elevation={8}>
+            <TouchableRipple 
+              onPressIn={handlePressIn} 
+              onPressOut={handlePressOut} 
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                router.push('/training');
+              }}
+              style={styles.cardRipple}
             >
-              75%
-            </Text>
-          </View>
+              <View>
+                <View style={styles.featureBadge}>
+                  <Text style={styles.badgeText}>{t('inProgress').toUpperCase()}</Text>
+                </View>
 
-          <ProgressBar
-            progress={0.75}
-            color={theme.colors.progressBar}
-            style={styles.mainBar}
+                <Text variant="headlineSmall" style={styles.featureTitle}>
+                  {getLocalizedTitle(currentCourse.title)}
+                </Text>
+
+                <View style={styles.progressInfo}>
+                  <Text style={styles.featureSub}>{t('courseCompletion')}</Text>
+                  <Text style={styles.percentText}>{Math.round(trainingProgress * 100)}%</Text>
+                </View>
+
+                <View style={styles.customBarContainer}>
+                  <Animated.View style={[styles.customBarFill, { width: barWidth }]}>
+                    <Animated.View style={[styles.shimmerOverlay, { left: shimmerTranslate }]} />
+                  </Animated.View>
+                </View>
+              </View>
+            </TouchableRipple>
+          </Surface>
+        </Animated.View>
+
+        <Text variant="titleMedium" style={styles.sectionHeader}>{t('guideOperations').toUpperCase()}</Text>
+
+        <Animated.View style={[styles.grid, { opacity: fadeAnim }]}>
+          <OperationCard 
+            theme={theme} 
+            icon="book-open-variant" 
+            label={t('materials')} 
+            progress={0.6} 
+            subtitle={`6 ${t('remainingDesc')}`} 
+            onPress={() => router.push('/materials')} 
           />
-        </Surface>
-
-        {/* Section Header */}
-        <Text
-          variant="titleMedium"
-          style={[styles.sectionHeader, { color: theme.colors.onSurfaceVariant }]}
-        >
-          {t('guideOperations')}
-        </Text>
-
-        {/* Grid */}
-        <View style={styles.grid}>
-          <OperationCard
-            theme={theme}
-            icon="book-open-variant"
-            label={t('materials')}
-            progress={0.6}
-            subtitle={`6 ${t('remainingDesc')}`}
-            onPress={() => router.push('/materials')}
+          <OperationCard 
+            theme={theme} 
+            icon="school" 
+            label={t('training')} 
+            progress={trainingProgress} 
+            subtitle={`${remainingModules} ${t('remainingDesc')}`} 
+            onPress={() => router.push('/training')} 
           />
-
-          <OperationCard
-            theme={theme}
-            icon="school"
-            label={t('training')}
-            progress={0.4}
-            subtitle={`4 ${t('remainingDesc')}`}
-            onPress={() => router.push('/training')}
+          <OperationCard 
+            theme={theme} 
+            icon="map-marker-path" 
+            label={t('map')} 
+            subtitle={t('mapDesc')} 
+            onPress={() => router.push('/map')} 
           />
-
-          <OperationCard
-            theme={theme}
-            icon="map-marker-path"
-            label={t('map')}
-            subtitle={t('mapDesc')}
-            onPress={() => router.push('/map')}
+          <OperationCard 
+            theme={theme} 
+            icon="certificate" 
+            label={t('certs')} 
+            progress={1.0} 
+            subtitle={t('certsDesc')} 
+            onPress={() => router.push('/cert')} 
           />
-
-          <OperationCard
-            theme={theme}
-            icon="certificate"
-            label={t('certs')}
-            progress={1.0}
-            subtitle={t('certsDesc')}
-            onPress={() => router.push('/cert')}
-          />
-
           <OperationCard
             theme={theme}
             icon="video-check"
@@ -140,7 +217,6 @@ export default function Home() {
             color={theme.colors.primaryContainer}
             onPress={() => router.push('/monitor')}
           />
-
           <OperationCard
             theme={theme}
             icon="cog"
@@ -148,73 +224,44 @@ export default function Home() {
             subtitle={t('settingsDesc')}
             onPress={() => router.push('/settings')}
           />
-        </View>
-
+        </Animated.View>
+        
         <View style={{ height: 40 }} />
-
       </ScrollView>
     </View>
   );
 }
 
-const OperationCard = ({ icon, label, progress, subtitle, color, isLive, onPress, theme }) => (
-  <Surface
-    style={[
-      styles.opCard,
-      {
-        backgroundColor: color || theme.colors.surfaceVariant,
-        borderWidth: theme.dark ? 1 : 0,
-        borderColor: theme.colors.outline
-      }
-    ]}
-    elevation={theme.dark ? 2 : 1}
-  >
-    <TouchableRipple onPress={() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onPress();
-    }} 
-    style={styles.ripple} borderRadius={20}>
+// Internal Component for Grid Cards
+const OperationCard = ({ icon, label, progress, subtitle, color, isLive, theme, onPress }) => (
+  <Surface style={[styles.opCard, { backgroundColor: color || theme.colors.surfaceVariant }]} elevation={2}>
+    <TouchableRipple 
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }} 
+      style={styles.ripple} 
+      borderRadius={32}
+    >
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
-
         <View style={styles.cardTop}>
-          <Avatar.Icon
-            size={36}
-            icon={icon}
-            style={{ backgroundColor: theme.colors.secondaryContainer }}
-            color={theme.colors.primaryIcon}
+          <Avatar.Icon 
+            size={44} 
+            icon={icon} 
+            color="#FFFFFF" 
+            style={{ backgroundColor: theme.colors.primary }} 
           />
-
-          {isLive && (
-            <View
-              style={[styles.liveDot, { backgroundColor: theme.colors.error }]}
-            />
-          )}
+          {isLive && <View style={[styles.liveDot, { backgroundColor: theme.colors.error }]} />}
         </View>
-
         <View>
-          <Text
-            variant="titleMedium"
-            style={{ color: theme.colors.onSurface, fontWeight: 'bold' }}
-          >
-            {label}
-          </Text>
-
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSurfaceVariant }}
-          >
-            {subtitle}
-          </Text>
-
+          <Text variant="titleMedium" style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{label}</Text>
+          <Text variant="bodySmall" style={{ opacity: 0.7, color: theme.colors.onSurfaceVariant }}>{subtitle}</Text>
           {progress !== undefined && (
-            <ProgressBar
-              progress={progress}
-              color={theme.colors.primary}
-              style={styles.miniBar}
-            />
+            <View style={styles.miniBarContainer}>
+              <View style={[styles.miniBarFill, { width: `${progress * 100}%`, backgroundColor: theme.colors.primary }]} />
+            </View>
           )}
         </View>
-
       </View>
     </TouchableRipple>
   </Surface>
@@ -222,117 +269,40 @@ const OperationCard = ({ icon, label, progress, subtitle, color, isLive, onPress
 
 const styles = StyleSheet.create({
   masterContainer: { flex: 1 },
-
-  container: {
-    flex: 1,
-    paddingHorizontal: 20
+  container: { flex: 1, paddingHorizontal: 22 },
+  topBar: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingTop: 60, 
+    paddingBottom: 20, 
+    paddingHorizontal: 22 
   },
-
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 25
+  topIcons: { flexDirection: 'row', alignItems: 'center' },
+  nameText: { fontWeight: '900', marginTop: -5 },
+  mainFeature: { borderRadius: 35, marginBottom: 35, overflow: 'hidden' },
+  cardRipple: { padding: 28 },
+  featureBadge: { backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, marginBottom: 18 },
+  badgeText: { fontSize: 11, fontWeight: '900', color: '#FFF', letterSpacing: 1.5 },
+  featureTitle: { fontWeight: 'bold', color: '#FFF', fontSize: 28, lineHeight: 34 },
+  progressInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 25, marginBottom: 12 },
+  featureSub: { fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+  percentText: { fontWeight: '900', fontSize: 26, color: '#FFF' },
+  customBarContainer: { height: 14, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 7, overflow: 'hidden' },
+  customBarFill: { height: '100%', backgroundColor: '#FFFFFF', borderRadius: 7, overflow: 'hidden' },
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    width: '80%',
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    transform: [{ skewX: '-25deg' }],
   },
-
-  topIcons: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-
-  nameText: {
-    fontWeight: '900',
-    marginTop: -4
-  },
-
-  mainFeature: {
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 30
-  },
-
-  featureBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 12
-  },
-
-  badgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    letterSpacing: 1
-  },
-
-  featureTitle: {
-    fontWeight: 'bold'
-  },
-
-  progressInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: 20,
-    marginBottom: 8
-  },
-
-  featureSub: {
-    fontSize: 12
-  },
-
-  percentText: {
-    fontWeight: 'bold',
-    fontSize: 18
-  },
-
-  mainBar: {
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.2)'
-  },
-
-  sectionHeader: {
-    marginBottom: 15,
-    fontWeight: '800',
-    letterSpacing: 0.5
-  },
-
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between'
-  },
-
-  opCard: {
-    width: '48%',
-    height: 160,
-    borderRadius: 24,
-    marginBottom: 16,
-    overflow: 'hidden'
-  },
-
-  ripple: {
-    flex: 1,
-    padding: 16
-  },
-
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start'
-  },
-
-  liveDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5
-  },
-
-  miniBar: {
-    height: 4,
-    borderRadius: 2
-  }
+  sectionHeader: { marginBottom: 20, fontWeight: '900', letterSpacing: 1.5, fontSize: 12, color: 'gray' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  opCard: { width: '48%', height: 180, borderRadius: 32, marginBottom: 18, overflow: 'hidden' },
+  ripple: { flex: 1, padding: 18 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  liveDot: { width: 12, height: 12, borderRadius: 6 },
+  miniBarContainer: { height: 7, backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 4, marginTop: 10, overflow: 'hidden' },
+  miniBarFill: { height: '100%', borderRadius: 4 }
 });
