@@ -18,8 +18,7 @@ npm start
 ```
 
 ### Note
-Currently on this branch, this build requires development build of the app for it to work
-```bash
+Currently on this branch, this build requires development build of the app for it to work if you want pdfViewer.js to work
 npx expo prebuild
 ```
 
