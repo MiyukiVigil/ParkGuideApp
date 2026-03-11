@@ -1,9 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import { Text, Surface, TouchableRipple, Avatar, useTheme } from 'react-native-paper';
-import * as WebBrowser from 'expo-web-browser';
 import { useTranslation } from 'react-i18next';
-import { useNavigation } from "@react-navigation/native";
 import { useRouter } from 'expo-router';
  
 const STUDY_MATERIALS = [
@@ -16,13 +14,11 @@ export default function Materials() {
   const theme = useTheme();
   const { t } = useTranslation();
 
-  const navigation = useNavigation();
-
   const openPDF = (url) => {
     router.push({
       pathname: "/pdfViewer",
-      params: {url: url}
-    })
+      params: { url: encodeURIComponent(url) }
+    });
   };
 
   const renderItem = ({ item }) => (
