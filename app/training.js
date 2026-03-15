@@ -1,18 +1,20 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { ScrollView, View, StyleSheet, Alert, Animated, Dimensions } from 'react-native';
 import { 
   Text, Surface, TouchableRipple, useTheme, IconButton, 
   ProgressBar, Portal, Modal, Button, RadioButton 
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { TRAINING_COURSES } from '../constants/courses';
+
+import api from '../utils/api'; // <- Shared Axios instance
 
 const { width, height } = Dimensions.get('window');
 
+// Helper to get localized text from object
 const getLocalizedText = (textObj, lang) => {
   if (!textObj) return "";
   if (typeof textObj === "string") return textObj;
@@ -25,32 +27,63 @@ export default function TrainingModule() {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedModule, setSelectedModule] = useState(null);
   const [completedModules, setCompletedModules] = useState([]);
+
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const insets = useSafeAreaInsets();
-  
   const theme = useTheme();
   const { t, i18n } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Load progress & courses on focus
   useFocusEffect(
     useCallback(() => {
       const loadProgress = async () => {
         try {
           const stored = await AsyncStorage.getItem("completedModules");
           if (stored) setCompletedModules(JSON.parse(stored));
-          Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+
+          await fetchCourses();
+
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }).start();
         } catch (err) {
-          console.log("Failed to load progress", err);
+          console.log("Error loading progress", err);
         }
       };
       loadProgress();
     }, [])
   );
 
-  const getCourseProgress = (course) => {
-    const completedCount = course.modules.filter(m => completedModules.includes(m.id)).length;
-    return completedCount / course.modules.length;
+  // Fetch courses from backend
+  const fetchCourses = async () => {
+    try {
+      const response = await api.get("/courses/"); // token attached automatically
+      setCourses(Array.isArray(response.data) ? response.data : []);
+      console.log("COURSES FROM DJANGO:", response.data);
+    } catch (err) {
+      console.log("Failed to fetch courses", err.response?.data || err.message);
+      setCourses([]); // fallback
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Calculate progress for each course
+  const getCourseProgress = (course) => {
+    const modules = course.modules || [];
+    if (modules.length === 0) return 0;
+    const completedCount = modules.filter(module =>
+      completedModules.includes(module.id)
+    ).length;
+    return completedCount / modules.length;
+  };
+
+  // Quiz submission
   const handleQuizSubmit = async () => {
     const correctValue = String(selectedModule.quiz.correctIndex);
     if (checked === correctValue) {
@@ -58,7 +91,6 @@ export default function TrainingModule() {
       const updatedModules = Array.from(new Set([...completedModules, selectedModule.id]));
       setCompletedModules(updatedModules);
       await AsyncStorage.setItem("completedModules", JSON.stringify(updatedModules));
-      
       setShowQuiz(false);
       Alert.alert(t("success"), t("moduleCompleted"));
       setSelectedModule(null);
@@ -71,23 +103,19 @@ export default function TrainingModule() {
 
   return (
     <View style={[styles.master, { backgroundColor: theme.colors.background }]}>
-      
-      {/* 1. COURSE SELECTION VIEW */}
+      {/* COURSE LIST */}
       {!selectedCourse && (
         <View style={styles.flexOne}>
           <Animated.ScrollView 
-            style={[styles.container, { opacity: fadeAnim }]} 
-            contentContainerStyle={{ 
-              paddingTop: insets.top + 20, 
-              paddingBottom: insets.bottom + 40 
-            }} 
+            style={[styles.container, { opacity: fadeAnim }]}
+            contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.headerSpacer}>
-              <Text variant="headlineMedium" style={[styles.boldText, { color: theme.colors.onBackground }]}>{t("TrainingModules")}</Text>
-            </View>
+            <Text variant="headlineMedium" style={[styles.boldText, { color: theme.colors.onBackground, marginBottom: 25 }]}>
+              {t("TrainingModules")}
+            </Text>
 
-            {TRAINING_COURSES.map((course) => {
+            {courses.map((course) => {
               const progress = getCourseProgress(course);
               return (
                 <Surface key={course.id} style={[styles.flatCard, { backgroundColor: theme.colors.surfaceVariant }]} elevation={0}>
@@ -104,7 +132,7 @@ export default function TrainingModule() {
                         </View>
                         <IconButton icon="arrow-right-drop-circle" iconColor={theme.colors.primary} size={32} />
                       </View>
-                      
+
                       <View style={styles.progressSection}>
                         <View style={[styles.barWrapper, { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
                           <ProgressBar progress={progress} color={theme.colors.primary} style={styles.mainBar} />
@@ -122,7 +150,7 @@ export default function TrainingModule() {
         </View>
       )}
 
-      {/* 2. MODULE LINEAGE VIEW */}
+      {/* MODULE LIST */}
       {selectedCourse && !selectedModule && (
         <View style={[styles.flexOne, { paddingTop: insets.top }]}>
           <View style={styles.navHeader}>
@@ -168,37 +196,33 @@ export default function TrainingModule() {
         </View>
       )}
 
-      {/* 3. CONTENT & ASSESSMENT VIEW */}
+      {/* MODULE CONTENT */}
       {selectedModule && (
         <View style={[styles.flexOne, { paddingTop: insets.top }]}>
           <View style={styles.headerActionRow}>
             <IconButton icon="close-circle" iconColor={theme.colors.primary} size={32} onPress={() => setSelectedModule(null)} />
           </View>
-          
-          <ScrollView 
-            style={styles.container} 
-            contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} 
-            showsVerticalScrollIndicator={false}
-          >
+
+          <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
             <Text variant="labelLarge" style={{ color: theme.colors.primary, marginTop: 10 }}>
               {t("module").toUpperCase()} {selectedModule.id}
             </Text>
             <Text variant="headlineSmall" style={[styles.boldText, { marginBottom: 25, color: theme.colors.onBackground }]}>
               {getLocalizedText(selectedModule.title, i18n.language)}
             </Text>
-            
+
             <Surface style={[styles.mediaFrame, { backgroundColor: theme.colors.surfaceVariant }]} elevation={0}>
-               <IconButton icon="play-circle" size={60} iconColor={theme.colors.primary} />
-               <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                 {getLocalizedText(selectedModule.videoLabel, i18n.language)}
-               </Text>
+              <IconButton icon="play-circle" size={60} iconColor={theme.colors.primary} />
+              <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                {getLocalizedText(selectedModule.videoLabel, i18n.language)}
+              </Text>
             </Surface>
 
             <View style={styles.textSection}>
               <Text variant="titleLarge" style={[styles.boldText, { color: theme.colors.onSurface }]}>{getLocalizedText(selectedModule.contentTitle, i18n.language)}</Text>
               <Text variant="bodyLarge" style={[styles.contentText, { color: theme.colors.onSurface, opacity: 0.8 }]}>{getLocalizedText(selectedModule.content, i18n.language)}</Text>
             </View>
-            
+
             <Button mode="contained" onPress={() => setShowQuiz(true)} style={styles.actionFab} contentStyle={{ height: 60 }}>
               {completedModules.includes(selectedModule.id) ? t("retakeAssessment") : t("takeModuleQuiz")}
             </Button>
@@ -206,6 +230,7 @@ export default function TrainingModule() {
         </View>
       )}
 
+      {/* QUIZ MODAL */}
       <Portal>
         <Modal visible={showQuiz} onDismiss={() => setShowQuiz(false)} contentContainerStyle={[styles.modernQuizModal, { backgroundColor: theme.colors.surface }]}>
           <Text variant="headlineSmall" style={[styles.boldText, { color: theme.colors.onSurface }]}>{t("knowledgeCheck")}</Text>
