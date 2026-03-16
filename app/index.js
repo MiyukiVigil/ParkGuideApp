@@ -1,35 +1,44 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, KeyboardAvoidingView, Platform, Image } from "react-native";
 import { TextInput, Button, Text, Avatar, Surface, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// Create an Axios instance for your API
-const api = axios.create({
-  baseURL: "http://localhost:8000/api", // replace with your backend base URL or IP
-  headers: { "Content-Type": "application/json" },
-});
-
-// Attach JWT token automatically before each request
-api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem("accessToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+import api from "../utils/api";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [error, setError] = useState("");
 
   const router = useRouter();
   const theme = useTheme();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const bootstrapAuth = async () => {
+      try {
+        const access = await AsyncStorage.getItem("accessToken");
+        const refresh = await AsyncStorage.getItem("refreshToken");
+
+        if (!access && !refresh) {
+          setCheckingAuth(false);
+          return;
+        }
+
+        await api.get("/courses/");
+        router.replace("/home");
+      } catch (err) {
+        await AsyncStorage.removeItem("accessToken");
+        await AsyncStorage.removeItem("refreshToken");
+        setCheckingAuth(false);
+      }
+    };
+
+    bootstrapAuth();
+  }, [router]);
 
   // Login handler
   const handleLogin = async () => {
@@ -114,9 +123,10 @@ export default function Login() {
             contentStyle={styles.buttonContent}
             buttonColor={theme.colors.primary}
             textColor={theme.colors.onPrimary}
-            loading={loading}
+            loading={loading || checkingAuth}
+            disabled={checkingAuth}
           >
-            {t("loginButton")}
+            {checkingAuth ? "Checking session..." : t("loginButton")}
           </Button>
 
           {error ? <Text style={{ color: "red", marginTop: 10 }}>{error}</Text> : null}
