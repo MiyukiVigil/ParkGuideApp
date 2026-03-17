@@ -1,44 +1,42 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, KeyboardAvoidingView, Platform, Image } from "react-native";
+import { View, StyleSheet, KeyboardAvoidingView, Platform, Image, Alert } from "react-native";
 import { TextInput, Button, Text, Avatar, Surface, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "../utils/api";
+import * as LocalAuthentication from 'expo-local-authentication';
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [error, setError] = useState("");
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   const router = useRouter();
   const theme = useTheme();
   const { t } = useTranslation();
 
+  // Check if biometric login is available and user opted in
   useEffect(() => {
-    const bootstrapAuth = async () => {
+    const checkBiometricAvailability = async () => {
       try {
         const access = await AsyncStorage.getItem("accessToken");
-        const refresh = await AsyncStorage.getItem("refreshToken");
-
-        if (!access && !refresh) {
-          setCheckingAuth(false);
-          return;
-        }
-
-        await api.get("/courses/");
-        router.replace("/home");
-      } catch (err) {
-        await AsyncStorage.removeItem("accessToken");
-        await AsyncStorage.removeItem("refreshToken");
-        setCheckingAuth(false);
+        const optIn = await AsyncStorage.getItem("biometricOptIn");
+        const compatible = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        setBiometricAvailable(compatible && enrolled && access && optIn === "true");
+      } catch {
+        setBiometricAvailable(false);
       }
     };
 
-    bootstrapAuth();
-  }, [router]);
+    // We do NOT auto-login here; just check biometric availability
+    checkBiometricAvailability();
+    setCheckingAuth(false);
+  }, []);
 
   // Login handler
   const handleLogin = async () => {
@@ -47,7 +45,7 @@ export default function Login() {
 
     try {
       const response = await api.post("/accounts/login/", {
-        email: email.trim(), // must match your Django JWT username_field
+        email: email.trim(),
         password: password,
       });
 
@@ -57,8 +55,41 @@ export default function Login() {
       await AsyncStorage.setItem("accessToken", access);
       await AsyncStorage.setItem("refreshToken", refresh);
 
-      // Navigate to Home screen
-      router.replace("/home");
+      // Prompt user for biometric opt-in if device supports it
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (compatible && enrolled) {
+        Alert.alert(
+          t("enableBiometricsTitle") || "Enable Biometrics?",
+          t("enableBiometricsMessage") || "Do you want to use Touch ID / Face ID for future logins?",
+          [
+            {
+              text: t("no") || "No",
+              onPress: async () => {
+                await AsyncStorage.setItem("biometricOptIn", "false");
+                setBiometricAvailable(false);
+                router.replace("/home");
+              },
+              style: "cancel",
+            },
+            {
+              text: t("yes") || "Yes",
+              onPress: async () => {
+                await AsyncStorage.setItem("biometricOptIn", "true");
+                setBiometricAvailable(true);
+                router.replace("/home");
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      } else {
+        // If biometrics not supported, just proceed
+        await AsyncStorage.setItem("biometricOptIn", "false");
+        setBiometricAvailable(false);
+        router.replace("/home");
+      }
     } catch (err) {
       console.log("Login error:", err.response?.data || err.message);
 
@@ -69,6 +100,41 @@ export default function Login() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Biometric login handler
+  const handleBiometricLogin = async () => {
+    setError("");
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!compatible || !enrolled) {
+        setError("Biometric authentication is not available on this device.");
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: t("biometricPrompt") || "Login with Biometrics",
+        fallbackLabel: t("enterPassword") || "Enter Password",
+      });
+
+      if (result.success) {
+        const access = await AsyncStorage.getItem("accessToken");
+        const refresh = await AsyncStorage.getItem("refreshToken");
+
+        if (access && refresh) {
+          router.replace("/home");
+        } else {
+          setError("No saved session. Please login manually first.");
+        }
+      } else {
+        setError("Biometric authentication failed.");
+      }
+    } catch (err) {
+      console.log("Biometric error:", err);
+      setError("Biometric login error. Try again.");
     }
   };
 
@@ -124,10 +190,22 @@ export default function Login() {
             buttonColor={theme.colors.primary}
             textColor={theme.colors.onPrimary}
             loading={loading || checkingAuth}
-            disabled={checkingAuth}
+            disabled={loading || checkingAuth}
           >
-            {checkingAuth ? "Checking session..." : t("loginButton")}
+            {checkingAuth ? t("checkingSession") || "Checking session..." : t("loginButton")}
           </Button>
+
+          {biometricAvailable && !loading && !checkingAuth && (
+            <Button
+              mode="outlined"
+              onPress={handleBiometricLogin}
+              style={[styles.button, { marginTop: 10 }]}
+              contentStyle={styles.buttonContent}
+              icon="fingerprint"
+            >
+              {t("loginWithBiometrics") || "Login with Biometrics"}
+            </Button>
+          )}
 
           {error ? <Text style={{ color: "red", marginTop: 10 }}>{error}</Text> : null}
         </Surface>
