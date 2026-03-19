@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated, Easing } from 'react-native';
+import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated, Easing, Alert } from 'react-native';
 import { Text, Avatar, Surface, TouchableRipple, useTheme, IconButton } from 'react-native-paper';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ export default function Home() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const tiltAnim = useRef(new Animated.Value(0)).current;
   const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const authAlertShown = useRef(false);
 
   const isWeb = Platform.OS === 'web';
   const contentWidth = isWeb && width > 1200 ? 800 : '100%';
@@ -90,6 +91,25 @@ export default function Home() {
 
           await AsyncStorage.setItem('completedModules', JSON.stringify(completed));
         } catch (err) {
+          if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
+            if (!authAlertShown.current) {
+              authAlertShown.current = true;
+              Alert.alert(
+                'Session expired',
+                'Your session has expired. Please log in again.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      authAlertShown.current = false;
+                      router.replace('/');
+                    },
+                  },
+                ]
+              );
+            }
+            return;
+          }
           console.log('Failed to load progress', err);
         }
       };

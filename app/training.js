@@ -5,7 +5,7 @@ import {
   ProgressBar, Portal, Modal, Button, RadioButton 
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
@@ -26,6 +26,8 @@ export default function TrainingModule() {
   const [checked, setChecked] = useState('');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedModule, setSelectedModule] = useState(null);
+  const [currentQuiestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState({});
 
   const [completedModules, setCompletedModules] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -34,8 +36,29 @@ export default function TrainingModule() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { t, i18n } = useTranslation();
+  const router = useRouter();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const authAlertShown = useRef(false);
+
+  const showSessionExpiredAlert = () => {
+    if (authAlertShown.current) return;
+    authAlertShown.current = true;
+
+    Alert.alert(
+      'Session expired',
+      'Your session has expired. Please log in again.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            authAlertShown.current = false;
+            router.replace('/');
+          },
+        },
+      ]
+    );
+  };
 
   const getQuizOptions = (quiz) => {
     if (!quiz?.options) return [];
@@ -84,6 +107,10 @@ export default function TrainingModule() {
           }).start();
 
         } catch (err) {
+          if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
+            showSessionExpiredAlert();
+            return;
+          }
           console.log("Error loading progress", err.response?.data || err.message);
         }
       };
@@ -110,6 +137,10 @@ export default function TrainingModule() {
       console.log("COURSES FROM DJANGO:", data);
 
     } catch (err) {
+      if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
+        showSessionExpiredAlert();
+        return;
+      }
 
       console.log("Failed to fetch courses", err.response?.data || err.message);
       setCourses([]);
@@ -181,6 +212,10 @@ export default function TrainingModule() {
         setSelectedModule(null);
 
       } catch (err) {
+        if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
+          showSessionExpiredAlert();
+          return;
+        }
 
         console.log("Failed syncing progress", err.response?.data || err.message);
 

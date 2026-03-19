@@ -31,8 +31,16 @@ export default function Login() {
         await api.get("/courses/");
         router.replace("/home");
       } catch (err) {
-        await AsyncStorage.removeItem("accessToken");
-        await AsyncStorage.removeItem("refreshToken");
+        const isAuthFailure =
+          err?.isSessionExpired ||
+          err?.response?.status === 401 ||
+          err?.response?.status === 403;
+
+        if (isAuthFailure) {
+          await AsyncStorage.removeItem("accessToken");
+          await AsyncStorage.removeItem("refreshToken");
+        }
+
         setCheckingAuth(false);
       }
     };

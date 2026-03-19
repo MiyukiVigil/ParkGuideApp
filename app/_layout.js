@@ -1,13 +1,15 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
 import { darkTheme, lightTheme } from "../theme/theme";
-import { Appearance, useColorScheme } from "react-native";
+import { Appearance, useColorScheme, AppState, Alert } from "react-native";
 import * as Localization from 'expo-localization';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { en, ms, zh } from '../constants/translations';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from "expo-router";
+import { ensureFreshSession } from "../utils/api";
 
 const ThemeContext = createContext();
 export const useThemeContext = () => useContext(ThemeContext);
@@ -29,9 +31,11 @@ i18n.use(initReactI18next).init({
 });
 
 export default function RootLayout() {
+  const router = useRouter();
   const systemScheme = useColorScheme();
   const [isDarkMode, setIsDarkMode] = useState(systemScheme === "dark");
   const [fontScale, setFontScale] = useState(1.0); // Font scale state
+  const sessionAlertShown = useRef(false);
 
   const toggleTheme = () => setIsDarkMode(prev => !prev);
 
@@ -53,6 +57,37 @@ export default function RootLayout() {
     };
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    const handleActiveState = async (nextState) => {
+      if (nextState !== "active") return;
+
+      const refresh = await AsyncStorage.getItem("refreshToken");
+      if (!refresh) return;
+
+      const ok = await ensureFreshSession();
+      if (ok || sessionAlertShown.current) return;
+
+      sessionAlertShown.current = true;
+      Alert.alert(
+        "Session expired",
+        "Your session has expired. Please log in again.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              sessionAlertShown.current = false;
+              router.replace("/");
+            },
+          },
+        ]
+      );
+    };
+
+    const subscription = AppState.addEventListener("change", handleActiveState);
+
+    return () => subscription.remove();
+  }, [router]);
 
   // Apply font scaling across all React Native Paper typography variants.
   const baseTheme = isDarkMode ? darkTheme : lightTheme;
