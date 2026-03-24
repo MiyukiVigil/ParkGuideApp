@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import { ScrollView, View, StyleSheet, Alert, Animated, Dimensions } from 'react-native';
 import { 
   Text, Surface, TouchableRipple, useTheme, IconButton, 
-  ProgressBar, Portal, Modal, Button, RadioButton 
+  ProgressBar, Portal, Modal, Button, RadioButton, Checkbox 
 } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -23,7 +23,7 @@ const getLocalizedText = (textObj, lang) => {
 export default function TrainingModule() {
 
   const [showQuiz, setShowQuiz] = useState(false);
-  const [checked, setChecked] = useState('');
+  const [selectedOptions, setSelectedOptions] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedModule, setSelectedModule] = useState(null);
   const [currentQuiestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -64,6 +64,24 @@ export default function TrainingModule() {
     if (!quiz?.options) return [];
     if (Array.isArray(quiz.options)) return quiz.options;
     return quiz.options[i18n.language] || quiz.options.en || Object.values(quiz.options)[0] || [];
+  };
+
+  const getModuleQuizzes = (module) => {
+    if (!module) return [];
+    if (Array.isArray(module.quizzes)) return module.quizzes;
+    if (module.quiz) return [module.quiz];
+    return [];
+  };
+
+  const getCorrectIndexes = (quiz) => {
+    if (!quiz) return [];
+    if (Array.isArray(quiz.correctIndexes) && quiz.correctIndexes.length > 0) {
+      return quiz.correctIndexes.map((index) => String(index));
+    }
+    if (quiz.correctIndex !== undefined && quiz.correctIndex !== null) {
+      return [String(quiz.correctIndex)];
+    }
+    return [];
   };
 
   /*
@@ -177,53 +195,77 @@ export default function TrainingModule() {
   ------------------------------
   */
 
-  const handleQuizSubmit = async () => {
+  const handleModuleCompletion = async () => {
+    try {
 
-    const correctValue = String(selectedModule.quiz.correctIndex);
-    const isCorrect = checked === correctValue;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      await api.post("/complete-module/", {
+        module_id: selectedModule.id
+      });
+
+      const updatedModules = Array.from(
+        new Set([...completedModules, selectedModule.id])
+      );
+
+      setCompletedModules(updatedModules);
+
+      await AsyncStorage.setItem(
+        "completedModules",
+        JSON.stringify(updatedModules)
+      );
+
+      setShowQuiz(false);
+      setCurrentQuestionIndex(0);
+      setSelectedOptions([]);
+      setAnswers({});
+      Alert.alert(t("success"), t("moduleCompleted"));
+      setSelectedModule(null);
+
+    } catch (err) {
+      if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
+        showSessionExpiredAlert();
+        return;
+      }
+
+      console.log("Failed syncing progress", err.response?.data || err.message);
+
+      Alert.alert(
+        "Sync Error",
+        "Module completed locally but failed to sync with server."
+      );
+    }
+  };
+
+  const handleQuizSubmit = async () => {
+    const quizzes = getModuleQuizzes(selectedModule);
+    const currentQuiz = quizzes[currentQuiestionIndex];
+
+    if (!currentQuiz) {
+      setShowQuiz(false);
+      return;
+    }
+
+    const correctValues = getCorrectIndexes(currentQuiz);
+    const selectedValues = Array.from(new Set(selectedOptions));
+    const isCorrect =
+      selectedValues.length === correctValues.length &&
+      selectedValues.every((value) => correctValues.includes(value));
 
     if (isCorrect) {
+      const nextAnswers = {
+        ...answers,
+        [currentQuiestionIndex]: selectedValues
+      };
 
-      try {
+      setAnswers(nextAnswers);
 
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        /* Send completion to backend */
-
-        await api.post("/complete-module/", {
-          module_id: selectedModule.id
-        });
-
-        const updatedModules = Array.from(
-          new Set([...completedModules, selectedModule.id])
-        );
-
-        setCompletedModules(updatedModules);
-
-        /* Update local cache */
-
-        await AsyncStorage.setItem(
-          "completedModules",
-          JSON.stringify(updatedModules)
-        );
-
-        setShowQuiz(false);
-        Alert.alert(t("success"), t("moduleCompleted"));
-        setSelectedModule(null);
-
-      } catch (err) {
-        if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
-          showSessionExpiredAlert();
-          return;
-        }
-
-        console.log("Failed syncing progress", err.response?.data || err.message);
-
-        Alert.alert(
-          "Sync Error",
-          "Module completed locally but failed to sync with server."
-        );
-
+      if (currentQuiestionIndex < quizzes.length - 1) {
+        const nextIndex = currentQuiestionIndex + 1;
+        setCurrentQuestionIndex(nextIndex);
+        setSelectedOptions(nextAnswers[nextIndex] || []);
+      } else {
+        await handleModuleCompletion();
       }
 
     } else {
@@ -236,8 +278,6 @@ export default function TrainingModule() {
       );
 
     }
-
-    setChecked('');
 
   };
 
@@ -496,7 +536,9 @@ export default function TrainingModule() {
               onPress={() => {
                 setSelectedModule(null);
                 setShowQuiz(false);
-                setChecked('');
+                setCurrentQuestionIndex(0);
+                setAnswers({});
+                setSelectedOptions([]);
               }}
             />
 
@@ -526,11 +568,16 @@ export default function TrainingModule() {
                 {getLocalizedText(selectedModule.content, i18n.language)}
               </Text>
 
-              {!!selectedModule.quiz && (
+              {getModuleQuizzes(selectedModule).length > 0 && (
                 <Button
                   mode="contained"
                   style={styles.startQuizButton}
-                  onPress={() => setShowQuiz(true)}
+                    onPress={() => {
+                      setCurrentQuestionIndex(0);
+                      setAnswers({});
+                      setSelectedOptions([]);
+                      setShowQuiz(true);
+                    }}
                 >
                   Start Quiz
                 </Button>
@@ -549,49 +596,112 @@ export default function TrainingModule() {
 
         <Modal
           visible={showQuiz}
-          onDismiss={() => setShowQuiz(false)}
+          onDismiss={() => {
+            setShowQuiz(false);
+            setCurrentQuestionIndex(0);
+            setAnswers({});
+            setSelectedOptions([]);
+          }}
           contentContainerStyle={[
             styles.modernQuizModal,
             { backgroundColor: theme.colors.surface }
           ]}
         >
 
+          {(() => {
+            const quizzes = getModuleQuizzes(selectedModule);
+            const currentQuiz = quizzes[currentQuiestionIndex];
+
+            if (!currentQuiz) {
+              return (
+                <Text style={{ marginVertical: 20 }}>
+                  No quiz available.
+                </Text>
+              );
+            }
+
+            const options = getQuizOptions(currentQuiz);
+            const correctValues = getCorrectIndexes(currentQuiz);
+            const isMultiSelect = correctValues.length > 1;
+
+            return (
+              <>
+
           <Text variant="headlineSmall" style={styles.boldText}>
             {t("knowledgeCheck")}
           </Text>
 
-          <Text style={{ marginVertical: 20 }}>
-            {getLocalizedText(selectedModule?.quiz.question, i18n.language)}
+          <Text style={{ marginTop: 8, opacity: 0.7 }}>
+            {currentQuiestionIndex + 1}/{quizzes.length}
           </Text>
 
-          <RadioButton.Group
-            onValueChange={val => setChecked(val)}
-            value={checked}
-          >
+          <Text style={{ marginVertical: 20 }}>
+            {getLocalizedText(currentQuiz.question, i18n.language)}
+          </Text>
 
-            {getQuizOptions(selectedModule?.quiz).map((option, index) => (
+          {isMultiSelect ? (
+            <>
+              <Text style={{ marginBottom: 10, opacity: 0.7 }}>
+                Select all that apply
+              </Text>
 
-              <TouchableRipple key={index} onPress={() => setChecked(String(index))}>
+              {options.map((option, index) => {
+                const optionValue = String(index);
+                const isSelected = selectedOptions.includes(optionValue);
 
-                <View style={styles.optionContent}>
-                  <RadioButton value={String(index)} />
-                  <Text>{option}</Text>
-                </View>
+                return (
+                  <TouchableRipple
+                    key={index}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedOptions(selectedOptions.filter((value) => value !== optionValue));
+                      } else {
+                        setSelectedOptions([...selectedOptions, optionValue]);
+                      }
+                    }}
+                  >
+                    <View style={styles.optionContent}>
+                      <Checkbox status={isSelected ? 'checked' : 'unchecked'} />
+                      <Text>{option}</Text>
+                    </View>
+                  </TouchableRipple>
+                );
+              })}
+            </>
+          ) : (
+            <RadioButton.Group
+              onValueChange={val => setSelectedOptions([val])}
+              value={selectedOptions[0] || ''}
+            >
 
-              </TouchableRipple>
+              {options.map((option, index) => (
 
-            ))}
+                <TouchableRipple key={index} onPress={() => setSelectedOptions([String(index)])}>
 
-          </RadioButton.Group>
+                  <View style={styles.optionContent}>
+                    <RadioButton value={String(index)} />
+                    <Text>{option}</Text>
+                  </View>
+
+                </TouchableRipple>
+
+              ))}
+
+            </RadioButton.Group>
+          )}
 
           <Button
             mode="contained"
             onPress={handleQuizSubmit}
-            disabled={!checked}
+            disabled={selectedOptions.length === 0}
             style={{ marginTop: 20 }}
           >
             {t("submitAssessment")}
           </Button>
+
+              </>
+            );
+          })()}
 
         </Modal>
 

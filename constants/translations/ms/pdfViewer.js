@@ -1,5 +1,8 @@
 export default {
     pdfViewerTitle: "Penonton PDF",
     previewNotA: "Pratonton Web tidak tersedia",
-    openWeb: "Buka PDF di Pelayar"
+    openWeb: "Buka PDF di Pelayar",
+    pdfPrevPage: "Sebelumnya",
+    pdfNextPage: "Seterusnya",
+    pdfReadingProgress: "Kemajuan Bacaan"
 }

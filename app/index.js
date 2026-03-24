@@ -22,7 +22,6 @@ export default function Login() {
       try {
         const access = await AsyncStorage.getItem("accessToken");
         const refresh = await AsyncStorage.getItem("refreshToken");
-
         if (!access && !refresh) {
           setCheckingAuth(false);
           return;
