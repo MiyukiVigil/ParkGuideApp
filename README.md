@@ -51,3 +51,4 @@ npx expo run:android
 
 - These commands generate a development build necessary for native modules like `react-native-pdf` or WebView enhancements.
 - Expo Go cannot run features that require native modules. You must use development builds for full functionality.
+- This branch include intergration of backend server with API fetching methods and so on. Please refrain from using this app when developing/testing

@@ -5,11 +5,13 @@ import { useThemeContext } from './_layout';
 import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 
 export default function Settings() {
   const theme = useTheme();
   const { t } = useTranslation();
   const { isDarkMode, toggleTheme, fontScale, setFontScale } = useThemeContext();
+  const router = useRouter();
 
   const [langMenuVisible, setLangMenuVisible] = useState(false);
   const [fontMenuVisible, setFontMenuVisible] = useState(false);
@@ -41,6 +43,11 @@ export default function Settings() {
     setFontScale(scale);
     await AsyncStorage.setItem('appFontScale', scale.toString());
     setFontMenuVisible(false);
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'completedModules']);
+    router.replace('/');
   };
 
   return (
@@ -110,7 +117,7 @@ export default function Settings() {
         mode="outlined"
         textColor={theme.colors.error}
         style={[styles.logout, { borderColor: theme.colors.error }]}
-        onPress={() => { /* Handle Logout */ }}
+        onPress={handleLogout}
       >
         {t("logoutButton")}
       </Button>

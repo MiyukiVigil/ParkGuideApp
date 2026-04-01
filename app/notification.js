@@ -1,30 +1,63 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, ScrollView, Animated, Easing } from 'react-native';
-import { Text, Surface, TouchableRipple, Avatar, Button, Portal, Modal, IconButton, useTheme } from 'react-native-paper';
+import { Text, Surface, TouchableRipple, Avatar, Button, Portal, Modal, useTheme, ActivityIndicator } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 
-const NOTIFICATIONS = [
-  { id: '1', title: 'New Module Available', description: 'Advanced Biodiversity 2.0 is unlocked.', fullText: 'Complete the new module within 14 days to maintain guide status.', time: '10 mins ago', isRead: false },
-  { id: '2', title: 'Park Alert', description: 'Heavy rain expected in Bako National Park.', fullText: 'Flash flood warning: reroute tours immediately.', time: '2 hours ago', isRead: false },
-  { id: '3', title: 'Certification Approved', description: 'Eco-Tourism Ethics certificate is ready.', fullText: 'Your certificate is verified. Check the Certs section.', time: 'Mar 07, 2026', isRead: true },
-];
+import api from '../utils/api';
 
 export default function Notifications() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const router = useRouter();
 
-  const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
   const [selected, setSelected] = useState(null);
   const [isModalVisible, setModalVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Persist animated value across renders
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
-  const openModal = (item) => {
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get('/notifications/items/');
+        const rows = Array.isArray(response.data) ? response.data : [];
+        setNotifications(rows.map((item) => ({
+          ...item,
+          id: String(item.id),
+          isRead: !!item.is_read,
+        })));
+      } catch (error) {
+        if (error.response?.status === 401 || error.response?.status === 403 || error.isSessionExpired) {
+          router.replace('/');
+          return;
+        }
+        console.log('Failed to load notifications', error.response?.data || error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadNotifications();
+  }, [router]);
+
+  const openModal = async (item) => {
     setSelected({ ...item, isRead: true });
     setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n));
+
+    if (!item.isRead) {
+      try {
+        await api.post(`/notifications/items/${item.id}/mark-read/`);
+      } catch (error) {
+        console.log('Failed to mark notification read', error.response?.data || error.message);
+      }
+    }
+
     setModalVisible(true);
     Animated.timing(scaleAnim, {
       toValue: 1,
@@ -43,7 +76,14 @@ export default function Notifications() {
     }).start(() => setModalVisible(false));
   };
 
-  const clearRead = () => setNotifications(prev => prev.filter(n => !n.isRead));
+  const clearRead = async () => {
+    try {
+      await api.post('/notifications/items/clear-read/');
+      setNotifications(prev => prev.filter(n => !n.isRead));
+    } catch (error) {
+      console.log('Failed to clear read notifications', error.response?.data || error.message);
+    }
+  };
 
   const renderItem = ({ item }) => (
     <Surface
@@ -88,6 +128,17 @@ export default function Notifications() {
         renderItem={renderItem}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.emptyWrap}>
+              <ActivityIndicator animating color={theme.colors.primary} />
+            </View>
+          ) : (
+            <View style={styles.emptyWrap}>
+              <Text style={{ color: theme.colors.onSurfaceVariant }}>No notifications yet.</Text>
+            </View>
+          )
+        }
       />
 
       {/* Footer */}
@@ -139,6 +190,7 @@ const styles = StyleSheet.create({
   card: { marginBottom: 15, borderRadius: 16, overflow: 'hidden' },
   ripple: { padding: 15 },
   cardContent: { flexDirection: 'row', alignItems: 'center' },
+  emptyWrap: { paddingTop: 40, alignItems: 'center' },
   footer: { position: 'absolute', bottom: 20, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   modalContainer: {
     width: '90%',

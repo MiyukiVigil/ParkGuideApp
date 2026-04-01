@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated, Easing } from 'react-native';
+import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated, Easing, Alert } from 'react-native';
 import { Text, Avatar, Surface, TouchableRipple, useTheme, IconButton } from 'react-native-paper';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { TRAINING_COURSES } from '../constants/courses'; 
+import api from '../utils/api';
 
 export default function Home() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function Home() {
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [remainingModules, setRemainingModules] = useState(0);
   const [completedModules, setCompletedModules] = useState([]);
+  const [courses, setCourses] = useState([]);
   
   // Animation Refs
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -23,6 +24,7 @@ export default function Home() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const tiltAnim = useRef(new Animated.Value(0)).current;
   const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const authAlertShown = useRef(false);
 
   const isWeb = Platform.OS === 'web';
   const contentWidth = isWeb && width > 1200 ? 800 : '100%';
@@ -33,26 +35,81 @@ export default function Home() {
       const loadTrainingProgress = async () => {
         try {
           const stored = await AsyncStorage.getItem('completedModules');
-          const completed = stored ? JSON.parse(stored) : [];
+          const cachedCompleted = stored ? JSON.parse(stored) : [];
 
-          const current = TRAINING_COURSES.find(course =>
-            course.modules.some(mod => !completed.includes(mod.id))
-          ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
+          const [coursesRes, progressRes] = await Promise.all([
+            api.get('/courses/'),
+            api.get('/progress/'),
+          ]);
 
-          const completedInCourse = current.modules.filter(mod =>
+          const backendCourses = Array.isArray(coursesRes.data) ? coursesRes.data : [];
+          const backendCompleted = (progressRes.data || [])
+            .map((entry) => (typeof entry === 'object' ? entry.module : entry))
+            .filter((id) => id != null);
+
+          const completed = backendCompleted.length ? backendCompleted : cachedCompleted;
+
+          let courseProgressMap = {};
+          try {
+            const courseProgressRes = await api.get('/course-progress/');
+            const rows = Array.isArray(courseProgressRes.data) ? courseProgressRes.data : [];
+            courseProgressMap = rows.reduce((acc, row) => {
+              acc[row.course] = row;
+              return acc;
+            }, {});
+          } catch (_) {
+          }
+
+          const current = backendCourses.find((course) =>
+            (course.modules || []).some((mod) => !completed.includes(mod.id))
+          ) || backendCourses[backendCourses.length - 1];
+
+          const currentModules = current?.modules || [];
+          const completedInCourse = currentModules.filter((mod) =>
             completed.includes(mod.id)
           ).length;
-          
-          const currentCourseProgress = completedInCourse / current.modules.length;
 
-          const totalIncomplete = TRAINING_COURSES.reduce((acc, course) => {
-             return acc + course.modules.filter(m => !completed.includes(m.id)).length;
+          const currentCourseProgress = current
+            ? (courseProgressMap[current.id]?.progress ?? (currentModules.length
+              ? completedInCourse / currentModules.length
+              : 0))
+            : 0;
+
+          const totalIncomplete = backendCourses.reduce((acc, course) => {
+            if (courseProgressMap[course.id]) {
+              const row = courseProgressMap[course.id];
+              return acc + Math.max((row.total_modules || 0) - (row.completed_modules || 0), 0);
+            }
+
+            return acc + (course.modules || []).filter((m) => !completed.includes(m.id)).length;
           }, 0);
 
+          setCourses(backendCourses);
           setCompletedModules(completed);
           setTrainingProgress(currentCourseProgress);
           setRemainingModules(totalIncomplete);
+
+          await AsyncStorage.setItem('completedModules', JSON.stringify(completed));
         } catch (err) {
+          if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
+            if (!authAlertShown.current) {
+              authAlertShown.current = true;
+              Alert.alert(
+                'Session expired',
+                'Your session has expired. Please log in again.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      authAlertShown.current = false;
+                      router.replace('/');
+                    },
+                  },
+                ]
+              );
+            }
+            return;
+          }
           console.log('Failed to load progress', err);
         }
       };
@@ -96,9 +153,9 @@ export default function Home() {
   const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, friction: 3, tension: 40, useNativeDriver: true }).start();
 
-  const currentCourse = TRAINING_COURSES.find(course =>
-    course.modules.some(mod => !completedModules.includes(mod.id))
-  ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
+  const currentCourse = courses.find((course) =>
+    (course.modules || []).some((mod) => !completedModules.includes(mod.id))
+  ) || courses[courses.length - 1];
 
   const getLocalizedTitle = (titleData) => {
     if (typeof titleData === 'string') return titleData;
@@ -156,7 +213,7 @@ export default function Home() {
                 </View>
 
                 <Text variant="headlineSmall" style={styles.featureTitle}>
-                  {getLocalizedTitle(currentCourse.title)}
+                  {currentCourse ? getLocalizedTitle(currentCourse.title) : t('training')}
                 </Text>
 
                 <View style={styles.progressInfo}>
