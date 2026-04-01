@@ -3,8 +3,14 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, Image } from "react-n
 import { TextInput, Button, Text, Avatar, Surface, useTheme } from "react-native-paper";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "../utils/api";
+import {
+  clearAuthTokens,
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+} from "../utils/tokenStorage";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -20,8 +26,8 @@ export default function Login() {
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
-        const access = await AsyncStorage.getItem("accessToken");
-        const refresh = await AsyncStorage.getItem("refreshToken");
+        const access = await getAccessToken();
+        const refresh = await getRefreshToken();
         if (!access && !refresh) {
           setCheckingAuth(false);
           return;
@@ -36,8 +42,7 @@ export default function Login() {
           err?.response?.status === 403;
 
         if (isAuthFailure) {
-          await AsyncStorage.removeItem("accessToken");
-          await AsyncStorage.removeItem("refreshToken");
+          await clearAuthTokens();
         }
 
         setCheckingAuth(false);
@@ -61,8 +66,8 @@ export default function Login() {
       const { access, refresh } = response.data;
 
       // Save tokens for future API calls
-      await AsyncStorage.setItem("accessToken", access);
-      await AsyncStorage.setItem("refreshToken", refresh);
+      await setAccessToken(access);
+      await setRefreshToken(refresh);
 
       // Navigate to Home screen
       router.replace("/home");

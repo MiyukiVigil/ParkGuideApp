@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from 'i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { clearAuthTokens } from '../utils/tokenStorage';
 
 export default function Settings() {
   const theme = useTheme();
@@ -46,7 +47,8 @@ export default function Settings() {
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'completedModules']);
+    await clearAuthTokens();
+    await AsyncStorage.removeItem('completedModules');
     router.replace('/');
   };
 

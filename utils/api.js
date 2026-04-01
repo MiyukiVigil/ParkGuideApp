@@ -1,5 +1,11 @@
 import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  clearAuthTokens,
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+} from "./tokenStorage";
 
 const API_BASE_URL = "http://localhost:8000/api";
 const REFRESH_ENDPOINTS = [
@@ -19,12 +25,8 @@ const refreshClient = axios.create({
 
 let refreshPromise = null;
 
-const clearAuthTokens = async () => {
-  await AsyncStorage.multiRemove(["accessToken", "refreshToken"]);
-};
-
 const requestNewAccessToken = async () => {
-  const refresh = await AsyncStorage.getItem("refreshToken");
+  const refresh = await getRefreshToken();
   if (!refresh) return null;
 
   for (const endpoint of REFRESH_ENDPOINTS) {
@@ -32,7 +34,7 @@ const requestNewAccessToken = async () => {
       const response = await refreshClient.post(endpoint, { refresh });
       if (response.data?.access) {
         if (response.data?.refresh) {
-          await AsyncStorage.setItem("refreshToken", response.data.refresh);
+          await setRefreshToken(response.data.refresh);
         }
         return response.data.access;
       }
@@ -48,7 +50,7 @@ const requestNewAccessToken = async () => {
 };
 
 export const ensureFreshSession = async () => {
-  const refresh = await AsyncStorage.getItem("refreshToken");
+  const refresh = await getRefreshToken();
   if (!refresh) return false;
 
   if (!refreshPromise) {
@@ -64,13 +66,13 @@ export const ensureFreshSession = async () => {
     return false;
   }
 
-  await AsyncStorage.setItem("accessToken", access);
+  await setAccessToken(access);
   return true;
 };
 
 // Interceptor for attaching access token
 api.interceptors.request.use(async (config) => {
-  let token = await AsyncStorage.getItem("accessToken");
+  const token = await getAccessToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -95,7 +97,7 @@ api.interceptors.response.use(
           throw error;
         }
 
-        const access = await AsyncStorage.getItem("accessToken");
+        const access = await getAccessToken();
         if (!access) {
           error.isSessionExpired = true;
           throw error;
