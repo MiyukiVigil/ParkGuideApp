@@ -10,6 +10,7 @@ import { en, ms, zh } from '../constants/translations';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import { ensureFreshSession } from "../utils/api";
+import { getRefreshToken } from "../utils/tokenStorage";
 
 const ThemeContext = createContext();
 export const useThemeContext = () => useContext(ThemeContext);
@@ -62,7 +63,7 @@ export default function RootLayout() {
     const handleActiveState = async (nextState) => {
       if (nextState !== "active") return;
 
-      const refresh = await AsyncStorage.getItem("refreshToken");
+      const refresh = await getRefreshToken();
       if (!refresh) return;
 
       const ok = await ensureFreshSession();

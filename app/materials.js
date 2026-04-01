@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import api from '../utils/api';
+import { getAccessToken } from '../utils/tokenStorage';
 
 const DOWNLOAD_STORAGE_KEY = 'downloadedSecureMaterialsV2';
 
@@ -36,7 +37,7 @@ export default function Materials() {
   const [loadingMaterials, setLoadingMaterials] = useState(true);
 
   const getAuthHeaders = async () => {
-    const token = await AsyncStorage.getItem('accessToken');
+    const token = await getAccessToken();
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
   };

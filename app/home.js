@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated, Easing, Alert } from 'react-native';
-import { Text, Avatar, Surface, TouchableRipple, useTheme, IconButton } from 'react-native-paper';
+import { Text, Avatar, Surface, TouchableRipple, useTheme, IconButton, ActivityIndicator } from 'react-native-paper';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
@@ -13,6 +13,8 @@ export default function Home() {
   const { width } = useWindowDimensions();
   const { t, i18n } = useTranslation();
 
+  // Data States
+  const [loading, setLoading] = useState(true);
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [remainingModules, setRemainingModules] = useState(0);
   const [completedModules, setCompletedModules] = useState([]);
@@ -29,10 +31,11 @@ export default function Home() {
   const isWeb = Platform.OS === 'web';
   const contentWidth = isWeb && width > 1200 ? 800 : '100%';
 
-  // Sync data on focus to ensure progress updates immediately after training
+  // Sync data on focus
   useFocusEffect(
     useCallback(() => {
       const loadTrainingProgress = async () => {
+        setLoading(true);
         try {
           const stored = await AsyncStorage.getItem('completedModules');
           const cachedCompleted = stored ? JSON.parse(stored) : [];
@@ -57,17 +60,14 @@ export default function Home() {
               acc[row.course] = row;
               return acc;
             }, {});
-          } catch (_) {
-          }
+          } catch (_) {}
 
           const current = backendCourses.find((course) =>
             (course.modules || []).some((mod) => !completed.includes(mod.id))
           ) || backendCourses[backendCourses.length - 1];
 
           const currentModules = current?.modules || [];
-          const completedInCourse = currentModules.filter((mod) =>
-            completed.includes(mod.id)
-          ).length;
+          const completedInCourse = currentModules.filter((mod) => completed.includes(mod.id)).length;
 
           const currentCourseProgress = current
             ? (courseProgressMap[current.id]?.progress ?? (currentModules.length
@@ -80,7 +80,6 @@ export default function Home() {
               const row = courseProgressMap[course.id];
               return acc + Math.max((row.total_modules || 0) - (row.completed_modules || 0), 0);
             }
-
             return acc + (course.modules || []).filter((m) => !completed.includes(m.id)).length;
           }, 0);
 
@@ -90,27 +89,16 @@ export default function Home() {
           setRemainingModules(totalIncomplete);
 
           await AsyncStorage.setItem('completedModules', JSON.stringify(completed));
+          
+          // Trigger entry fade
+          Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
         } catch (err) {
           if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
-            if (!authAlertShown.current) {
-              authAlertShown.current = true;
-              Alert.alert(
-                'Session expired',
-                'Your session has expired. Please log in again.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      authAlertShown.current = false;
-                      router.replace('/');
-                    },
-                  },
-                ]
-              );
-            }
+            showSessionAlert();
             return;
           }
-          console.log('Failed to load progress', err);
+        } finally {
+          setLoading(false);
         }
       };
 
@@ -118,10 +106,17 @@ export default function Home() {
     }, [])
   );
 
-  // Background loops and entrance animations
+  const showSessionAlert = () => {
+    if (!authAlertShown.current) {
+      authAlertShown.current = true;
+      Alert.alert('Session expired', 'Please log in again.', [
+        { text: 'OK', onPress: () => { authAlertShown.current = false; router.replace('/'); } }
+      ]);
+    }
+  };
+
+  // Background loops
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    
     Animated.loop(
       Animated.sequence([
         Animated.timing(tiltAnim, { toValue: 1, duration: 3000, easing: Easing.linear, useNativeDriver: true }),
@@ -134,15 +129,17 @@ export default function Home() {
     ).start();
   }, []);
 
-  // Smooth spring for progress bar
+  // Smooth progress bar animation
   useEffect(() => {
-    Animated.spring(progressAnim, {
-      toValue: trainingProgress,
-      tension: 15,
-      friction: 6,
-      useNativeDriver: false,
-    }).start();
-  }, [trainingProgress]);
+    if (!loading) {
+      Animated.spring(progressAnim, {
+        toValue: trainingProgress,
+        tension: 15,
+        friction: 6,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [trainingProgress, loading]);
 
   // Interpolations
   const rotateX = tiltAnim.interpolate({ inputRange: [0, 1], outputRange: ['-1.2deg', '1.2deg'] });
@@ -150,28 +147,30 @@ export default function Home() {
   const barWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
   const shimmerTranslate = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: ['-150%', '350%'] });
 
-  const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true }).start();
-  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, friction: 3, tension: 40, useNativeDriver: true }).start();
-
   const currentCourse = courses.find((course) =>
     (course.modules || []).some((mod) => !completedModules.includes(mod.id))
   ) || courses[courses.length - 1];
 
   const getLocalizedTitle = (titleData) => {
     if (typeof titleData === 'string') return titleData;
-    return titleData[i18n.language] || titleData['en'] || "Untitled Course";
+    return titleData?.[i18n.language] || titleData?.['en'] || "Untitled Course";
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.masterContainer, styles.center, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ marginTop: 15, opacity: 0.6 }}>{t('loading') || 'Syncing Progress...'}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.masterContainer, { backgroundColor: theme.colors.background }]}>
       
-      {/* STICKY HEADER: Placed outside ScrollView to stay on top */}
       <Animated.View style={[styles.topBar, { opacity: fadeAnim, alignSelf: 'center', width: contentWidth }]}>
         <View style={styles.topIcons}>
-          <Avatar.Image 
-            size={54} 
-            source={{ uri: 'https://api.dicebear.com/7.x/avataaars/png?seed=Miyuki' }} 
-          />
+          <Avatar.Image size={54} source={{ uri: 'https://api.dicebear.com/7.x/avataaars/png?seed=Miyuki' }} />
         </View>
         <View style={{ flex: 1, marginLeft: 15 }}>
           <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: '900', letterSpacing: 2 }}>
@@ -181,26 +180,14 @@ export default function Home() {
             Miyuki Vigil
           </Text>
         </View>
-        <IconButton 
-          icon="bell-badge-outline" 
-          iconColor={theme.colors.primary} 
-          size={28} 
-          onPress={() => router.push('/notification')}
-        />
+        <IconButton icon="bell-badge-outline" iconColor={theme.colors.primary} size={28} onPress={() => router.push('/notification')} />
       </Animated.View>
 
-      <ScrollView 
-        style={[styles.container, { alignSelf: 'center', width: contentWidth }]} 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 10 }}
-      >
+      <ScrollView style={[styles.container, { alignSelf: 'center', width: contentWidth }]} showsVerticalScrollIndicator={false}>
         
-        {/* Hero Card */}
-        <Animated.View style={{ transform: [{ scale: scaleAnim }, { rotateX }, { rotateY }], opacity: fadeAnim }}>
+        <Animated.View style={{ transform: [{ rotateX }, { rotateY }], opacity: fadeAnim }}>
           <Surface style={[styles.mainFeature, { backgroundColor: theme.colors.primary }]} elevation={8}>
             <TouchableRipple 
-              onPressIn={handlePressIn} 
-              onPressOut={handlePressOut} 
               onPress={() => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 router.push('/training');
@@ -208,19 +195,14 @@ export default function Home() {
               style={styles.cardRipple}
             >
               <View>
-                <View style={styles.featureBadge}>
-                  <Text style={styles.badgeText}>{t('inProgress').toUpperCase()}</Text>
-                </View>
-
+                <View style={styles.featureBadge}><Text style={styles.badgeText}>{t('inProgress').toUpperCase()}</Text></View>
                 <Text variant="headlineSmall" style={styles.featureTitle}>
                   {currentCourse ? getLocalizedTitle(currentCourse.title) : t('training')}
                 </Text>
-
                 <View style={styles.progressInfo}>
                   <Text style={styles.featureSub}>{t('courseCompletion')}</Text>
                   <Text style={styles.percentText}>{Math.round(trainingProgress * 100)}%</Text>
                 </View>
-
                 <View style={styles.customBarContainer}>
                   <Animated.View style={[styles.customBarFill, { width: barWidth }]}>
                     <Animated.View style={[styles.shimmerOverlay, { left: shimmerTranslate }]} />
@@ -234,53 +216,12 @@ export default function Home() {
         <Text variant="titleMedium" style={styles.sectionHeader}>{t('guideOperations').toUpperCase()}</Text>
 
         <Animated.View style={[styles.grid, { opacity: fadeAnim }]}>
-          <OperationCard 
-            theme={theme} 
-            icon="book-open-variant" 
-            label={t('materials')} 
-            progress={0.6} 
-            subtitle={`6 ${t('remainingDesc')}`} 
-            onPress={() => router.push('/materials')} 
-          />
-          <OperationCard 
-            theme={theme} 
-            icon="school" 
-            label={t('training')} 
-            progress={trainingProgress} 
-            subtitle={`${remainingModules} ${t('remainingDesc')}`} 
-            onPress={() => router.push('/training')} 
-          />
-          <OperationCard 
-            theme={theme} 
-            icon="map-marker-path" 
-            label={t('map')} 
-            subtitle={t('mapDesc')} 
-            onPress={() => router.push('/map')} 
-          />
-          <OperationCard 
-            theme={theme} 
-            icon="certificate" 
-            label={t('certs')} 
-            progress={1.0} 
-            subtitle={t('certsDesc')} 
-            onPress={() => router.push('/cert')} 
-          />
-          <OperationCard
-            theme={theme}
-            icon="video-check"
-            label={t('tourMonitor')}
-            isLive
-            subtitle={t('monitorDesc')}
-            color={theme.colors.primaryContainer}
-            onPress={() => router.push('/monitor')}
-          />
-          <OperationCard
-            theme={theme}
-            icon="cog"
-            label={t('settings')}
-            subtitle={t('settingsDesc')}
-            onPress={() => router.push('/settings')}
-          />
+          <OperationCard theme={theme} icon="book-open-variant" label={t('materials')} progress={0.6} subtitle={`6 ${t('remainingDesc')}`} onPress={() => router.push('/materials')} />
+          <OperationCard theme={theme} icon="school" label={t('training')} progress={trainingProgress} subtitle={`${remainingModules} ${t('remainingDesc')}`} onPress={() => router.push('/training')} />
+          <OperationCard theme={theme} icon="map-marker-path" label={t('map')} subtitle={t('mapDesc')} onPress={() => router.push('/map')} />
+          <OperationCard theme={theme} icon="certificate" label={t('certs')} progress={1.0} subtitle={t('certsDesc')} onPress={() => router.push('/cert')} />
+          <OperationCard theme={theme} icon="video-check" label={t('tourMonitor')} isLive subtitle={t('monitorDesc')} color={theme.colors.primaryContainer} onPress={() => router.push('/monitor')} />
+          <OperationCard theme={theme} icon="cog" label={t('settings')} subtitle={t('settingsDesc')} onPress={() => router.push('/settings')} />
         </Animated.View>
         
         <View style={{ height: 40 }} />
@@ -289,25 +230,12 @@ export default function Home() {
   );
 }
 
-// Internal Component for Grid Cards
 const OperationCard = ({ icon, label, progress, subtitle, color, isLive, theme, onPress }) => (
   <Surface style={[styles.opCard, { backgroundColor: color || theme.colors.surfaceVariant }]} elevation={2}>
-    <TouchableRipple 
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }} 
-      style={styles.ripple} 
-      borderRadius={32}
-    >
+    <TouchableRipple onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }} style={styles.ripple} borderRadius={32}>
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
         <View style={styles.cardTop}>
-          <Avatar.Icon 
-            size={44} 
-            icon={icon} 
-            color="#FFFFFF" 
-            style={{ backgroundColor: theme.colors.primary }} 
-          />
+          <Avatar.Icon size={44} icon={icon} color="#FFFFFF" style={{ backgroundColor: theme.colors.primary }} />
           {isLive && <View style={[styles.liveDot, { backgroundColor: theme.colors.error }]} />}
         </View>
         <View>
@@ -326,15 +254,9 @@ const OperationCard = ({ icon, label, progress, subtitle, color, isLive, theme, 
 
 const styles = StyleSheet.create({
   masterContainer: { flex: 1 },
+  center: { justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1, paddingHorizontal: 22 },
-  topBar: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingTop: 60, 
-    paddingBottom: 20, 
-    paddingHorizontal: 22 
-  },
-  topIcons: { flexDirection: 'row', alignItems: 'center' },
+  topBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, paddingBottom: 20, paddingHorizontal: 22 },
   nameText: { fontWeight: '900', marginTop: -5 },
   mainFeature: { borderRadius: 35, marginBottom: 35, overflow: 'hidden' },
   cardRipple: { padding: 28 },
@@ -346,14 +268,7 @@ const styles = StyleSheet.create({
   percentText: { fontWeight: '900', fontSize: 26, color: '#FFF' },
   customBarContainer: { height: 14, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 7, overflow: 'hidden' },
   customBarFill: { height: '100%', backgroundColor: '#FFFFFF', borderRadius: 7, overflow: 'hidden' },
-  shimmerOverlay: {
-    position: 'absolute',
-    top: 0,
-    width: '80%',
-    height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    transform: [{ skewX: '-25deg' }],
-  },
+  shimmerOverlay: { position: 'absolute', top: 0, width: '80%', height: '100%', backgroundColor: 'rgba(255, 255, 255, 0.4)', transform: [{ skewX: '-25deg' }] },
   sectionHeader: { marginBottom: 20, fontWeight: '900', letterSpacing: 1.5, fontSize: 12, color: 'gray' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   opCard: { width: '48%', height: 180, borderRadius: 32, marginBottom: 18, overflow: 'hidden' },
