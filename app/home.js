@@ -1,11 +1,12 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated, Easing, Alert } from 'react-native';
-import { Text, Avatar, Surface, TouchableRipple, useTheme, IconButton, ActivityIndicator } from 'react-native-paper';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../utils/api';
+import React, { useRef, useEffect, useCallback, useState } from "react";
+import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated } from "react-native";
+import { Text, Avatar, Surface, TouchableRipple, IconButton, Chip, useTheme } from "react-native-paper";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useTranslation } from "react-i18next";
+import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { TRAINING_COURSES } from "../constants/courses";
+import ThemedBackground from "../components/ThemedBackground";
 
 export default function Home() {
   const router = useRouter();
@@ -13,92 +14,45 @@ export default function Home() {
   const { width } = useWindowDimensions();
   const { t, i18n } = useTranslation();
 
-  // Data States
-  const [loading, setLoading] = useState(true);
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [remainingModules, setRemainingModules] = useState(0);
   const [completedModules, setCompletedModules] = useState([]);
-  const [courses, setCourses] = useState([]);
-  
-  // Animation Refs
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  const [unreadCount] = useState(2);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const tiltAnim = useRef(new Animated.Value(0)).current;
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
-  const authAlertShown = useRef(false);
+  const heroScale = useRef(new Animated.Value(0.98)).current;
+  const barAnim = useRef(new Animated.Value(0)).current;
 
-  const isWeb = Platform.OS === 'web';
-  const contentWidth = isWeb && width > 1200 ? 800 : '100%';
+  const isWeb = Platform.OS === "web";
+  const contentWidth = isWeb && width > 1200 ? 900 : "100%";
 
-  // Sync data on focus
   useFocusEffect(
     useCallback(() => {
       const loadTrainingProgress = async () => {
-        setLoading(true);
         try {
-          const stored = await AsyncStorage.getItem('completedModules');
-          const cachedCompleted = stored ? JSON.parse(stored) : [];
+          const stored = await AsyncStorage.getItem("completedModules");
+          const completed = stored ? JSON.parse(stored) : [];
 
-          const [coursesRes, progressRes] = await Promise.all([
-            api.get('/courses/'),
-            api.get('/progress/'),
-          ]);
+          const current =
+            TRAINING_COURSES.find((course) =>
+              course.modules.some((mod) => !completed.includes(mod.id))
+            ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
 
-          const backendCourses = Array.isArray(coursesRes.data) ? coursesRes.data : [];
-          const backendCompleted = (progressRes.data || [])
-            .map((entry) => (typeof entry === 'object' ? entry.module : entry))
-            .filter((id) => id != null);
+          const completedInCourse = current.modules.filter((mod) =>
+            completed.includes(mod.id)
+          ).length;
 
-          const completed = backendCompleted.length ? backendCompleted : cachedCompleted;
+          const currentCourseProgress = completedInCourse / current.modules.length;
 
-          let courseProgressMap = {};
-          try {
-            const courseProgressRes = await api.get('/course-progress/');
-            const rows = Array.isArray(courseProgressRes.data) ? courseProgressRes.data : [];
-            courseProgressMap = rows.reduce((acc, row) => {
-              acc[row.course] = row;
-              return acc;
-            }, {});
-          } catch (_) {}
-
-          const current = backendCourses.find((course) =>
-            (course.modules || []).some((mod) => !completed.includes(mod.id))
-          ) || backendCourses[backendCourses.length - 1];
-
-          const currentModules = current?.modules || [];
-          const completedInCourse = currentModules.filter((mod) => completed.includes(mod.id)).length;
-
-          const currentCourseProgress = current
-            ? (courseProgressMap[current.id]?.progress ?? (currentModules.length
-              ? completedInCourse / currentModules.length
-              : 0))
-            : 0;
-
-          const totalIncomplete = backendCourses.reduce((acc, course) => {
-            if (courseProgressMap[course.id]) {
-              const row = courseProgressMap[course.id];
-              return acc + Math.max((row.total_modules || 0) - (row.completed_modules || 0), 0);
-            }
-            return acc + (course.modules || []).filter((m) => !completed.includes(m.id)).length;
+          const totalIncomplete = TRAINING_COURSES.reduce((acc, course) => {
+            return acc + course.modules.filter((m) => !completed.includes(m.id)).length;
           }, 0);
 
-          setCourses(backendCourses);
           setCompletedModules(completed);
           setTrainingProgress(currentCourseProgress);
           setRemainingModules(totalIncomplete);
-
-          await AsyncStorage.setItem('completedModules', JSON.stringify(completed));
-          
-          // Trigger entry fade
-          Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
         } catch (err) {
-          if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
-            showSessionAlert();
-            return;
-          }
-        } finally {
-          setLoading(false);
+          console.log("Failed to load progress", err);
         }
       };
 
@@ -106,175 +60,545 @@ export default function Home() {
     }, [])
   );
 
-  const showSessionAlert = () => {
-    if (!authAlertShown.current) {
-      authAlertShown.current = true;
-      Alert.alert('Session expired', 'Please log in again.', [
-        { text: 'OK', onPress: () => { authAlertShown.current = false; router.replace('/'); } }
-      ]);
-    }
-  };
-
-  // Background loops
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(tiltAnim, { toValue: 1, duration: 3000, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(tiltAnim, { toValue: 0, duration: 3000, easing: Easing.linear, useNativeDriver: true }),
-      ])
-    ).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(heroScale, {
+        toValue: 1,
+        friction: 7,
+        tension: 38,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, heroScale]);
 
-    Animated.loop(
-      Animated.timing(shimmerAnim, { toValue: 1, duration: 2200, easing: Easing.linear, useNativeDriver: false })
-    ).start();
-  }, []);
-
-  // Smooth progress bar animation
   useEffect(() => {
-    if (!loading) {
-      Animated.spring(progressAnim, {
-        toValue: trainingProgress,
-        tension: 15,
-        friction: 6,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [trainingProgress, loading]);
+    Animated.spring(barAnim, {
+      toValue: trainingProgress,
+      friction: 8,
+      tension: 30,
+      useNativeDriver: false,
+    }).start();
+  }, [trainingProgress, barAnim]);
 
-  // Interpolations
-  const rotateX = tiltAnim.interpolate({ inputRange: [0, 1], outputRange: ['-1.2deg', '1.2deg'] });
-  const rotateY = tiltAnim.interpolate({ inputRange: [0, 1], outputRange: ['-1.2deg', '1.2deg'] });
-  const barWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
-  const shimmerTranslate = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: ['-150%', '350%'] });
-
-  const currentCourse = courses.find((course) =>
-    (course.modules || []).some((mod) => !completedModules.includes(mod.id))
-  ) || courses[courses.length - 1];
+  const currentCourse =
+    TRAINING_COURSES.find((course) =>
+      course.modules.some((mod) => !completedModules.includes(mod.id))
+    ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
 
   const getLocalizedTitle = (titleData) => {
-    if (typeof titleData === 'string') return titleData;
-    return titleData?.[i18n.language] || titleData?.['en'] || "Untitled Course";
+    if (typeof titleData === "string") return titleData;
+    return titleData[i18n.language] || titleData.en || "Untitled Course";
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.masterContainer, styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{ marginTop: 15, opacity: 0.6 }}>{t('loading') || 'Syncing Progress...'}</Text>
-      </View>
-    );
-  }
+  const completedCount = completedModules.length;
+
+  const barWidth = barAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
 
   return (
-    <View style={[styles.masterContainer, { backgroundColor: theme.colors.background }]}>
-      
-      <Animated.View style={[styles.topBar, { opacity: fadeAnim, alignSelf: 'center', width: contentWidth }]}>
-        <View style={styles.topIcons}>
-          <Avatar.Image size={54} source={{ uri: 'https://api.dicebear.com/7.x/avataaars/png?seed=Miyuki' }} />
-        </View>
-        <View style={{ flex: 1, marginLeft: 15 }}>
-          <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: '900', letterSpacing: 2 }}>
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <ThemedBackground />
+
+      <Animated.View
+        style={[
+          styles.topBar,
+          {
+            opacity: fadeAnim,
+            alignSelf: "center",
+            width: contentWidth,
+          },
+        ]}
+      >
+        <TouchableRipple
+          onPress={() => router.push("/account")}
+          borderRadius={30}
+          style={{ borderRadius: 30 }}
+        >
+          <Avatar.Image
+            size={54}
+            source={{ uri: "https://api.dicebear.com/7.x/avataaars/png?seed=Miyuki" }}
+          />
+        </TouchableRipple>
+
+        <View style={{ flex: 1, marginLeft: 14 }}>
+          <Text style={[styles.brandTop, { color: theme.colors.primary }]}>
             SARAWAK FORESTRY
           </Text>
-          <Text variant="headlineMedium" style={[styles.nameText, { color: theme.colors.onBackground }]}>
+          <Text variant="headlineSmall" style={[styles.nameText, { color: theme.colors.onSurface }]}>
             Miyuki Vigil
           </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            Forest guide operations dashboard
+          </Text>
         </View>
-        <IconButton icon="bell-badge-outline" iconColor={theme.colors.primary} size={28} onPress={() => router.push('/notification')} />
+
+        <View>
+          <IconButton
+            icon="bell-badge-outline"
+            iconColor={theme.colors.tertiary}
+            size={28}
+            onPress={() => router.push("/notification")}
+          />
+          {unreadCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: theme.colors.tertiary }]}>
+              <Text style={[styles.badgeText, { color: theme.colors.onTertiary }]}>
+                {unreadCount}
+              </Text>
+            </View>
+          )}
+        </View>
       </Animated.View>
 
-      <ScrollView style={[styles.container, { alignSelf: 'center', width: contentWidth }]} showsVerticalScrollIndicator={false}>
-        
-        <Animated.View style={{ transform: [{ rotateX }, { rotateY }], opacity: fadeAnim }}>
-          <Surface style={[styles.mainFeature, { backgroundColor: theme.colors.primary }]} elevation={8}>
-            <TouchableRipple 
+      <ScrollView
+        style={[
+          styles.container,
+          {
+            alignSelf: "center",
+            width: contentWidth,
+            backgroundColor: theme.colors.background,
+          },
+        ]}
+        contentContainerStyle={{
+          paddingTop: 8,
+          paddingBottom: 40,
+          flexGrow: 1,
+          backgroundColor: theme.colors.background,
+        }}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: heroScale }] }}>
+          <Surface
+            style={[
+              styles.mainFeature,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outlineVariant,
+              },
+            ]}
+            elevation={4}
+          >
+            <TouchableRipple
               onPress={() => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                router.push('/training');
+                router.push("/training");
               }}
               style={styles.cardRipple}
             >
               <View>
-                <View style={styles.featureBadge}><Text style={styles.badgeText}>{t('inProgress').toUpperCase()}</Text></View>
-                <Text variant="headlineSmall" style={styles.featureTitle}>
-                  {currentCourse ? getLocalizedTitle(currentCourse.title) : t('training')}
-                </Text>
-                <View style={styles.progressInfo}>
-                  <Text style={styles.featureSub}>{t('courseCompletion')}</Text>
-                  <Text style={styles.percentText}>{Math.round(trainingProgress * 100)}%</Text>
+                <View style={styles.heroTopRow}>
+                  <Chip
+                    compact
+                    style={{ backgroundColor: theme.colors.primaryContainer }}
+                    textStyle={{ color: theme.colors.onPrimaryContainer, fontWeight: "800" }}
+                  >
+                    {t("inProgress").toUpperCase()}
+                  </Chip>
+                  <Text style={[styles.percentText, { color: theme.colors.tertiary }]}>
+                    {Math.round(trainingProgress * 100)}%
+                  </Text>
                 </View>
-                <View style={styles.customBarContainer}>
-                  <Animated.View style={[styles.customBarFill, { width: barWidth }]}>
-                    <Animated.View style={[styles.shimmerOverlay, { left: shimmerTranslate }]} />
-                  </Animated.View>
+
+                <Text variant="headlineSmall" style={[styles.featureTitle, { color: theme.colors.onSurface }]}>
+                  {getLocalizedTitle(currentCourse.title)}
+                </Text>
+
+                <Text style={[styles.featureSub, { color: theme.colors.onSurfaceVariant }]}>
+                  Continue your current eco-guide learning path and keep your certification progress on track.
+                </Text>
+
+                <View style={styles.progressMeta}>
+                  <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
+                    {remainingModules} modules remaining
+                  </Text>
+                  <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
+                    {t("courseCompletion")}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.customBarContainer,
+                    { backgroundColor: theme.colors.surfaceVariant },
+                  ]}
+                >
+                  <Animated.View
+                    style={[
+                      styles.customBarFill,
+                      {
+                        width: barWidth,
+                        backgroundColor: theme.colors.primary,
+                      },
+                    ]}
+                  />
                 </View>
               </View>
             </TouchableRipple>
           </Surface>
         </Animated.View>
 
-        <Text variant="titleMedium" style={styles.sectionHeader}>{t('guideOperations').toUpperCase()}</Text>
+        <View style={styles.statsRow}>
+          <StatCard
+            theme={theme}
+            label="Completed"
+            value={String(completedCount)}
+            icon="check-circle-outline"
+          />
+          <StatCard
+            theme={theme}
+            label="Remaining"
+            value={String(remainingModules)}
+            icon="clock-outline"
+          />
+          <StatCard
+            theme={theme}
+            label="Alerts"
+            value={String(unreadCount)}
+            icon="bell-outline"
+          />
+        </View>
 
-        <Animated.View style={[styles.grid, { opacity: fadeAnim }]}>
-          <OperationCard theme={theme} icon="book-open-variant" label={t('materials')} progress={0.6} subtitle={`6 ${t('remainingDesc')}`} onPress={() => router.push('/materials')} />
-          <OperationCard theme={theme} icon="school" label={t('training')} progress={trainingProgress} subtitle={`${remainingModules} ${t('remainingDesc')}`} onPress={() => router.push('/training')} />
-          <OperationCard theme={theme} icon="map-marker-path" label={t('map')} subtitle={t('mapDesc')} onPress={() => router.push('/map')} />
-          <OperationCard theme={theme} icon="certificate" label={t('certs')} progress={1.0} subtitle={t('certsDesc')} onPress={() => router.push('/cert')} />
-          <OperationCard theme={theme} icon="video-check" label={t('tourMonitor')} isLive subtitle={t('monitorDesc')} color={theme.colors.primaryContainer} onPress={() => router.push('/monitor')} />
-          <OperationCard theme={theme} icon="cog" label={t('settings')} subtitle={t('settingsDesc')} onPress={() => router.push('/settings')} />
-        </Animated.View>
-        
-        <View style={{ height: 40 }} />
+        <View style={styles.sectionRow}>
+          <Text variant="titleMedium" style={[styles.sectionHeader, { color: theme.colors.onSurface }]}>
+            {t("guideOperations")}
+          </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            Quick access
+          </Text>
+        </View>
+
+        <View style={styles.grid}>
+          <OperationCard
+            theme={theme}
+            icon="book-open-variant"
+            label={t("materials")}
+            subtitle="Forest resources"
+            progress={0.6}
+            onPress={() => router.push("/materials")}
+          />
+          <OperationCard
+            theme={theme}
+            icon="school"
+            label={t("training")}
+            subtitle={`${remainingModules} remaining`}
+            progress={trainingProgress}
+            onPress={() => router.push("/training")}
+          />
+          <OperationCard
+            theme={theme}
+            icon="certificate"
+            label={t("certs")}
+            subtitle="Verified records"
+            progress={1}
+            onPress={() => router.push("/cert")}
+          />
+          <OperationCard
+            theme={theme}
+            icon="cog"
+            label={t("settings")}
+            subtitle="Preferences"
+            onPress={() => router.push("/settings")}
+          />
+          <OperationCard
+            theme={theme}
+            icon="video-check"
+            label={t("tourMonitor")}
+            subtitle="Live forest monitor"
+            isLive
+            fullWidth
+            onPress={() => router.push("/monitor")}
+          />
+        </View>
+
+        <Surface
+          style={[
+            styles.bottomPanel,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outlineVariant,
+            },
+          ]}
+          elevation={1}
+        >
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
+            Today’s focus
+          </Text>
+          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, lineHeight: 22 }}>
+            Complete your next training module, review guide materials, and check alerts before field deployment.
+          </Text>
+        </Surface>
       </ScrollView>
     </View>
   );
 }
 
-const OperationCard = ({ icon, label, progress, subtitle, color, isLive, theme, onPress }) => (
-  <Surface style={[styles.opCard, { backgroundColor: color || theme.colors.surfaceVariant }]} elevation={2}>
-    <TouchableRipple onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }} style={styles.ripple} borderRadius={32}>
-      <View style={{ flex: 1, justifyContent: 'space-between' }}>
-        <View style={styles.cardTop}>
-          <Avatar.Icon size={44} icon={icon} color="#FFFFFF" style={{ backgroundColor: theme.colors.primary }} />
-          {isLive && <View style={[styles.liveDot, { backgroundColor: theme.colors.error }]} />}
+function StatCard({ theme, label, value, icon }) {
+  return (
+    <Surface
+      style={[
+        styles.statCard,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.outlineVariant,
+        },
+      ]}
+      elevation={1}
+    >
+      <Avatar.Icon
+        size={40}
+        icon={icon}
+        color={theme.colors.tertiary}
+        style={{ backgroundColor: theme.colors.primaryContainer }}
+      />
+      <Text style={[styles.statValue, { color: theme.colors.onSurface }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>{label}</Text>
+    </Surface>
+  );
+}
+
+function OperationCard({ icon, label, progress, subtitle, isLive, fullWidth, onPress, theme }) {
+  return (
+    <Surface
+      style={[
+        styles.opCard,
+        {
+          width: fullWidth ? "100%" : "48%",
+          height: fullWidth ? 148 : 178,
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.outlineVariant,
+        },
+      ]}
+      elevation={2}
+    >
+      <TouchableRipple
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        style={styles.ripple}
+        borderRadius={30}
+      >
+        <View style={{ flex: 1, justifyContent: "space-between" }}>
+          <View style={styles.cardTop}>
+            <Avatar.Icon
+              size={46}
+              icon={icon}
+              color={theme.colors.tertiary}
+              style={{ backgroundColor: theme.colors.primaryContainer }}
+            />
+            {isLive && (
+              <View style={[styles.livePill, { backgroundColor: theme.colors.primaryContainer }]}>
+                <View style={[styles.liveDot, { backgroundColor: theme.colors.tertiary }]} />
+                <Text style={[styles.liveText, { color: theme.colors.tertiary }]}>LIVE</Text>
+              </View>
+            )}
+          </View>
+
+          <View>
+            <Text variant="titleMedium" style={[styles.cardLabel, { color: theme.colors.onSurface }]}>
+              {label}
+            </Text>
+            <Text variant="bodySmall" style={[styles.cardSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+              {subtitle}
+            </Text>
+
+            {progress !== undefined && (
+              <View style={[styles.miniBarContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <View
+                  style={[
+                    styles.miniBarFill,
+                    {
+                      width: `${progress * 100}%`,
+                      backgroundColor: theme.colors.tertiary,
+                    },
+                  ]}
+                />
+              </View>
+            )}
+          </View>
         </View>
-        <View>
-          <Text variant="titleMedium" style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{label}</Text>
-          <Text variant="bodySmall" style={{ opacity: 0.7, color: theme.colors.onSurfaceVariant }}>{subtitle}</Text>
-          {progress !== undefined && (
-            <View style={styles.miniBarContainer}>
-              <View style={[styles.miniBarFill, { width: `${progress * 100}%`, backgroundColor: theme.colors.primary }]} />
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableRipple>
-  </Surface>
-);
+      </TouchableRipple>
+    </Surface>
+  );
+}
 
 const styles = StyleSheet.create({
-  masterContainer: { flex: 1 },
-  center: { justifyContent: 'center', alignItems: 'center' },
+  screen: { flex: 1 },
   container: { flex: 1, paddingHorizontal: 22 },
-  topBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, paddingBottom: 20, paddingHorizontal: 22 },
-  nameText: { fontWeight: '900', marginTop: -5 },
-  mainFeature: { borderRadius: 35, marginBottom: 35, overflow: 'hidden' },
-  cardRipple: { padding: 28 },
-  featureBadge: { backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14, marginBottom: 18 },
-  badgeText: { fontSize: 11, fontWeight: '900', color: '#FFF', letterSpacing: 1.5 },
-  featureTitle: { fontWeight: 'bold', color: '#FFF', fontSize: 28, lineHeight: 34 },
-  progressInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 25, marginBottom: 12 },
-  featureSub: { fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
-  percentText: { fontWeight: '900', fontSize: 26, color: '#FFF' },
-  customBarContainer: { height: 14, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 7, overflow: 'hidden' },
-  customBarFill: { height: '100%', backgroundColor: '#FFFFFF', borderRadius: 7, overflow: 'hidden' },
-  shimmerOverlay: { position: 'absolute', top: 0, width: '80%', height: '100%', backgroundColor: 'rgba(255, 255, 255, 0.4)', transform: [{ skewX: '-25deg' }] },
-  sectionHeader: { marginBottom: 20, fontWeight: '900', letterSpacing: 1.5, fontSize: 12, color: 'gray' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  opCard: { width: '48%', height: 180, borderRadius: 32, marginBottom: 18, overflow: 'hidden' },
-  ripple: { flex: 1, padding: 18 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  liveDot: { width: 12, height: 12, borderRadius: 6 },
-  miniBarContainer: { height: 7, backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 4, marginTop: 10, overflow: 'hidden' },
-  miniBarFill: { height: '100%', borderRadius: 4 }
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 60,
+    paddingBottom: 18,
+    paddingHorizontal: 22,
+  },
+  brandTop: {
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    fontSize: 12,
+  },
+  nameText: {
+    fontWeight: "900",
+    marginTop: -2,
+  },
+  badge: {
+    position: "absolute",
+    top: 10,
+    right: 8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  mainFeature: {
+    borderRadius: 34,
+    marginBottom: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+  cardRipple: {
+    padding: 26,
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  featureTitle: {
+    fontWeight: "900",
+    marginTop: 18,
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  featureSub: {
+    marginTop: 10,
+    lineHeight: 22,
+  },
+  progressMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  metaLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  percentText: {
+    fontWeight: "900",
+    fontSize: 26,
+  },
+  customBarContainer: {
+    height: 14,
+    borderRadius: 7,
+    overflow: "hidden",
+  },
+  customBarFill: {
+    height: "100%",
+    borderRadius: 7,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  statCard: {
+    width: "31%",
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  statValue: {
+    marginTop: 10,
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  statLabel: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  sectionHeader: {
+    fontWeight: "900",
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  opCard: {
+    borderRadius: 30,
+    marginBottom: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+  ripple: {
+    flex: 1,
+    padding: 18,
+  },
+  cardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  cardLabel: {
+    fontWeight: "800",
+  },
+  cardSubtitle: {
+    marginTop: 4,
+  },
+  miniBarContainer: {
+    height: 7,
+    borderRadius: 6,
+    marginTop: 12,
+    overflow: "hidden",
+  },
+  miniBarFill: {
+    height: "100%",
+    borderRadius: 6,
+  },
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  liveText: {
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  bottomPanel: {
+    borderRadius: 26,
+    borderWidth: 1,
+    padding: 18,
+    marginTop: 8,
+  },
 });
