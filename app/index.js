@@ -8,8 +8,10 @@ import {
   clearAuthTokens,
   getAccessToken,
   getRefreshToken,
+  getUserRole,
   setAccessToken,
   setRefreshToken,
+  setUserRole,
 } from "../utils/tokenStorage";
 
 export default function Login() {
@@ -23,18 +25,24 @@ export default function Login() {
   const theme = useTheme();
   const { t } = useTranslation();
 
+  const resolveAdminFlag = (payload) => {
+    const role = String(payload?.role || payload?.user?.user_type || '').trim().toLowerCase();
+    return role === 'admin' || payload?.user?.is_staff || payload?.user?.is_superuser;
+  };
+
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
         const access = await getAccessToken();
         const refresh = await getRefreshToken();
+        const role = String(await getUserRole() || '').trim().toLowerCase();
         if (!access && !refresh) {
           setCheckingAuth(false);
           return;
         }
 
         await api.get("/courses/");
-        router.replace("/home");
+        router.replace(role === "admin" ? "/dashboard" : "/home");
       } catch (err) {
         const isAuthFailure =
           err?.isSessionExpired ||
@@ -64,13 +72,15 @@ export default function Login() {
       });
 
       const { access, refresh } = response.data;
+      const isAdmin = resolveAdminFlag(response.data);
+      const role = isAdmin ? "admin" : "learner";
 
       // Save tokens for future API calls
       await setAccessToken(access);
       await setRefreshToken(refresh);
+      await setUserRole(role);
 
-      // Navigate to Home screen
-      router.replace("/home");
+      router.replace(isAdmin ? "/dashboard" : "/home");
     } catch (err) {
       console.log("Login error:", err.response?.data || err.message);
 

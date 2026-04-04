@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from "r
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
 import { darkTheme, lightTheme } from "../theme/theme";
-import { Appearance, useColorScheme, AppState, Alert } from "react-native";
+import { Appearance, useColorScheme, AppState, Alert, Platform } from "react-native";
 import * as Localization from 'expo-localization';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
@@ -63,26 +63,36 @@ export default function RootLayout() {
     const handleActiveState = async (nextState) => {
       if (nextState !== "active") return;
 
-      const refresh = await getRefreshToken();
-      if (!refresh) return;
+      try {
+        const refresh = await getRefreshToken();
+        if (!refresh) return;
 
-      const ok = await ensureFreshSession();
-      if (ok || sessionAlertShown.current) return;
+        const ok = await ensureFreshSession();
+        if (ok || sessionAlertShown.current) return;
 
-      sessionAlertShown.current = true;
-      Alert.alert(
-        "Session expired",
-        "Your session has expired. Please log in again.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              sessionAlertShown.current = false;
-              router.replace("/");
+        sessionAlertShown.current = true;
+        Alert.alert(
+          "Session expired",
+          "Your session has expired. Please log in again.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                sessionAlertShown.current = false;
+                router.replace("/");
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      } catch (error) {
+        // Suppress errors related to activity not being available
+        if (error?.message?.includes("activity is no longer available")) {
+          console.warn("Activity not available during state transition, retry will occur on next app focus");
+          sessionAlertShown.current = false;
+        } else {
+          console.error("Session check error:", error);
+        }
+      }
     };
 
     const subscription = AppState.addEventListener("change", handleActiveState);

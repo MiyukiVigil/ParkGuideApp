@@ -1,0 +1,9 @@
+{
+  "scheme": "parkguideapp",
+  "android": {
+    "package": "com.miyukivigil.parkguideapp"
+  },
+  "ios": {
+    "bundleIdentifier": "com.miyukivigil.parkguideapp"
+  }
+}
