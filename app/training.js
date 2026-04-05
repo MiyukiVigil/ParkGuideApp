@@ -30,7 +30,7 @@ export default function TrainingModule() {
   const [selectedModule, setSelectedModule] = useState(null);
   
   const [showQuiz, setShowQuiz] = useState(false);
-  const [currentQuiestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [answers, setAnswers] = useState({});
 
@@ -54,13 +54,18 @@ export default function TrainingModule() {
   const getQuizOptions = (quiz) => {
     if (!quiz?.options) return [];
     if (Array.isArray(quiz.options)) return quiz.options;
-    return quiz.options[i18n.language] || quiz.options.en || Object.values(quiz.options)[0] || [];
+    const langOptions = quiz.options[i18n.language];
+    if (Array.isArray(langOptions) && langOptions.length) return langOptions;
+    const enOptions = quiz.options.en;
+    if (Array.isArray(enOptions) && enOptions.length) return enOptions;
+    const first = Object.values(quiz.options).find(arr => Array.isArray(arr) && arr.length);
+    return first || [];
   };
 
   const getModuleQuizzes = (module) => {
     if (!module) return [];
-    if (Array.isArray(module.quizzes)) return module.quizzes;
-    if (module.quiz) return [module.quiz];
+    if (Array.isArray(module.quizzes) && module.quizzes.length) return module.quizzes;
+    if (module.quiz && typeof module.quiz === 'object') return [module.quiz];
     return [];
   };
 
@@ -77,6 +82,12 @@ export default function TrainingModule() {
     if (modules.length === 0) return 0;
     const completedCount = modules.filter(m => completedModules.includes(m.id)).length;
     return completedCount / modules.length;
+  };
+
+  const handleModuleSelect = (module) => {
+    setSelectedModule(module);
+    setCurrentQuestionIndex(0); // reset quiz index
+    setSelectedOptions([]);      // reset selected answers
   };
 
   // --- Data Loading ---
@@ -140,7 +151,7 @@ export default function TrainingModule() {
 
   const handleQuizSubmit = async () => {
     const quizzes = getModuleQuizzes(selectedModule);
-    const currentQuiz = quizzes[currentQuiestionIndex];
+    const currentQuiz = quizzes[currentQuestionIndex];
     const correctValues = getCorrectIndexes(currentQuiz);
     const selectedValues = Array.from(new Set(selectedOptions));
 
@@ -148,8 +159,8 @@ export default function TrainingModule() {
                       selectedValues.every(v => correctValues.includes(v));
 
     if (isCorrect) {
-      if (currentQuiestionIndex < quizzes.length - 1) {
-        setCurrentQuestionIndex(currentQuiestionIndex + 1);
+      if (currentQuestionIndex < quizzes.length - 1) {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
         setSelectedOptions([]);
       } else {
         await handleModuleCompletion();
@@ -224,7 +235,7 @@ export default function TrainingModule() {
               const isLocked = index !== 0 && !completedModules.includes(selectedCourse.modules[index - 1].id);
               return (
                 <Surface key={module.id} style={[styles.moduleTile, { backgroundColor: theme.colors.surfaceVariant }, isLocked && styles.locked]} elevation={0}>
-                  <TouchableRipple disabled={isLocked} onPress={() => setSelectedModule(module)}>
+                  <TouchableRipple disabled={isLocked} onPress={() => handleModuleSelect(module)}>
                     <View style={styles.moduleRow}>
                       <View style={[styles.statusCircle, isCompleted && { backgroundColor: theme.colors.primary }]}>
                         {isCompleted ? <IconButton icon="check" iconColor="white" size={18} /> : <Text style={styles.numberText}>{index + 1}</Text>}
@@ -262,7 +273,7 @@ export default function TrainingModule() {
         <Modal visible={showQuiz} onDismiss={() => setShowQuiz(false)} contentContainerStyle={[styles.modernQuizModal, { backgroundColor: theme.colors.surface }]}>
           {(() => {
             const quizzes = getModuleQuizzes(selectedModule);
-            const currentQuiz = quizzes[currentQuiestionIndex];
+            const currentQuiz = quizzes[currentQuestionIndex];
             if (!currentQuiz) return <Text>No Quiz Found</Text>;
 
             const options = getQuizOptions(currentQuiz);
@@ -272,7 +283,7 @@ export default function TrainingModule() {
             return (
               <View>
                 <Text variant="headlineSmall" style={styles.boldText}>{t("knowledgeCheck")}</Text>
-                <Text style={{ opacity: 0.6 }}>{currentQuiestionIndex + 1}/{quizzes.length}</Text>
+                <Text style={{ opacity: 0.6 }}>{currentQuestionIndex + 1}/{quizzes.length}</Text>
                 <Text style={{ marginVertical: 20 }}>{getLocalizedText(currentQuiz.question, i18n.language)}</Text>
 
                 {options.map((option, index) => {
