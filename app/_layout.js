@@ -11,7 +11,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import { ensureFreshSession } from "../utils/api";
 import { getRefreshToken } from "../utils/tokenStorage";
+import * as NotificationService from "../services/notificationService";
 import { ThemeContext } from "../contexts/ThemeContext";
+import { validateConfig } from "../constants/config";
 
 // Setup Translations
 const supportedLangs = ['en', 'ms', 'zh'];
@@ -37,6 +39,7 @@ export default function RootLayout() {
   const [isDarkMode, setIsDarkMode] = useState(systemScheme === "dark");
   const [uiMode, setUiMode] = useState("pretty");
   const [highContrast, setHighContrast] = useState(false);
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const sessionAlertShown = useRef(false);
   const router = useRouter();
@@ -59,6 +62,17 @@ export default function RootLayout() {
     await AsyncStorage.setItem("appHighContrast", next ? "true" : "false");
   };
 
+  const toggleAnimations = async () => {
+    const next = !animationsEnabled;
+    setAnimationsEnabled(next);
+    await AsyncStorage.setItem("appAnimationsEnabled", next ? "true" : "false");
+  };
+
+  // Validate app configuration on startup
+  useEffect(() => {
+    validateConfig();
+  }, []);
+
   useEffect(() => {
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
       AsyncStorage.getItem("appThemeMode").then((savedTheme) => {
@@ -74,11 +88,12 @@ export default function RootLayout() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [savedLang, savedTheme, savedUiMode, savedHighContrast] = await Promise.all([
+        const [savedLang, savedTheme, savedUiMode, savedHighContrast, savedAnimations] = await Promise.all([
           AsyncStorage.getItem("appLanguage"),
           AsyncStorage.getItem("appThemeMode"),
           AsyncStorage.getItem("appUiMode"),
           AsyncStorage.getItem("appHighContrast"),
+          AsyncStorage.getItem("appAnimationsEnabled"),
         ]);
 
         if (savedLang) {
@@ -97,6 +112,12 @@ export default function RootLayout() {
           setHighContrast(true);
         } else {
           setHighContrast(false);
+        }
+
+        if (savedAnimations === "false") {
+          setAnimationsEnabled(false);
+        } else {
+          setAnimationsEnabled(true);
         }
       } catch (e) {
         console.log("Failed to load settings", e);
@@ -147,6 +168,36 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, [router]);
 
+  // Setup push notifications
+  useEffect(() => {
+    const setupNotifications = async () => {
+      try {
+        // Initialize notification handler
+        NotificationService.setupNotificationHandler();
+
+        // Register for push notifications
+        await NotificationService.registerForPushNotifications();
+
+        // Listen to incoming push notifications
+        const cleanup = NotificationService.listenToPushNotifications((notification) => {
+          console.log("Push notification received:", notification);
+          // You can add logic here to refresh notifications or navigate
+        });
+
+        return cleanup;
+      } catch (err) {
+        console.log("Error setting up notifications:", err);
+      }
+    };
+
+    const cleanup = setupNotifications();
+    return () => {
+      if (cleanup && typeof cleanup === "function") {
+        cleanup();
+      }
+    };
+  }, []);
+
   const theme = useMemo(() => {
     return isDarkMode ? darkTheme : lightTheme;
   }, [isDarkMode]);
@@ -163,6 +214,8 @@ export default function RootLayout() {
         isSimpleMode: uiMode === "simple",
         highContrast,
         toggleHighContrast,
+        animationsEnabled,
+        toggleAnimations,
       }}
     >
       <PaperProvider theme={theme}>

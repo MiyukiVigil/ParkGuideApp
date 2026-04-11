@@ -1,4 +1,5 @@
 import axios from "axios";
+import CONFIG from "../constants/config";
 import {
   clearAuthTokens,
   getAccessToken,
@@ -7,7 +8,15 @@ import {
   setRefreshToken,
 } from "./tokenStorage";
 
-const API_BASE_URL = "http://localhost:8000/api";
+// API_BASE_URL from configuration
+// For development, edit constants/config.js or set EAS environment variables
+const API_BASE_URL = CONFIG.API_BASE_URL;
+
+if (!API_BASE_URL) {
+  console.warn(
+    "⚠️  API_BASE_URL is not configured. Please check constants/config.js or EAS environment variables."
+  );
+}
 const REFRESH_ENDPOINTS = [
   "/accounts/token/refresh/",
   "/token/refresh/",

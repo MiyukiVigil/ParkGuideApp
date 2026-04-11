@@ -7,17 +7,22 @@ import * as Haptics from "expo-haptics";
 import { getCompletedModules } from "../utils/progressSync";
 import { TRAINING_COURSES } from "../constants/courses";
 import ThemedBackground from "../components/ThemedBackground";
+import AnimatedHeaderBackground from "../components/AnimatedHeaderBackground";
+import { useThemeContext } from "../contexts/ThemeContext";
+import CONFIG, { getAvatarUrl } from "../constants/config";
+import * as NotificationService from "../services/notificationService";
 
 export default function Home() {
   const router = useRouter();
   const theme = useTheme();
+  const themeContext = useThemeContext();
   const { width } = useWindowDimensions();
   const { t, i18n } = useTranslation();
 
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [remainingModules, setRemainingModules] = useState(0);
   const [completedModules, setCompletedModules] = useState([]);
-  const [unreadCount] = useState(2);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const heroScale = useRef(new Animated.Value(0.98)).current;
@@ -56,6 +61,33 @@ export default function Home() {
       };
 
       loadTrainingProgress();
+    }, [])
+  );
+
+  // Fetch unread notifications from backend
+  useFocusEffect(
+    useCallback(() => {
+      const loadUnreadCount = async () => {
+        try {
+          const notifications = await NotificationService.fetchNotifications();
+          const unread = notifications.filter((n) => !n.isRead).length;
+          setUnreadCount(unread);
+        } catch (err) {
+          console.log("Failed to load unread count", err);
+        }
+      };
+
+      loadUnreadCount();
+
+      // Listen for real-time notification updates
+      const unsubscribe = NotificationService.onNotificationUpdate((notification) => {
+        // Refresh unread count when a new notification arrives
+        loadUnreadCount();
+      });
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
     }, [])
   );
 
@@ -102,58 +134,94 @@ export default function Home() {
   });
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <ThemedBackground />
-
-      <Animated.View
-        style={[
-          styles.topBar,
-          {
-            opacity: fadeAnim,
-            alignSelf: "center",
-            width: contentWidth,
-          },
-        ]}
-      >
-        <TouchableRipple
-          onPress={() => router.push("/account")}
-          borderRadius={30}
-          style={{ borderRadius: 30 }}
+    <View style={styles.screen}>
+        <ThemedBackground />
+      
+      {/* Fixed Header Container - sticks to top */}
+      <View style={styles.fixedHeaderContainer}>
+        <AnimatedHeaderBackground />
+        <Animated.View
+          style={[
+            styles.topBar,
+            {
+              opacity: fadeAnim,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10,
+            },
+          ]}
         >
-          <Avatar.Image
-            size={54}
-            source={{ uri: "https://api.dicebear.com/7.x/avataaars/png?seed=Miyuki" }}
-          />
-        </TouchableRipple>
+          {/* Transparent header overlay - sits on top of animated header */}
+          <View
+            style={[
+              styles.headerBackground,
+              {
+                backgroundColor: "transparent",
+                width: "100%",
+              },
+            ]}
+          >
+          <TouchableRipple
+            onPress={() => router.push("/account")}
+            borderRadius={30}
+            style={{ borderRadius: 30 }}
+          >
+            <Avatar.Image
+              size={54}
+              source={{
+                uri: getAvatarUrl("Miyuki"),
+              }}
+            />
+          </TouchableRipple>
 
-        <View style={{ flex: 1, marginLeft: 14 }}>
-          <Text style={[styles.brandTop, { color: theme.colors.primary }]}>
-            SARAWAK FORESTRY
-          </Text>
-          <Text variant="headlineSmall" style={[styles.nameText, { color: theme.colors.onSurface }]}>
-            Miyuki Vigil
-          </Text>
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Forest guide operations dashboard
-          </Text>
-        </View>
+          <View style={{ flex: 1, marginLeft: 14 }}>
+            <Text style={[styles.brandTop, { color: theme.colors.primary }]}>
+              SARAWAK FORESTRY
+            </Text>
+            <Text
+              variant="headlineSmall"
+              style={[styles.nameText, { color: theme.colors.onSurface }]}
+            >
+              Miyuki Vigil
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              Forest guide operations dashboard
+            </Text>
+          </View>
 
-        <View>
-          <IconButton
-            icon="bell-badge-outline"
-            iconColor={theme.colors.tertiary}
-            size={28}
-            onPress={() => router.push("/notification")}
-          />
-          {unreadCount > 0 && (
-            <View style={[styles.badge, { backgroundColor: theme.colors.tertiary }]}>
-              <Text style={[styles.badgeText, { color: theme.colors.onTertiary }]}>
-                {unreadCount}
-              </Text>
-            </View>
-          )}
+          <View>
+            <IconButton
+              icon="bell-badge-outline"
+              iconColor={theme.colors.tertiary}
+              size={28}
+              onPress={() => router.push("/notification")}
+            />
+            {unreadCount > 0 && (
+              <View
+                style={[
+                  styles.badge,
+                  { backgroundColor: theme.colors.tertiary },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.badgeText,
+                    { color: theme.colors.onTertiary },
+                  ]}
+                >
+                  {unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </Animated.View>
+      </View>
 
       <ScrollView
         style={[
@@ -161,15 +229,14 @@ export default function Home() {
           {
             alignSelf: "center",
             width: contentWidth,
-            backgroundColor: theme.colors.background,
+            marginTop: 150,
           },
         ]}
         contentContainerStyle={{
           paddingTop: 8,
           paddingBottom: 40,
           flexGrow: 1,
-          backgroundColor: theme.colors.background,
-        }}
+        }}  
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
@@ -429,13 +496,31 @@ function OperationCard({ icon, label, progress, subtitle, isLive, fullWidth, onP
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  container: { flex: 1, paddingHorizontal: 22 },
+  fixedHeaderContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    height: 150,
+    width: "100%",
+  },
+  container: { flex: 1, paddingHorizontal: 22, marginTop: 150 },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
     paddingTop: 60,
+    paddingBottom: 0,
+    paddingHorizontal: 0,
+    width: "100%",
+  },
+  headerBackground: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 0,
     paddingBottom: 18,
     paddingHorizontal: 22,
+    borderRadius: 0,
   },
   brandTop: {
     fontWeight: "900",

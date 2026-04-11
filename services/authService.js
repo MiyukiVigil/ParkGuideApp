@@ -1,12 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import CONFIG from "../constants/config";
 
 const PASSWORD_KEY = "userPassword";
+
+// Default password from configuration
+// For development only - should be changed in production
+const DEFAULT_PASSWORD = CONFIG.DEFAULT_PASSWORD;
+
+if (CONFIG.NODE_ENV === "development") {
+  console.log("ℹ️  Using development password configuration");
+}
 
 export async function ensureMockPassword() {
   try {
     const existing = await AsyncStorage.getItem(PASSWORD_KEY);
     if (!existing) {
-      await AsyncStorage.setItem(PASSWORD_KEY, "12345678");
+      await AsyncStorage.setItem(PASSWORD_KEY, DEFAULT_PASSWORD);
     }
   } catch (error) {
     console.log("ensureMockPassword error:", error);

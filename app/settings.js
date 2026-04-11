@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { View, StyleSheet, Alert, ScrollView } from "react-native";
 import {
   List,
   Switch,
@@ -33,6 +33,8 @@ export default function Settings() {
     isSimpleMode,
     highContrast,
     toggleHighContrast,
+    animationsEnabled,
+    toggleAnimations,
   } = useThemeContext();
 
   const [langMenuVisible, setLangMenuVisible] = useState(false);
@@ -86,8 +88,7 @@ export default function Settings() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <ThemedBackground />
-
+        <ThemedBackground />
       <AppHeader
         title={t("setHeader")}
         subtitle="Preferences and display"
@@ -95,7 +96,7 @@ export default function Settings() {
         showHome
       />
 
-      <View style={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         <Surface
           style={[
             styles.profileCard,
@@ -196,6 +197,22 @@ export default function Settings() {
             titleStyle={{ color: theme.colors.onSurface, fontWeight: "700", fontSize: isSimpleMode || highContrast ? 19 : 16 }}
             descriptionStyle={{ color: theme.colors.onSurfaceVariant, fontSize: isSimpleMode || highContrast ? 15 : 13 }}
             right={() => <Switch value={highContrast} onValueChange={toggleHighContrast} />}
+            style={{ minHeight: isSimpleMode || highContrast ? 72 : undefined }}
+          />
+
+          <List.Item
+            title="Background Animations"
+            description={animationsEnabled ? "Animations enabled" : "Animations disabled"}
+            left={(props) => (
+              <List.Icon
+                {...props}
+                icon="animation-play"
+                color={theme.colors.tertiary}
+              />
+            )}
+            titleStyle={{ color: theme.colors.onSurface, fontWeight: "700", fontSize: isSimpleMode || highContrast ? 19 : 16 }}
+            descriptionStyle={{ color: theme.colors.onSurfaceVariant, fontSize: isSimpleMode || highContrast ? 15 : 13 }}
+            right={() => <Switch value={animationsEnabled} onValueChange={toggleAnimations} />}
             style={{ minHeight: isSimpleMode || highContrast ? 72 : undefined }}
           />
 
@@ -314,14 +331,15 @@ export default function Settings() {
         >
           Secure Logout
         </Button>
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1 },
+  contentContainer: { padding: 20, paddingBottom: 40 },
   profileCard: {
     borderWidth: 1,
     marginBottom: 18,

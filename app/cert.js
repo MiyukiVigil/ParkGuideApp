@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import api from '../utils/api';
+import CONFIG, { getAvatarUrl } from '../constants/config';
 
 export default function Certification() {
   const theme = useTheme();
@@ -142,7 +143,7 @@ export default function Certification() {
         <View style={styles.idContent}>
           <Avatar.Image 
             size={80} 
-            source={{ uri: 'https://api.dicebear.com/7.x/avataaars/png?seed=Miyuki' }} 
+            source={{ uri: getAvatarUrl("Miyuki") }} 
           />
           <View style={styles.idText}>
             <Text 

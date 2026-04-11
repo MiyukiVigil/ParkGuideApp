@@ -8,23 +8,32 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "GOOGLE_MAPS_API_KEY_IOS"
-      }
+        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
+        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "NODE_ENV": "development",
+        "ENABLE_MOCK_AUTH": "true"
+      },
+      "comment": "Development build with internal distribution. Set Google Maps API keys in .env"
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "GOOGLE_MAPS_API_KEY_IOS"
-      }
+        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
+        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "NODE_ENV": "staging",
+        "ENABLE_MOCK_AUTH": "false"
+      },
+      "comment": "Preview build for testing. Use production-like API keys"
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "GOOGLE_MAPS_API_KEY_IOS"
-      }
+        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
+        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "NODE_ENV": "production",
+        "ENABLE_MOCK_AUTH": "false"
+      },
+      "comment": "Production build. IMPORTANT: Use real, restricted API keys for production"
     }
   },
   "submit": {

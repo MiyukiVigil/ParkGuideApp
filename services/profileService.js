@@ -1,12 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import CONFIG from "../constants/config";
 
 const PROFILE_KEY = "userProfile";
 
+// Default user profile from configuration
+// For development/testing only
 const DEFAULT_PROFILE = {
-  name: "Miyuki Vigil",
-  email: "miyuki.vigil@sfc.com",
-  phone: "+60 12-345 6789",
-  role: "Senior Park Guide",
+  name: CONFIG.DEFAULT_USER_NAME,
+  email: CONFIG.DEFAULT_USER_EMAIL,
+  phone: CONFIG.DEFAULT_USER_PHONE,
+  role: CONFIG.DEFAULT_USER_ROLE,
 };
 
 export async function getProfile() {

@@ -9,7 +9,7 @@ export default function Monitor() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <ThemedBackground />
+        <ThemedBackground />
       <AppHeader title="Tour Monitor" subtitle="Live field monitor" showBack showHome />
 
       <View style={styles.container}>

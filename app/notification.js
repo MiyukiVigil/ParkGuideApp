@@ -1,5 +1,5 @@
-import React, { useState, useRef, useMemo, useEffect } from "react";
-import { View, StyleSheet, FlatList, ScrollView, Animated } from "react-native";
+import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
+import { View, StyleSheet, FlatList, ScrollView, Animated, RefreshControl, Alert } from "react-native";
 import {
   Text,
   Surface,
@@ -11,48 +11,23 @@ import {
   Chip,
   SegmentedButtons,
   useTheme,
+  ActivityIndicator,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { useFocusEffect } from "expo-router";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
-
-const NOTIFICATIONS = [
-  {
-    id: "1",
-    title: "New Module Available",
-    description: "Advanced Biodiversity 2.0 is unlocked.",
-    fullText: "Complete the new module within 14 days to maintain guide status.",
-    time: "10 mins ago",
-    type: "updates",
-    isRead: false,
-  },
-  {
-    id: "2",
-    title: "Park Alert",
-    description: "Heavy rain expected in Bako National Park.",
-    fullText: "Flash flood warning: reroute tours immediately.",
-    time: "2 hours ago",
-    type: "alerts",
-    isRead: false,
-  },
-  {
-    id: "3",
-    title: "Certification Approved",
-    description: "Eco-Tourism Ethics certificate is ready.",
-    fullText: "Your certificate is verified. Check the Certs section.",
-    time: "Mar 07, 2026",
-    type: "updates",
-    isRead: true,
-  },
-];
+import * as NotificationService from "../services/notificationService";
 
 export default function Notifications() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
-  const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState(null);
   const [isModalVisible, setModalVisible] = useState(false);
   const [filter, setFilter] = useState("all");
@@ -61,6 +36,42 @@ export default function Notifications() {
   const modalScale = useRef(new Animated.Value(0.94)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
 
+  // Fetch notifications from backend
+  const loadNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await NotificationService.fetchNotifications();
+      setNotifications(data);
+    } catch (err) {
+      console.log("Error loading notifications:", err);
+      Alert.alert("Error", "Failed to load notifications");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  // Focus effect to refresh notifications when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+    }, [loadNotifications])
+  );
+
+  // Listen for real-time push notification updates
+  useEffect(() => {
+    const unsubscribe = NotificationService.onNotificationUpdate(() => {
+      console.log("Notification update received, refreshing list");
+      loadNotifications();
+    });
+    return unsubscribe;
+  }, [loadNotifications]);
+
+  // Animation on mount
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -68,6 +79,13 @@ export default function Notifications() {
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadNotifications();
+    setRefreshing(false);
+  }, [loadNotifications]);
 
   const filteredNotifications = useMemo(() => {
     if (filter === "unread") return notifications.filter((n) => !n.isRead);
@@ -77,11 +95,17 @@ export default function Notifications() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const openModal = (item) => {
+  const openModal = async (item) => {
     setSelected({ ...item, isRead: true });
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
     );
+    
+    // Mark as read on backend
+    if (item.backendId && !item.isRead) {
+      await NotificationService.markNotificationAsRead(item.backendId);
+    }
+    
     setModalVisible(true);
 
     Animated.parallel([
@@ -114,9 +138,25 @@ export default function Notifications() {
     ]).start(() => setModalVisible(false));
   };
 
-  const clearRead = () => setNotifications((prev) => prev.filter((n) => !n.isRead));
-  const markAllRead = () =>
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  const clearRead = async () => {
+    try {
+      await NotificationService.clearReadNotifications();
+      setNotifications((prev) => prev.filter((n) => !n.isRead));
+    } catch (err) {
+      console.log("Error clearing read notifications:", err);
+      Alert.alert("Error", "Failed to clear notifications");
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await NotificationService.markAllNotificationsAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch (err) {
+      console.log("Error marking all read:", err);
+      Alert.alert("Error", "Failed to mark all as read");
+    }
+  };
 
   const getAccent = (item) => {
     if (item.type === "alerts") return theme.colors.error;
@@ -251,39 +291,55 @@ export default function Notifications() {
         />
       </Animated.View>
 
-      <FlatList
-        data={filteredNotifications}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Avatar.Icon
-              icon="check-circle-outline"
-              size={60}
-              style={{ backgroundColor: theme.colors.primaryContainer }}
-              color={theme.colors.primary}
+      {loading && !refreshing ? (
+        <View style={styles.centerLoader}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={{ marginTop: 12, color: theme.colors.onSurfaceVariant }}>
+            Loading notifications...
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredNotifications}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.colors.primary}
             />
-            <Text
-              variant="titleMedium"
-              style={{ color: theme.colors.onSurface, marginTop: 14, fontWeight: "800" }}
-            >
-              All caught up
-            </Text>
-            <Text
-              variant="bodyMedium"
-              style={{
-                color: theme.colors.onSurfaceVariant,
-                marginTop: 6,
-                textAlign: "center",
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Avatar.Icon
+                icon="check-circle-outline"
+                size={60}
+                style={{ backgroundColor: theme.colors.primaryContainer }}
+                color={theme.colors.primary}
+              />
+              <Text
+                variant="titleMedium"
+                style={{ color: theme.colors.onSurface, marginTop: 14, fontWeight: "800" }}
+              >
+                All caught up
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={{
+                  color: theme.colors.onSurfaceVariant,
+                  marginTop: 6,
+                  textAlign: "center",
               }}
             >
               There are no notifications in this view right now.
             </Text>
           </View>
         }
-      />
+        />
+      )}
 
       <Surface
         style={[
@@ -384,6 +440,12 @@ export default function Notifications() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  centerLoader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
   headerWrap: {
     paddingHorizontal: 20,
     paddingBottom: 14,

@@ -3,11 +3,19 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Appbar, Button, Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
+import CONFIG from '../constants/config';
 import { clearAuthTokens, getAccessToken } from '../utils/tokenStorage';
 
-const BACKEND_BASE_URL = 'http://localhost:8000'; // Replace with your actual backend URL
-const DASHBOARD_URL = `${BACKEND_BASE_URL}/dashboard/`;
-const SSO_URL = `${BACKEND_BASE_URL}/dashboard/sso/`;
+// Dashboard URLs from configuration
+const DASHBOARD_BASE_URL = CONFIG.DASHBOARD_BASE_URL;
+const DASHBOARD_URL = CONFIG.DASHBOARD_URL;
+const SSO_URL = CONFIG.SSO_URL;
+
+if (!DASHBOARD_BASE_URL) {
+  console.warn(
+    "⚠️  DASHBOARD_BASE_URL is not configured. Please check constants/config.js or EAS environment variables."
+  );
+}
 
 export default function Dashboard() {
   const theme = useTheme();
