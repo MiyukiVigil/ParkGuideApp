@@ -15,12 +15,12 @@ const CONFIG = {
   EXPO_PROJECT_ID: process.env.EXPO_PROJECT_ID || "50ad8a0d-3529-4b5f-8945-4114823f64f3",
 
   // API Configuration
-  API_BASE_URL: process.env.API_BASE_URL || "http://localhost:8000/api",
+  API_BASE_URL: process.env.API_BASE_URL || "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/api",
 
   // Dashboard URLs
-  DASHBOARD_BASE_URL: process.env.DASHBOARD_BASE_URL || "http://localhost:8000",
-  DASHBOARD_URL: process.env.DASHBOARD_URL || "http://localhost:8000/dashboard/",
-  SSO_URL: process.env.SSO_URL || "http://localhost:8000/dashboard/sso/",
+  DASHBOARD_BASE_URL: process.env.DASHBOARD_BASE_URL || "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net",
+  DASHBOARD_URL: process.env.DASHBOARD_URL || "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/dashboard/",
+  SSO_URL: process.env.SSO_URL || "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/dashboard/sso/",
 
   // Firebase Configuration
   FIREBASE_API_KEY: process.env.FIREBASE_API_KEY || "AIzaSyAobrwBs_E0jWAqH4XXOLZjDaGbx2f48qU",

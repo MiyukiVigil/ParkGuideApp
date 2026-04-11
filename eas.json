@@ -15,7 +15,7 @@
     },
     "preview": {
       "distribution": "internal",
-      "environment": "production",
+      "environment": "staging",
       "env": {
         "NODE_ENV": "staging",
         "ENABLE_MOCK_AUTH": "false"
