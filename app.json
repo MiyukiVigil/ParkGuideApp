@@ -1,7 +1,7 @@
 {
   "name": "ParkGuideApp",
   "displayName": "ParkGuide",
-  "slug": "park-guide-app",
+  "slug": "parkguideapp",
   "scheme": "parkguideapp",
   "version": "1.0.0",
   "orientation": "portrait",
