@@ -1,12 +1,53 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const ACCESS_TOKEN_KEY = 'parkguide_access_token';
 const REFRESH_TOKEN_KEY = 'parkguide_refresh_token';
 const ROLE_KEY = 'parkguide_user_role';
 
+// Helper functions for platform-specific storage
+const getStorage = () => {
+  if (Platform.OS === 'web') {
+    // Web: use localStorage
+    return {
+      getItem: async (key) => {
+        try {
+          return localStorage.getItem(key);
+        } catch (e) {
+          console.error('localStorage getItem error:', e);
+          return null;
+        }
+      },
+      setItem: async (key, value) => {
+        try {
+          localStorage.setItem(key, value);
+        } catch (e) {
+          console.error('localStorage setItem error:', e);
+        }
+      },
+      removeItem: async (key) => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.error('localStorage removeItem error:', e);
+        }
+      },
+    };
+  } else {
+    // Native: use secure storage
+    return {
+      getItem: SecureStore.getItemAsync,
+      setItem: SecureStore.setItemAsync,
+      removeItem: SecureStore.deleteItemAsync,
+    };
+  }
+};
+
+const storage = getStorage();
+
 export const getAccessToken = async () => {
   try {
-    const token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+    const token = await storage.getItem(ACCESS_TOKEN_KEY);
     return token;
   } catch (error) {
     console.error('Error retrieving access token:', error);
@@ -16,7 +57,7 @@ export const getAccessToken = async () => {
 
 export const setAccessToken = async (token) => {
   try {
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
+    await storage.setItem(ACCESS_TOKEN_KEY, token);
   } catch (error) {
     console.error('Error storing access token:', error);
   }
@@ -24,7 +65,7 @@ export const setAccessToken = async (token) => {
 
 export const getRefreshToken = async () => {
   try {
-    const token = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    const token = await storage.getItem(REFRESH_TOKEN_KEY);
     return token;
   } catch (error) {
     console.error('Error retrieving refresh token:', error);
@@ -34,7 +75,7 @@ export const getRefreshToken = async () => {
 
 export const setRefreshToken = async (token) => {
   try {
-    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+    await storage.setItem(REFRESH_TOKEN_KEY, token);
   } catch (error) {
     console.error('Error storing refresh token:', error);
   }
@@ -42,9 +83,9 @@ export const setRefreshToken = async (token) => {
 
 export const clearAuthTokens = async () => {
   try {
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(ROLE_KEY);
+    await storage.removeItem(ACCESS_TOKEN_KEY);
+    await storage.removeItem(REFRESH_TOKEN_KEY);
+    await storage.removeItem(ROLE_KEY);
   } catch (error) {
     console.error('Error clearing auth tokens:', error);
   }
@@ -52,7 +93,7 @@ export const clearAuthTokens = async () => {
 
 export const getUserRole = async () => {
   try {
-    return await SecureStore.getItemAsync(ROLE_KEY);
+    return await storage.getItem(ROLE_KEY);
   } catch (error) {
     console.error('Error retrieving user role:', error);
     return null;
@@ -62,9 +103,9 @@ export const getUserRole = async () => {
 export const setUserRole = async (role) => {
   try {
     if (role) {
-      await SecureStore.setItemAsync(ROLE_KEY, role);
+      await storage.setItem(ROLE_KEY, role);
     } else {
-      await SecureStore.deleteItemAsync(ROLE_KEY);
+      await storage.removeItem(ROLE_KEY);
     }
   } catch (error) {
     console.error('Error storing user role:', error);

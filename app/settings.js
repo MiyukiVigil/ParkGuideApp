@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Alert, ScrollView } from "react-native";
+import { View, StyleSheet, Alert, ScrollView, useWindowDimensions } from "react-native";
 import {
   List,
   Switch,
@@ -25,6 +25,7 @@ export default function Settings() {
   const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
   const {
     isDarkMode,
     toggleTheme,
@@ -41,6 +42,10 @@ export default function Settings() {
   const [fontMenuVisible, setFontMenuVisible] = useState(false);
   const [isTTS, setIsTTS] = useState(false);
   const [fontLabel, setFontLabel] = useState("Standard");
+
+  // Responsive container width for larger screens
+  const containerWidth = width > 1200 ? 800 : "100%";
+  const containerMargin = width > 1200 ? "auto" : 0;
 
   const getLangLabel = () => {
     switch (i18n.language) {
@@ -63,10 +68,14 @@ export default function Settings() {
           text: "Sign Out",
           onPress: async () => {
             try {
+              // Clear all auth data
               await clearAuthTokens();
               await clearProgressData();
-              await AsyncStorage.removeItem("appLanguage");
-              router.replace("/");
+              // Reset navigation stack completely to login
+              router.replace({
+                pathname: "/",
+                params: { logout: "true" }
+              });
             } catch (error) {
               Alert.alert("Error", "Failed to sign out.");
             }
@@ -96,7 +105,10 @@ export default function Settings() {
         showHome
       />
 
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <ScrollView 
+        style={[styles.container, { width: containerWidth, marginLeft: containerMargin, marginRight: containerMargin }]} 
+        contentContainerStyle={styles.contentContainer}
+      >
         <Surface
           style={[
             styles.profileCard,

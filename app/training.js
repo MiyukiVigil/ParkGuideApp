@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from "react";
 import { useRouter } from "expo-router";
-import { ScrollView, View, StyleSheet, Alert, Animated } from "react-native";
+import { ScrollView, View, StyleSheet, Alert, Animated, useWindowDimensions } from "react-native";
 import {
   Text,
   Surface,
@@ -48,11 +48,18 @@ export default function TrainingModule() {
   const [completedModules, setCompletedModules] = useState([]);
 
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const theme = useTheme();
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const authAlertShown = useRef(false);
+
+  // Responsive column count for courses
+  const getNumColumns = () => {
+    if (width >= 1200) return 2;
+    return 1;
+  };
 
   // --- Helpers ---
   const showSessionExpiredAlert = () => {
@@ -232,74 +239,79 @@ export default function TrainingModule() {
               </View>
             </Surface>
 
-            {TRAINING_COURSES.map((course) => {
-              const progress = getCourseProgress(course);
+            {TRAINING_COURSES.length > 0 ? (
+              <View style={[styles.coursesGrid, { width: width - 40 }]}>
+                {TRAINING_COURSES.map((course) => {
+                  const progress = getCourseProgress(course);
 
-              return (
-                <Surface
-                  key={course.id}
-                  style={[
-                    styles.courseCard,
-                    {
-                      backgroundColor: cardBg,
-                      borderColor: theme.colors.outlineVariant,
-                    },
-                  ]}
-                  elevation={2}
-                >
-                  <TouchableRipple onPress={() => setSelectedCourse(course)} borderRadius={28}>
-                    <View style={styles.courseCardInner}>
-                      <View style={styles.courseTop}>
-                        <View style={{ flex: 1 }}>
-                          <Chip
-                            compact
-                            style={{ alignSelf: "flex-start", marginBottom: 14, backgroundColor: chipBg }}
-                            textStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
-                          >
-                            {course.modules.length} modules
-                          </Chip>
+                  return (
+                    <Surface
+                      key={course.id}
+                      style={[
+                        styles.courseCard,
+                        {
+                          backgroundColor: cardBg,
+                          borderColor: theme.colors.outlineVariant,
+                          width: getNumColumns() === 1 ? "100%" : "48%",
+                        },
+                      ]}
+                      elevation={2}
+                    >
+                      <TouchableRipple onPress={() => setSelectedCourse(course)} borderRadius={28}>
+                        <View style={styles.courseCardInner}>
+                          <View style={styles.courseTop}>
+                            <View style={{ flex: 1 }}>
+                              <Chip
+                                compact
+                                style={{ alignSelf: "flex-start", marginBottom: 14, backgroundColor: chipBg }}
+                                textStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
+                              >
+                                {course.modules.length} modules
+                              </Chip>
 
-                          <Text
-                            variant="titleLarge"
-                            style={{ color: theme.colors.onSurface, fontWeight: "900" }}
-                          >
-                            {getLocalizedText(course.title, i18n.language)}
-                          </Text>
+                              <Text
+                                variant="titleLarge"
+                                style={{ color: theme.colors.onSurface, fontWeight: "900" }}
+                              >
+                                {getLocalizedText(course.title, i18n.language)}
+                              </Text>
 
-                          <Text
-                            variant="bodyMedium"
-                            style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
-                          >
-                            Interactive lessons, assessments, and completion tracking.
-                          </Text>
+                              <Text
+                                variant="bodyMedium"
+                                style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
+                              >
+                                Interactive lessons, assessments, and completion tracking.
+                              </Text>
+                            </View>
+
+                            <Avatar.Icon
+                              size={44}
+                              icon="school-outline"
+                              color={theme.colors.tertiary}
+                              style={{ backgroundColor: theme.colors.primaryContainer }}
+                            />
+                          </View>
+
+                          <View style={styles.progressRow}>
+                            <ProgressBar
+                              progress={progress}
+                              color={theme.colors.primary}
+                              style={[
+                                styles.progressBar,
+                                { backgroundColor: theme.colors.surfaceVariant },
+                              ]}
+                            />
+                            <Text style={[styles.percent, { color: theme.colors.tertiary }]}>
+                              {Math.round(progress * 100)}%
+                            </Text>
+                          </View>
                         </View>
-
-                        <Avatar.Icon
-                          size={44}
-                          icon="school-outline"
-                          color={theme.colors.tertiary}
-                          style={{ backgroundColor: theme.colors.primaryContainer }}
-                        />
-                      </View>
-
-                      <View style={styles.progressRow}>
-                        <ProgressBar
-                          progress={progress}
-                          color={theme.colors.primary}
-                          style={[
-                            styles.progressBar,
-                            { backgroundColor: theme.colors.surfaceVariant },
-                          ]}
-                        />
-                        <Text style={[styles.percent, { color: theme.colors.tertiary }]}>
-                          {Math.round(progress * 100)}%
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableRipple>
-                </Surface>
-              );
-            })}
+                      </TouchableRipple>
+                    </Surface>
+                  );
+                })}
+              </View>
+            ) : null}
           </Animated.ScrollView>
         </>
       )}
@@ -658,6 +670,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 16,
     borderWidth: 1,
+  },
+  coursesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   courseCardInner: { padding: 20 },
   courseTop: { flexDirection: "row", alignItems: "flex-start" },

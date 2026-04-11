@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, FlatList, Alert, Platform, Linking, Modal } from "react-native";
+import { View, StyleSheet, FlatList, Alert, Platform, Linking, Modal, useWindowDimensions } from "react-native";
 import {
   Text,
   Surface,
@@ -41,6 +41,14 @@ export default function Materials() {
   const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+
+  // Responsive column count based on screen width
+  const getNumColumns = () => {
+    if (width >= 1200) return 3;
+    if (width >= 800) return 2;
+    return 1;
+  };
 
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
@@ -451,91 +459,96 @@ export default function Materials() {
     );
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableRipple
-      borderRadius={16}
-      onPress={() => handleViewOnline(item)}
-      style={{ marginBottom: 12 }}
-    >
-      <Surface
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.outlineVariant,
-          },
-        ]}
-        elevation={1}
+  const renderItem = ({ item }) => {
+    const numColumns = getNumColumns();
+    const isMultiColumn = numColumns > 1;
+
+    return (
+      <TouchableRipple
+        borderRadius={16}
+        onPress={() => handleViewOnline(item)}
+        style={{ marginBottom: 12, flex: 1 / numColumns }}
       >
-        <View style={styles.cardInner}>
-          <View style={styles.cardLeft}>
-            <Avatar.Icon
-              icon="file-pdf-box"
-              size={40}
-              color={theme.colors.error}
-              style={{ backgroundColor: theme.colors.errorContainer }}
-            />
-          </View>
+        <Surface
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outlineVariant,
+            },
+          ]}
+          elevation={1}
+        >
+          <View style={[styles.cardInner, isMultiColumn && styles.cardInnerVertical]}>
+            <View style={styles.cardLeft}>
+              <Avatar.Icon
+                icon="file-pdf-box"
+                size={40}
+                color={theme.colors.error}
+                style={{ backgroundColor: theme.colors.errorContainer }}
+              />
+            </View>
 
-          <View style={styles.cardMiddle}>
-            <Text
-              style={[styles.cardTitle, { color: theme.colors.onSurface }]}
-              numberOfLines={2}
-            >
-              {item.title}
-            </Text>
-
-            <View style={styles.metaRow}>
-              <Chip
-                compact
-                size="small"
-                style={[styles.categoryChip, { backgroundColor: theme.colors.primaryContainer }]}
-                textStyle={[styles.categoryChipText, { color: theme.colors.onPrimaryContainer }]}
+            <View style={[styles.cardMiddle, isMultiColumn && styles.cardMiddleVertical]}>
+              <Text
+                style={[styles.cardTitle, { color: theme.colors.onSurface }]}
+                numberOfLines={2}
               >
-                {item.category}
-              </Chip>
-              {!!item.uploadedAt && (
-                <Text style={[styles.cardMeta, { color: theme.colors.onSurfaceVariant }]}>
-                  {formatUploadedDate(item.uploadedAt)}
+                {item.title}
+              </Text>
+
+              <View style={styles.metaRow}>
+                <Chip
+                  compact
+                  size="small"
+                  style={[styles.categoryChip, { backgroundColor: theme.colors.primaryContainer }]}
+                  textStyle={[styles.categoryChipText, { color: theme.colors.onPrimaryContainer }]}
+                >
+                  {item.category}
+                </Chip>
+                {!!item.uploadedAt && (
+                  <Text style={[styles.cardMeta, { color: theme.colors.onSurfaceVariant }]}>
+                    {formatUploadedDate(item.uploadedAt)}
+                  </Text>
+                )}
+              </View>
+
+              {!!downloadedFiles[item.id] && (
+                <Text style={[styles.savedLabel, { color: theme.colors.primary }]}>
+                  ✓ Saved locally
                 </Text>
               )}
             </View>
 
-            {!!downloadedFiles[item.id] && (
-              <Text style={[styles.savedLabel, { color: theme.colors.primary }]}>
-                ✓ Saved locally
-              </Text>
-            )}
+            <View style={[styles.cardRight, isMultiColumn && styles.cardRightVertical]}>
+              {!downloadedFiles[item.id] ? (
+                <IconButton
+                  icon="download"
+                  disabled={!!downloadingMap[item.id]}
+                  onPress={(e) => {
+                    e.stopPropagation ? e.stopPropagation() : null;
+                    handleDownload(item);
+                  }}
+                  size={20}
+                  iconColor={theme.colors.primary}
+                />
+              ) : (
+                <IconButton
+                  icon="trash-can"
+                  onPress={(e) => {
+                    e.stopPropagation ? e.stopPropagation() : null;
+                    handleDeleteFile(item);
+                  }}
+                  size={20}
+                  iconColor={theme.colors.error}
+                />
+              )}
+            </View>
           </View>
-
-          <View style={styles.cardRight}>
-            {!downloadedFiles[item.id] ? (
-              <IconButton
-                icon="download"
-                disabled={!!downloadingMap[item.id]}
-                onPress={(e) => {
-                  e.stopPropagation ? e.stopPropagation() : null;
-                  handleDownload(item);
-                }}
-                size={20}
-                iconColor={theme.colors.primary}
-              />
-            ) : (
-              <IconButton
-                icon="trash-can"
-                onPress={(e) => {
-                  e.stopPropagation ? e.stopPropagation() : null;
-                  handleDeleteFile(item);
-                }}
-                size={20}
-                iconColor={theme.colors.error}
-              />
-            )}
-          </View>
-        </View>
-      </Surface>
-    </TouchableRipple>
-  );
+        </Surface>
+      </TouchableRipple>
+    );
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -643,6 +656,8 @@ export default function Materials() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 24, paddingTop: 4 }}
             scrollEnabled={true}
+            numColumns={getNumColumns()}
+            columnWrapperStyle={getNumColumns() > 1 ? { gap: 12 } : undefined}
           />
         )}
       </View>
@@ -695,6 +710,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 12,
   },
+  cardInnerVertical: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+  },
   cardLeft: {
     justifyContent: "center",
   },
@@ -702,9 +721,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  cardMiddleVertical: {
+    width: "100%",
+  },
   cardRight: {
     justifyContent: "center",
     alignItems: "center",
+  },
+  cardRightVertical: {
+    alignSelf: "flex-end",
   },
   cardTitle: {
     fontWeight: "700",

@@ -16,6 +16,7 @@ import api from "../utils/api";
 import { clearAuthTokens, getAccessToken, getRefreshToken, getUserRole, setAccessToken, setRefreshToken, setUserRole } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
 import { getModuleMapping } from "../utils/moduleMapping";
+import * as NotificationService from "../services/notificationService";
 
 export default function Login() {
   const router = useRouter();
@@ -106,6 +107,11 @@ export default function Login() {
       await setAccessToken(access);
       await setRefreshToken(refresh);
       await setUserRole(role);
+
+      // Register for push notifications now that user is authenticated
+      NotificationService.registerForPushNotifications().catch(err => 
+        console.log("Push notification registration failed (non-critical):", err.message)
+      );
 
       // Build module ID mapping from backend courses
       getModuleMapping().catch(err => console.log('Module mapping build failed (non-critical):', err.message));
