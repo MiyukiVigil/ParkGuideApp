@@ -205,3 +205,34 @@ export const getUnreadCount = async () => {
     return 0;
   }
 };
+
+/**
+ * Unregister push notifications and remove token from backend
+ * Call this during logout to prevent old tokens from receiving notifications
+ */
+export const unregisterPushNotifications = async () => {
+  try {
+    // Get the stored token
+    const token = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
+    
+    if (!token) {
+      console.log("No push notification token found to unregister");
+      return;
+    }
+
+    // Send unregister request to backend
+    try {
+      const response = await api.post("/notifications/push-tokens/unregister/", { token });
+      console.log("Push token unregistered from backend:", response.data);
+    } catch (err) {
+      console.log("Failed to unregister push token from backend:", err.message);
+      // Continue with local cleanup even if backend request fails
+    }
+
+    // Clear token from local storage
+    await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
+    console.log("Push notification token cleared from local storage");
+  } catch (err) {
+    console.log("Failed to unregister push notifications:", err);
+  }
+};
