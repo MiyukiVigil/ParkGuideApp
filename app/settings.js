@@ -20,7 +20,6 @@ import ThemedBackground from "../components/ThemedBackground";
 import { useThemeContext } from "../contexts/ThemeContext";
 import { clearAuthTokens } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
-import { unregisterPushNotifications } from "../services/notificationService";
 
 export default function Settings() {
   const theme = useTheme();
@@ -69,8 +68,6 @@ export default function Settings() {
           text: "Sign Out",
           onPress: async () => {
             try {
-              // Unregister push notifications first
-              await unregisterPushNotifications();
               // Clear all auth data
               await clearAuthTokens();
               await clearProgressData();

@@ -19,7 +19,6 @@ import { getProfile, updateProfile } from "../services/profileService";
 import { ensureMockPassword, changePassword } from "../services/authService";
 import { clearAuthTokens } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
-import { unregisterPushNotifications } from "../services/notificationService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function AccountScreen() {
@@ -125,8 +124,6 @@ export default function AccountScreen() {
           text: "Sign Out",
           onPress: async () => {
             try {
-              // Unregister push notifications first
-              await unregisterPushNotifications();
               await clearAuthTokens();
               await clearProgressData();
               router.replace("/");
