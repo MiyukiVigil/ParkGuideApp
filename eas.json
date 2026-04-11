@@ -8,32 +8,56 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "API_BASE_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/api",
+        "DASHBOARD_BASE_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net",
+        "DASHBOARD_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/dashboard/",
+        "SSO_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/dashboard/sso/",
+        "FIREBASE_API_KEY": "AIzaSyAobrwBs_E0jWAqH4XXOLZjDaGbx2f48qU",
+        "FIREBASE_PROJECT_ID": "parkguideapp-c8517",
+        "FIREBASE_PROJECT_NUMBER": "408905223058",
+        "FIREBASE_STORAGE_BUCKET": "parkguideapp-c8517.firebasestorage.app",
+        "FIREBASE_ANDROID_APP_ID": "1:408905223058:android:940cbaf67ff9ff6c384f4b",
+        "AVATAR_API_URL": "https://api.dicebear.com/7.x/avataaars/png",
         "NODE_ENV": "development",
-        "ENABLE_MOCK_AUTH": "true"
-      },
-      "comment": "Development build with internal distribution. Set Google Maps API keys in .env"
+        "ENABLE_MOCK_AUTH": "true",
+        "ENABLE_NOTIFICATIONS": "true"
+      }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "API_BASE_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/api",
+        "DASHBOARD_BASE_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net",
+        "DASHBOARD_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/dashboard/",
+        "SSO_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/dashboard/sso/",
+        "FIREBASE_API_KEY": "AIzaSyAobrwBs_E0jWAqH4XXOLZjDaGbx2f48qU",
+        "FIREBASE_PROJECT_ID": "parkguideapp-c8517",
+        "FIREBASE_PROJECT_NUMBER": "408905223058",
+        "FIREBASE_STORAGE_BUCKET": "parkguideapp-c8517.firebasestorage.app",
+        "FIREBASE_ANDROID_APP_ID": "1:408905223058:android:940cbaf67ff9ff6c384f4b",
+        "AVATAR_API_URL": "https://api.dicebear.com/7.x/avataaars/png",
         "NODE_ENV": "staging",
-        "ENABLE_MOCK_AUTH": "false"
-      },
-      "comment": "Preview build for testing. Use production-like API keys"
+        "ENABLE_MOCK_AUTH": "false",
+        "ENABLE_NOTIFICATIONS": "true"
+      }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "API_BASE_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/api",
+        "DASHBOARD_BASE_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net",
+        "DASHBOARD_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/dashboard/",
+        "SSO_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/dashboard/sso/",
+        "FIREBASE_API_KEY": "AIzaSyAobrwBs_E0jWAqH4XXOLZjDaGbx2f48qU",
+        "FIREBASE_PROJECT_ID": "parkguideapp-c8517",
+        "FIREBASE_PROJECT_NUMBER": "408905223058",
+        "FIREBASE_STORAGE_BUCKET": "parkguideapp-c8517.firebasestorage.app",
+        "FIREBASE_ANDROID_APP_ID": "1:408905223058:android:940cbaf67ff9ff6c384f4b",
+        "AVATAR_API_URL": "https://api.dicebear.com/7.x/avataaars/png",
         "NODE_ENV": "production",
-        "ENABLE_MOCK_AUTH": "false"
-      },
-      "comment": "Production build. IMPORTANT: Use real, restricted API keys for production"
+        "ENABLE_MOCK_AUTH": "false",
+        "ENABLE_NOTIFICATIONS": "true"
+      }
     }
   },
   "submit": {
