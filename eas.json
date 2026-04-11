@@ -43,6 +43,10 @@
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
+      "android": {
+        "googleServicesFile": "$GOOGLE_SERVICES_JSON"
+      },
       "env": {
         "API_BASE_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net/api",
         "DASHBOARD_BASE_URL": "https://sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net",
