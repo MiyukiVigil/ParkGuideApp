@@ -1,19 +1,27 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { ScrollView, View, StyleSheet, Alert, Animated, Dimensions } from 'react-native';
-import { 
-  Text, Surface, TouchableRipple, useTheme, IconButton, 
-  ProgressBar, Portal, Modal, Button, RadioButton, Checkbox,
-  ActivityIndicator 
-} from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Haptics from 'expo-haptics';
-
-import api from '../utils/api';
-
-const { width } = Dimensions.get('window');
+import React, { useState, useCallback, useRef } from "react";
+import { ScrollView, View, StyleSheet, Alert, Animated } from "react-native";
+import {
+  Text,
+  Surface,
+  TouchableRipple,
+  useTheme,
+  IconButton,
+  ProgressBar,
+  Portal,
+  Modal,
+  Button,
+  RadioButton,
+  Chip,
+  Avatar,
+} from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
+import { useTranslation } from "react-i18next";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
+import { TRAINING_COURSES } from "../constants/courses";
+import AppHeader from "../components/AppHeader";
+import ThemedBackground from "../components/ThemedBackground";
 
 const getLocalizedText = (textObj, lang) => {
   if (!textObj) return "";
@@ -22,10 +30,8 @@ const getLocalizedText = (textObj, lang) => {
 };
 
 export default function TrainingModule() {
-  // --- States ---
-  const [loading, setLoading] = useState(true);
-  const [courses, setCourses] = useState([]);
-  const [completedModules, setCompletedModules] = useState([]);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [checked, setChecked] = useState("");
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedModule, setSelectedModule] = useState(null);
   
@@ -37,8 +43,6 @@ export default function TrainingModule() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { t, i18n } = useTranslation();
-  const router = useRouter();
-
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const authAlertShown = useRef(false);
 
@@ -93,54 +97,36 @@ export default function TrainingModule() {
   // --- Data Loading ---
   useFocusEffect(
     useCallback(() => {
-      const loadContent = async () => {
-        setLoading(true);
+      const loadProgress = async () => {
         try {
-          // 1. Load cached progress
           const stored = await AsyncStorage.getItem("completedModules");
           if (stored) setCompletedModules(JSON.parse(stored));
-
-          // 2. Parallel fetch from Neon/Django
-          const [progressRes, coursesRes] = await Promise.all([
-            api.get("/progress/"),
-            api.get("/courses/")
-          ]);
-
-          const serverModules = (progressRes.data || []).map(e => e.module || e).filter(id => id != null);
-          const courseData = Array.isArray(coursesRes.data) ? coursesRes.data : [];
-
-          setCompletedModules(serverModules);
-          setCourses(courseData);
-
-          // Update Cache
-          await AsyncStorage.setItem("completedModules", JSON.stringify(serverModules));
-
-          // Fade in UI
-          Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 350,
+            useNativeDriver: true,
+          }).start();
         } catch (err) {
-          if (err.response?.status === 401 || err.response?.status === 403) {
-            showSessionExpiredAlert();
-          }
-          console.log("Load Error:", err.message);
-        } finally {
-          setLoading(false);
+          console.log("Failed to load progress", err);
         }
       };
-
-      loadContent();
-    }, [])
+      loadProgress();
+    }, [fadeAnim])
   );
 
-  // --- Actions ---
-  const handleModuleCompletion = async () => {
-    try {
+  const getCourseProgress = (course) => {
+    const completedCount = course.modules.filter((m) => completedModules.includes(m.id)).length;
+    return completedCount / course.modules.length;
+  };
+
+  const handleQuizSubmit = async () => {
+    const correctValue = String(selectedModule.quiz.correctIndex);
+
+    if (checked === correctValue) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await api.post("/complete-module/", { module_id: selectedModule.id });
-
-      const updated = Array.from(new Set([...completedModules, selectedModule.id]));
-      setCompletedModules(updated);
-      await AsyncStorage.setItem("completedModules", JSON.stringify(updated));
-
+      const updatedModules = Array.from(new Set([...completedModules, selectedModule.id]));
+      setCompletedModules(updatedModules);
+      await AsyncStorage.setItem("completedModules", JSON.stringify(updatedModules));
       setShowQuiz(false);
       Alert.alert(t("success"), t("moduleCompleted"));
       setSelectedModule(null);
@@ -169,106 +155,315 @@ export default function TrainingModule() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(t("incorrect"), t("reviewContent"));
     }
+
+    setChecked("");
   };
 
-  // --- Render Logic ---
-
-  if (loading) {
-    return (
-      <View style={[styles.master, styles.center, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator animating={true} color={theme.colors.primary} size="large" />
-        <Text style={styles.loadingText}>{t("loading") || "Fetching Course Content..."}</Text>
-      </View>
-    );
-  }
+  const totalModules = TRAINING_COURSES.reduce((sum, c) => sum + c.modules.length, 0);
+  const overallProgress = totalModules === 0 ? 0 : completedModules.length / totalModules;
+  const cardBg = theme.dark ? "rgba(16,38,28,0.96)" : "rgba(255,255,255,0.84)";
+  const chipBg = theme.dark ? "rgba(127,169,138,0.16)" : "rgba(47,125,98,0.10)";
 
   return (
     <View style={[styles.master, { backgroundColor: theme.colors.background }]}>
-      
-      {/* 1. COURSE LIST VIEW */}
-      {!selectedCourse && (
-        <Animated.ScrollView 
-          style={[styles.container, { opacity: fadeAnim }]}
-          contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }}
-        >
-          <Text variant="headlineMedium" style={[styles.boldText, { marginBottom: 25 }]}>
-            {t("TrainingModules")}
-          </Text>
+      <ThemedBackground />
 
-          {courses.map((course) => {
-            const progress = getCourseProgress(course);
-            return (
-              <Surface key={course.id} style={[styles.flatCard, { backgroundColor: theme.colors.surfaceVariant }]} elevation={0}>
-                <TouchableRipple onPress={() => setSelectedCourse(course)} borderRadius={32}>
-                  <View style={styles.cardInternal}>
-                    <View style={styles.cardHeader}>
-                      <View style={{ flex: 1 }}>
-                        <Text variant="titleLarge" style={styles.boldText}>{getLocalizedText(course.title, i18n.language)}</Text>
-                        <Text variant="labelLarge" style={{ color: theme.colors.primary }}>{course.modules.length} {t("modulesCount")}</Text>
+      {!selectedCourse && (
+        <>
+          <AppHeader
+            title={t("TrainingModules")}
+            subtitle="Forest learning hub"
+            showBack
+            showHome
+          />
+
+          <Animated.ScrollView
+            style={{ opacity: fadeAnim }}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingBottom: insets.bottom + 30,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Surface
+              style={[
+                styles.heroCard,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+              elevation={2}
+            >
+              <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
+                Training Overview
+              </Text>
+              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
+                Learn flexibly, track progress, and unlock new guide skills.
+              </Text>
+
+              <View style={styles.heroStats}>
+                <View style={styles.heroStatBlock}>
+                  <Text style={[styles.heroStatValue, { color: theme.colors.tertiary }]}>
+                    {completedModules.length}
+                  </Text>
+                  <Text style={{ color: theme.colors.onSurfaceVariant }}>Completed modules</Text>
+                </View>
+                <View style={styles.heroStatBlock}>
+                  <Text style={[styles.heroStatValue, { color: theme.colors.tertiary }]}>
+                    {Math.round(overallProgress * 100)}%
+                  </Text>
+                  <Text style={{ color: theme.colors.onSurfaceVariant }}>Overall progress</Text>
+                </View>
+              </View>
+            </Surface>
+
+            {TRAINING_COURSES.map((course) => {
+              const progress = getCourseProgress(course);
+
+              return (
+                <Surface
+                  key={course.id}
+                  style={[
+                    styles.courseCard,
+                    {
+                      backgroundColor: cardBg,
+                      borderColor: theme.colors.outlineVariant,
+                    },
+                  ]}
+                  elevation={2}
+                >
+                  <TouchableRipple onPress={() => setSelectedCourse(course)} borderRadius={28}>
+                    <View style={styles.courseCardInner}>
+                      <View style={styles.courseTop}>
+                        <View style={{ flex: 1 }}>
+                          <Chip
+                            compact
+                            style={{ alignSelf: "flex-start", marginBottom: 14, backgroundColor: chipBg }}
+                            textStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
+                          >
+                            {course.modules.length} modules
+                          </Chip>
+
+                          <Text
+                            variant="titleLarge"
+                            style={{ color: theme.colors.onSurface, fontWeight: "900" }}
+                          >
+                            {getLocalizedText(course.title, i18n.language)}
+                          </Text>
+
+                          <Text
+                            variant="bodyMedium"
+                            style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
+                          >
+                            Interactive lessons, assessments, and completion tracking.
+                          </Text>
+                        </View>
+
+                        <Avatar.Icon
+                          size={44}
+                          icon="school-outline"
+                          color={theme.colors.tertiary}
+                          style={{ backgroundColor: theme.colors.primaryContainer }}
+                        />
                       </View>
-                      <IconButton icon="arrow-right-drop-circle" iconColor={theme.colors.primary} size={32} />
-                    </View>
-                    <View style={styles.progressSection}>
-                      <View style={styles.barWrapper}>
-                        <ProgressBar progress={progress} color={theme.colors.primary} style={styles.mainBar} />
+
+                      <View style={styles.progressRow}>
+                        <ProgressBar
+                          progress={progress}
+                          color={theme.colors.primary}
+                          style={[
+                            styles.progressBar,
+                            { backgroundColor: theme.colors.surfaceVariant },
+                          ]}
+                        />
+                        <Text style={[styles.percent, { color: theme.colors.tertiary }]}>
+                          {Math.round(progress * 100)}%
+                        </Text>
                       </View>
-                      <Text variant="labelLarge" style={styles.progressLabel}>{Math.round(progress * 100)}%</Text>
                     </View>
-                  </View>
-                </TouchableRipple>
-              </Surface>
-            );
-          })}
-        </Animated.ScrollView>
+                  </TouchableRipple>
+                </Surface>
+              );
+            })}
+          </Animated.ScrollView>
+        </>
       )}
 
-      {/* 2. MODULE LIST VIEW */}
       {selectedCourse && !selectedModule && (
-        <View style={[styles.flexOne, { paddingTop: insets.top }]}>
-          <View style={styles.navHeader}>
-            <IconButton icon="chevron-left" iconColor={theme.colors.primary} onPress={() => setSelectedCourse(null)} />
-            <Text variant="titleLarge" style={styles.boldText}>{getLocalizedText(selectedCourse.title, i18n.language)}</Text>
-          </View>
-          <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+        <>
+          <AppHeader
+            title={getLocalizedText(selectedCourse.title, i18n.language)}
+            subtitle="Course modules"
+            showBack
+            showHome
+          />
+
+          <ScrollView
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingBottom: insets.bottom + 24,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Surface
+              style={[
+                styles.summaryCard,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+              elevation={1}
+            >
+              <Text style={{ color: theme.colors.onSurface, fontWeight: "900", fontSize: 18 }}>
+                Course Summary
+              </Text>
+              <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
+                Complete modules in order to unlock the next lesson and keep your guide training up to date.
+              </Text>
+            </Surface>
+
             {selectedCourse.modules.map((module, index) => {
               const isCompleted = completedModules.includes(module.id);
-              const isLocked = index !== 0 && !completedModules.includes(selectedCourse.modules[index - 1].id);
+              const isLocked =
+                index !== 0 && !completedModules.includes(selectedCourse.modules[index - 1].id);
+
               return (
                 <Surface key={module.id} style={[styles.moduleTile, { backgroundColor: theme.colors.surfaceVariant }, isLocked && styles.locked]} elevation={0}>
                   <TouchableRipple disabled={isLocked} onPress={() => handleModuleSelect(module)}>
                     <View style={styles.moduleRow}>
-                      <View style={[styles.statusCircle, isCompleted && { backgroundColor: theme.colors.primary }]}>
-                        {isCompleted ? <IconButton icon="check" iconColor="white" size={18} /> : <Text style={styles.numberText}>{index + 1}</Text>}
+                      <View
+                        style={[
+                          styles.moduleBadge,
+                          {
+                            backgroundColor: isCompleted
+                              ? theme.colors.primary
+                              : theme.colors.surfaceVariant,
+                          },
+                        ]}
+                      >
+                        {isCompleted ? (
+                          <IconButton icon="check" size={18} iconColor={theme.colors.onPrimary} />
+                        ) : (
+                          <Text style={{ fontWeight: "900", color: theme.colors.onSurface }}>
+                            {index + 1}
+                          </Text>
+                        )}
                       </View>
-                      <Text variant="titleMedium" style={[styles.boldText, { marginLeft: 16 }]}>{getLocalizedText(module.title, i18n.language)}</Text>
+
+                      <View style={{ flex: 1, marginLeft: 16 }}>
+                        <Text
+                          variant="titleMedium"
+                          style={{ color: theme.colors.onSurface, fontWeight: "800" }}
+                        >
+                          {getLocalizedText(module.title, i18n.language)}
+                        </Text>
+                        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                          {isCompleted ? t("completed") : isLocked ? t("locked") : t("available")}
+                        </Text>
+                      </View>
+
+                      <IconButton
+                        icon={isLocked ? "lock-outline" : "play-circle-outline"}
+                        iconColor={isLocked ? theme.colors.onSurfaceVariant : theme.colors.tertiary}
+                      />
                     </View>
                   </TouchableRipple>
                 </Surface>
               );
             })}
           </ScrollView>
-        </View>
+        </>
       )}
 
-      {/* 3. MODULE CONTENT VIEW */}
       {selectedModule && (
-        <View style={[styles.flexOne, { paddingTop: insets.top }]}>
-          <View style={styles.navHeader}>
-            <IconButton icon="chevron-left" iconColor={theme.colors.primary} onPress={() => setSelectedModule(null)} />
-            <Text variant="titleLarge" style={styles.boldText}>{getLocalizedText(selectedModule.title, i18n.language)}</Text>
-          </View>
-          <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-            <Surface style={[styles.flatCard, { backgroundColor: theme.colors.surfaceVariant, padding: 20 }]} elevation={0}>
-              <Text>{getLocalizedText(selectedModule.content, i18n.language)}</Text>
-              {getModuleQuizzes(selectedModule).length > 0 && (
-                <Button mode="contained" style={styles.startQuizButton} onPress={() => setShowQuiz(true)}>Start Quiz</Button>
-              )}
+        <>
+          <AppHeader
+            title={getLocalizedText(selectedModule.title, i18n.language)}
+            subtitle={`Module ${selectedModule.id}`}
+            showBack
+            showHome
+          />
+
+          <ScrollView
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingBottom: insets.bottom + 120,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Surface
+              style={[
+                styles.videoCard,
+                {
+                  backgroundColor: cardBg,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+              elevation={2}
+            >
+              <View style={styles.videoCenter}>
+                <View
+                  style={[
+                    styles.playCircle,
+                    { backgroundColor: theme.colors.primaryContainer },
+                  ]}
+                >
+                  <IconButton icon="play" size={34} iconColor={theme.colors.tertiary} />
+                </View>
+                <Text
+                  variant="titleMedium"
+                  style={{ color: theme.colors.onSurface, fontWeight: "900", marginTop: 10 }}
+                >
+                  {getLocalizedText(selectedModule.videoLabel, i18n.language)}
+                </Text>
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 6 }}>
+                  Tap to start module media
+                </Text>
+              </View>
             </Surface>
+
+            <Surface
+              style={[
+                styles.contentCard,
+                {
+                  backgroundColor: cardBg,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+              elevation={1}
+            >
+              <Text
+                variant="titleLarge"
+                style={{ color: theme.colors.onSurface, fontWeight: "900" }}
+              >
+                {getLocalizedText(selectedModule.contentTitle, i18n.language)}
+              </Text>
+              <Text
+                variant="bodyLarge"
+                style={[styles.contentText, { color: theme.colors.onSurface }]}
+              >
+                {getLocalizedText(selectedModule.content, i18n.language)}
+              </Text>
+            </Surface>
+
+            <Button
+              mode="contained"
+              onPress={() => setShowQuiz(true)}
+              style={styles.assessmentButton}
+              contentStyle={{ height: 56 }}
+              buttonColor={theme.colors.primary}
+              textColor={theme.colors.onPrimary}
+            >
+              {completedModules.includes(selectedModule.id)
+                ? t("retakeAssessment")
+                : t("takeModuleQuiz")}
+            </Button>
           </ScrollView>
-        </View>
+        </>
       )}
 
-      {/* QUIZ MODAL */}
       <Portal>
         <Modal visible={showQuiz} onDismiss={() => setShowQuiz(false)} contentContainerStyle={[styles.modernQuizModal, { backgroundColor: theme.colors.surface }]}>
           {(() => {
@@ -305,12 +500,51 @@ export default function TrainingModule() {
                   );
                 })}
 
-                <Button mode="contained" onPress={handleQuizSubmit} disabled={selectedOptions.length === 0} style={{ marginTop: 20 }}>
-                  {t("submitAssessment")}
-                </Button>
-              </View>
-            );
-          })()}
+          <Text variant="titleMedium" style={[styles.question, { color: theme.colors.onSurface }]}>
+            {getLocalizedText(selectedModule?.quiz.question, i18n.language)}
+          </Text>
+
+          <RadioButton.Group onValueChange={(val) => setChecked(val)} value={checked}>
+            {selectedModule?.quiz.options[i18n.language].map((option, index) => (
+              <Surface
+                key={index}
+                style={[
+                  styles.optionCard,
+                  {
+                    backgroundColor:
+                      checked === String(index)
+                        ? theme.colors.primaryContainer
+                        : theme.colors.surfaceVariant,
+                    borderColor:
+                      checked === String(index)
+                        ? theme.colors.primary
+                        : "transparent",
+                  },
+                ]}
+                elevation={0}
+              >
+                <TouchableRipple onPress={() => setChecked(String(index))} borderRadius={16}>
+                  <View style={styles.optionRow}>
+                    <RadioButton value={String(index)} color={theme.colors.primary} />
+                    <Text style={{ flex: 1, color: theme.colors.onSurface, fontWeight: "600" }}>
+                      {option}
+                    </Text>
+                  </View>
+                </TouchableRipple>
+              </Surface>
+            ))}
+          </RadioButton.Group>
+
+          <Button
+            mode="contained"
+            onPress={handleQuizSubmit}
+            disabled={!checked}
+            style={styles.submitBtn}
+            buttonColor={theme.colors.primary}
+            textColor={theme.colors.onPrimary}
+          >
+            {t("submitAssessment")}
+          </Button>
         </Modal>
       </Portal>
     </View>
@@ -319,25 +553,115 @@ export default function TrainingModule() {
 
 const styles = StyleSheet.create({
   master: { flex: 1 },
-  flexOne: { flex: 1 },
-  center: { justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, paddingHorizontal: 22 },
-  boldText: { fontWeight: '900' },
-  loadingText: { marginTop: 15, opacity: 0.6, fontWeight: '600' },
-  flatCard: { borderRadius: 32, marginBottom: 18 },
-  cardInternal: { padding: 26 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  progressSection: { flexDirection: 'row', alignItems: 'center' },
-  barWrapper: { flex: 1, height: 12, borderRadius: 6, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.05)' },
-  mainBar: { height: 12 },
-  progressLabel: { marginLeft: 15, fontWeight: '900' },
-  navHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  moduleTile: { borderRadius: 24, marginBottom: 14 },
-  moduleRow: { flexDirection: 'row', alignItems: 'center', padding: 18 },
-  statusCircle: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.05)' },
-  numberText: { fontWeight: '900', fontSize: 16 },
-  locked: { opacity: 0.35 },
-  modernQuizModal: { padding: 28, margin: 20, borderRadius: 38 },
-  optionContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  startQuizButton: { marginTop: 20 }
+  heroCard: {
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 20,
+    marginBottom: 18,
+  },
+  heroStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 18,
+  },
+  heroStatBlock: {
+    flex: 1,
+  },
+  heroStatValue: {
+    fontSize: 28,
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+  courseCard: {
+    borderRadius: 28,
+    overflow: "hidden",
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  courseCardInner: { padding: 20 },
+  courseTop: { flexDirection: "row", alignItems: "flex-start" },
+  progressRow: { flexDirection: "row", alignItems: "center", marginTop: 18 },
+  progressBar: { flex: 1, height: 12, borderRadius: 10 },
+  percent: { marginLeft: 12, fontWeight: "900", minWidth: 46, textAlign: "right" },
+  summaryCard: {
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  moduleCard: {
+    borderRadius: 22,
+    overflow: "hidden",
+    marginBottom: 14,
+    borderWidth: 1,
+  },
+  moduleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+  },
+  moduleBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoCard: {
+    borderRadius: 28,
+    padding: 18,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  videoCenter: {
+    height: 220,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  playCircle: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  contentCard: {
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+  },
+  contentText: {
+    lineHeight: 28,
+    marginTop: 14,
+    opacity: 0.92,
+  },
+  assessmentButton: {
+    marginTop: 22,
+    borderRadius: 18,
+  },
+  quizModal: {
+    margin: 18,
+    borderRadius: 28,
+    padding: 24,
+  },
+  question: {
+    marginTop: 18,
+    marginBottom: 18,
+    lineHeight: 28,
+  },
+  optionCard: {
+    borderRadius: 16,
+    marginBottom: 12,
+    overflow: "hidden",
+    borderWidth: 1.5,
+  },
+  optionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+  },
+  submitBtn: {
+    marginTop: 18,
+    borderRadius: 16,
+  },
 });

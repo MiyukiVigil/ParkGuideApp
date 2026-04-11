@@ -1,92 +1,47 @@
-// Theming got small problem but I lazy to fix yet - Ivan
+import React from "react";
+import { View, StyleSheet } from "react-native";
+import { Text, Surface, useTheme } from "react-native-paper";
+import AppHeader from "../components/AppHeader";
+import ThemedBackground from "../components/ThemedBackground";
 
-import React, { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Text, IconButton, Banner, useTheme } from 'react-native-paper';
-
-export default function IoTMonitor() {
+export default function Monitor() {
   const theme = useTheme();
-  const [permission, requestPermission] = useCameraPermissions();
-  const [isAlertVisible, setAlertVisible] = useState(false);
-
-  if (!permission) return <View />;
-  if (!permission.granted) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: theme.colors.onBackground, marginBottom: 10 }}>
-          We need permission to show the camera
-        </Text>
-        <TouchableOpacity onPress={requestPermission}>
-          <Text style={{ color: theme.colors.primary }}>Grant Permission</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   return (
-    <View style={styles.container}>
-      {/* Real-time Alert Banner */}
-      <Banner
-        visible={isAlertVisible}
-        actions={[{ label: 'Clear Alert', onPress: () => setAlertVisible(false) }]}
-        icon="alert-decagram"
-        style={{ backgroundColor: theme.colors.errorContainer }}
-        theme={{ colors: { text: theme.colors.onErrorContainer } }}
-      >
-        AI DETECTED: Potential Regulation Violation (Handling Wildlife). Alert sent to Ranger HQ.
-      </Banner>
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <ThemedBackground />
+      <AppHeader title="Tour Monitor" subtitle="Live field monitor" showBack showHome />
 
-      <CameraView style={styles.camera} facing="back">
-        <View style={styles.overlay}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.liveTag, { color: theme.colors.error }]}>● LIVE - ENCRYPTED</Text>
-            <Text style={[styles.telemetry, { color: theme.colors.onSurface }]}>
-              GPS: 1.553° N, 110.359° E
-            </Text>
-          </View>
-
-          {/* Mock AI Detection Box */}
-          <TouchableOpacity 
-            style={[styles.detectionBox, { borderColor: theme.colors.primary }]} 
-            onPress={() => setAlertVisible(true)}
-          >
-            <Text style={[styles.detectionText, { color: theme.colors.primary }]}>
-              SCANNING FOR ANOMALIES...
-            </Text>
-          </TouchableOpacity>
-
-          {/* Record Button */}
-          <IconButton
-            icon="record-circle"
-            iconColor={theme.colors.error}
-            size={60}
-            style={styles.recordBtn}
-          />
-        </View>
-      </CameraView>
+      <View style={styles.container}>
+        <Surface
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outlineVariant,
+            },
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>Monitor preview</Text>
+          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
+            Live camera and anomaly detection UI goes here.
+          </Text>
+        </Surface>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  camera: { flex: 1 },
-  overlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'space-between', padding: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 40 },
-  liveTag: { fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  telemetry: { backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  detectionBox: { 
-    borderWidth: 2, 
-    height: 150, 
-    width: '80%', 
-    alignSelf: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderStyle: 'dashed',
-    borderRadius: 12
+  screen: { flex: 1 },
+  container: { flex: 1, padding: 20 },
+  card: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 18,
   },
-  detectionText: { fontWeight: 'bold', fontSize: 12 },
-  recordBtn: { alignSelf: 'center', marginBottom: 30 }
+  title: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
 });
