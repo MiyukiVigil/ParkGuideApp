@@ -5,7 +5,13 @@ import { useThemeContext } from "../contexts/ThemeContext";
 
 export default function ThemedBackground() {
   const theme = useTheme();
-  const { isSimpleMode, highContrast } = useThemeContext();
+  const context = useThemeContext();
+  
+  if (!context) {
+    return null;
+  }
+  
+  const { isSimpleMode, highContrast } = context;
 
   if (isSimpleMode || highContrast) return null;
 

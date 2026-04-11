@@ -14,6 +14,8 @@ export default {
     knowledgeCheck: "Knowledge Check",
     cancel: "Cancel",
     submitAssessment: "Submit",
+    nextQuestion: "Next Question",
+    completeAssessment: "Complete Assessment",
     modulesCount: "modules",
     completed: "Completed",
     available: "Available",

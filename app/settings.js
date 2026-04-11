@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Alert } from "react-native";
 import {
   List,
   Switch,
@@ -18,6 +18,8 @@ import { useRouter } from "expo-router";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
 import { useThemeContext } from "../contexts/ThemeContext";
+import { clearAuthTokens } from "../utils/tokenStorage";
+import { clearProgressData } from "../utils/progressSync";
 
 export default function Settings() {
   const theme = useTheme();
@@ -47,6 +49,30 @@ export default function Settings() {
       default:
         return "English";
     }
+  };
+
+  const handleSecureLogout = async () => {
+    Alert.alert(
+      "Secure Logout",
+      "Are you sure you want to sign out? All local data will be cleared.",
+      [
+        { text: "Cancel", onPress: () => {}, style: "cancel" },
+        {
+          text: "Sign Out",
+          onPress: async () => {
+            try {
+              await clearAuthTokens();
+              await clearProgressData();
+              await AsyncStorage.removeItem("appLanguage");
+              router.replace("/");
+            } catch (error) {
+              Alert.alert("Error", "Failed to sign out.");
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
   };
 
   const updateLanguage = async (lang) => {
@@ -284,6 +310,7 @@ export default function Settings() {
             },
           ]}
           contentStyle={{ height: isSimpleMode || highContrast ? 56 : 48 }}
+          onPress={handleSecureLogout}
         >
           Secure Logout
         </Button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
 import { darkTheme, lightTheme } from "../theme/theme";
@@ -11,9 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import { ensureFreshSession } from "../utils/api";
 import { getRefreshToken } from "../utils/tokenStorage";
-
-const ThemeContext = createContext();
-export const useThemeContext = () => useContext(ThemeContext);
+import { ThemeContext } from "../contexts/ThemeContext";
 
 // Setup Translations
 const supportedLangs = ['en', 'ms', 'zh'];
@@ -40,6 +38,8 @@ export default function RootLayout() {
   const [uiMode, setUiMode] = useState("pretty");
   const [highContrast, setHighContrast] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const sessionAlertShown = useRef(false);
+  const router = useRouter();
 
   const toggleTheme = async () => {
     const next = !isDarkMode;
@@ -102,10 +102,7 @@ export default function RootLayout() {
         console.log("Failed to load settings", e);
       } finally {
         setIsLoaded(true);
-      const savedLang = await AsyncStorage.getItem('appLanguage');
-      const savedFont = await AsyncStorage.getItem('appFontScale');
-      if (savedLang) i18n.changeLanguage(savedLang);
-      if (savedFont) setFontScale(parseFloat(savedFont));
+      }
     };
     loadSettings();
   }, []);
@@ -146,15 +143,13 @@ export default function RootLayout() {
       }
     };
 
-    loadSettings();
-  }, [systemScheme]);
+    const subscription = AppState.addEventListener("change", handleActiveState);
+    return () => subscription.remove();
+  }, [router]);
 
   const theme = useMemo(() => {
-    if (highContrast) {
-      return isDarkMode ? highContrastDarkTheme : highContrastLightTheme;
-    }
     return isDarkMode ? darkTheme : lightTheme;
-  }, [isDarkMode, highContrast]);
+  }, [isDarkMode]);
 
   if (!isLoaded) return null;
 

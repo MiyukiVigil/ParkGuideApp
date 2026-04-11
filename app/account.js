@@ -12,13 +12,18 @@ import {
   Modal,
   ActivityIndicator,
 } from "react-native-paper";
+import { useRouter } from "expo-router";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
 import { getProfile, updateProfile } from "../services/profileService";
 import { ensureMockPassword, changePassword } from "../services/authService";
+import { clearAuthTokens } from "../utils/tokenStorage";
+import { clearProgressData } from "../utils/progressSync";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function AccountScreen() {
   const theme = useTheme();
+  const router = useRouter();
 
   const [profile, setProfile] = useState(null);
   const [draftProfile, setDraftProfile] = useState({
@@ -107,6 +112,29 @@ export default function AccountScreen() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+  };
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        { text: "Cancel", onPress: () => {}, style: "cancel" },
+        {
+          text: "Sign Out",
+          onPress: async () => {
+            try {
+              await clearAuthTokens();
+              await clearProgressData();
+              router.replace("/");
+            } catch (error) {
+              Alert.alert("Error", "Failed to sign out.");
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
   };
 
   const handleChangePassword = async () => {
@@ -268,6 +296,7 @@ export default function AccountScreen() {
           mode="outlined"
           style={[styles.signOut, { borderColor: theme.colors.error }]}
           textColor={theme.colors.error}
+          onPress={handleSignOut}
         >
           Sign Out
         </Button>

@@ -4,7 +4,7 @@ import { Text, Avatar, Surface, TouchableRipple, IconButton, Chip, useTheme } fr
 import { useRouter, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getCompletedModules } from "../utils/progressSync";
 import { TRAINING_COURSES } from "../constants/courses";
 import ThemedBackground from "../components/ThemedBackground";
 
@@ -30,8 +30,7 @@ export default function Home() {
     useCallback(() => {
       const loadTrainingProgress = async () => {
         try {
-          const stored = await AsyncStorage.getItem("completedModules");
-          const completed = stored ? JSON.parse(stored) : [];
+          const completed = await getCompletedModules(); // Use progressSync for backend-first fetch
 
           const current =
             TRAINING_COURSES.find((course) =>
@@ -280,7 +279,6 @@ export default function Home() {
             icon="book-open-variant"
             label={t("materials")}
             subtitle="Forest resources"
-            progress={0.6}
             onPress={() => router.push("/materials")}
           />
           <OperationCard

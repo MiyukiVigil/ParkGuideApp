@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from "react";
+import { useRouter } from "expo-router";
 import { ScrollView, View, StyleSheet, Alert, Animated } from "react-native";
 import {
   Text,
@@ -11,17 +12,24 @@ import {
   Modal,
   Button,
   RadioButton,
+  Checkbox,
   Chip,
   Avatar,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import api from "../utils/api";
 import * as Haptics from "expo-haptics";
 import { TRAINING_COURSES } from "../constants/courses";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
+import {
+  markModuleComplete,
+  getCompletedModules,
+  saveQuizProgress,
+  getQuizProgress,
+} from "../utils/progressSync";
 
 const getLocalizedText = (textObj, lang) => {
   if (!textObj) return "";
@@ -34,15 +42,15 @@ export default function TrainingModule() {
   const [checked, setChecked] = useState("");
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedModule, setSelectedModule] = useState(null);
-  
-  const [showQuiz, setShowQuiz] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [answers, setAnswers] = useState({});
+  const [completedModules, setCompletedModules] = useState([]);
 
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const authAlertShown = useRef(false);
 
@@ -85,13 +93,31 @@ export default function TrainingModule() {
     const modules = course.modules || [];
     if (modules.length === 0) return 0;
     const completedCount = modules.filter(m => completedModules.includes(m.id)).length;
-    return completedCount / modules.length;
+    const progress = completedCount / modules.length;
+    console.log(`[${course.id}] Progress: ${completedCount}/${modules.length} = ${progress} (modules: ${modules.map(m => m.id).join(',')}, completed: ${completedModules.join(',')})`);
+    return progress;
   };
 
   const handleModuleSelect = (module) => {
     setSelectedModule(module);
-    setCurrentQuestionIndex(0); // reset quiz index
-    setSelectedOptions([]);      // reset selected answers
+    setCurrentQuestionIndex(0);
+    setSelectedOptions([]);
+    setChecked("");
+  };
+
+  const handleModuleCompletion = async () => {
+    try {
+      // Mark module complete (syncs with backend)
+      const updated = await markModuleComplete(selectedModule.id);
+      setCompletedModules(updated);
+      
+      setShowQuiz(false);
+      Alert.alert(t("success"), t("moduleCompleted"));
+      setSelectedModule(null);
+    } catch (err) {
+      console.error("Failed to complete module:", err);
+      Alert.alert("Error", "Failed to save progress.");
+    }
   };
 
   // --- Data Loading ---
@@ -99,8 +125,10 @@ export default function TrainingModule() {
     useCallback(() => {
       const loadProgress = async () => {
         try {
-          const stored = await AsyncStorage.getItem("completedModules");
-          if (stored) setCompletedModules(JSON.parse(stored));
+          const completedIds = await getCompletedModules();
+          console.log('Training page - loaded completedIds:', completedIds);
+          setCompletedModules(completedIds);
+          
           Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 350,
@@ -114,27 +142,6 @@ export default function TrainingModule() {
     }, [fadeAnim])
   );
 
-  const getCourseProgress = (course) => {
-    const completedCount = course.modules.filter((m) => completedModules.includes(m.id)).length;
-    return completedCount / course.modules.length;
-  };
-
-  const handleQuizSubmit = async () => {
-    const correctValue = String(selectedModule.quiz.correctIndex);
-
-    if (checked === correctValue) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const updatedModules = Array.from(new Set([...completedModules, selectedModule.id]));
-      setCompletedModules(updatedModules);
-      await AsyncStorage.setItem("completedModules", JSON.stringify(updatedModules));
-      setShowQuiz(false);
-      Alert.alert(t("success"), t("moduleCompleted"));
-      setSelectedModule(null);
-    } catch (err) {
-      Alert.alert("Sync Error", "Progress saved locally but failed to sync.");
-    }
-  };
-
   const handleQuizSubmit = async () => {
     const quizzes = getModuleQuizzes(selectedModule);
     const currentQuiz = quizzes[currentQuestionIndex];
@@ -143,6 +150,13 @@ export default function TrainingModule() {
 
     const isCorrect = selectedValues.length === correctValues.length &&
                       selectedValues.every(v => correctValues.includes(v));
+
+    // Save quiz progress
+    await saveQuizProgress(selectedModule.id, currentQuestionIndex, {
+      question: currentQuiz.question,
+      selectedAnswers: selectedValues,
+      isCorrect: isCorrect,
+    });
 
     if (isCorrect) {
       if (currentQuestionIndex < quizzes.length - 1) {
@@ -476,75 +490,142 @@ export default function TrainingModule() {
             const isMultiSelect = correctValues.length > 1;
 
             return (
-              <View>
-                <Text variant="headlineSmall" style={styles.boldText}>{t("knowledgeCheck")}</Text>
-                <Text style={{ opacity: 0.6 }}>{currentQuestionIndex + 1}/{quizzes.length}</Text>
-                <Text style={{ marginVertical: 20 }}>{getLocalizedText(currentQuiz.question, i18n.language)}</Text>
-
-                {options.map((option, index) => {
-                  const val = String(index);
-                  const isSelected = selectedOptions.includes(val);
-                  return (
-                    <TouchableRipple key={index} onPress={() => {
-                      if (isMultiSelect) {
-                        setSelectedOptions(isSelected ? selectedOptions.filter(v => v !== val) : [...selectedOptions, val]);
-                      } else {
-                        setSelectedOptions([val]);
-                      }
-                    }}>
-                      <View style={styles.optionContent}>
-                        {isMultiSelect ? <Checkbox status={isSelected ? 'checked' : 'unchecked'} /> : <RadioButton value={val} status={isSelected ? 'checked' : 'unchecked'} />}
-                        <Text style={{ marginLeft: 8 }}>{option}</Text>
-                      </View>
-                    </TouchableRipple>
-                  );
-                })}
-
-          <Text variant="titleMedium" style={[styles.question, { color: theme.colors.onSurface }]}>
-            {getLocalizedText(selectedModule?.quiz.question, i18n.language)}
-          </Text>
-
-          <RadioButton.Group onValueChange={(val) => setChecked(val)} value={checked}>
-            {selectedModule?.quiz.options[i18n.language].map((option, index) => (
-              <Surface
-                key={index}
-                style={[
-                  styles.optionCard,
-                  {
-                    backgroundColor:
-                      checked === String(index)
-                        ? theme.colors.primaryContainer
-                        : theme.colors.surfaceVariant,
-                    borderColor:
-                      checked === String(index)
-                        ? theme.colors.primary
-                        : "transparent",
-                  },
-                ]}
-                elevation={0}
-              >
-                <TouchableRipple onPress={() => setChecked(String(index))} borderRadius={16}>
-                  <View style={styles.optionRow}>
-                    <RadioButton value={String(index)} color={theme.colors.primary} />
-                    <Text style={{ flex: 1, color: theme.colors.onSurface, fontWeight: "600" }}>
-                      {option}
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
+                <View style={{ padding: 24 }}>
+                  {/* Header */}
+                  <View style={{ marginBottom: 24 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <Text variant="headlineSmall" style={{ color: theme.colors.onSurface, fontWeight: "900", flex: 1 }}>
+                        {t("knowledgeCheck")}
+                      </Text>
+                      <IconButton 
+                        icon="close" 
+                        size={24} 
+                        iconColor={theme.colors.onSurface}
+                        onPress={() => setShowQuiz(false)}
+                      />
+                    </View>
+                    <ProgressBar 
+                      progress={(currentQuestionIndex + 1) / quizzes.length} 
+                      color={theme.colors.primary}
+                      style={{ backgroundColor: theme.colors.surfaceVariant, borderRadius: 12 }}
+                    />
+                    <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, fontSize: 12, fontWeight: '600' }}>
+                      Question {currentQuestionIndex + 1} of {quizzes.length}
                     </Text>
                   </View>
-                </TouchableRipple>
-              </Surface>
-            ))}
-          </RadioButton.Group>
 
-          <Button
-            mode="contained"
-            onPress={handleQuizSubmit}
-            disabled={!checked}
-            style={styles.submitBtn}
-            buttonColor={theme.colors.primary}
-            textColor={theme.colors.onPrimary}
-          >
-            {t("submitAssessment")}
-          </Button>
+                  {/* Question */}
+                  <Surface 
+                    style={[
+                      styles.questionCard, 
+                      { 
+                        backgroundColor: theme.colors.primaryContainer,
+                        borderColor: theme.colors.primary,
+                      }
+                    ]}
+                    elevation={0}
+                  >
+                    <Text style={{ color: theme.colors.onPrimaryContainer, fontSize: 16, lineHeight: 24, fontWeight: '500' }}>
+                      {getLocalizedText(currentQuiz.question, i18n.language)}
+                    </Text>
+                  </Surface>
+
+                  {/* Multi-select indicator */}
+                  {isMultiSelect && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
+                      <Chip 
+                        label={`Select ${correctValues.length} answers`}
+                        icon="information"
+                        size={20}
+                        style={{ 
+                          backgroundColor: theme.colors.secondaryContainer,
+                          alignSelf: 'flex-start',
+                        }}
+                        textStyle={{ color: theme.colors.onSecondaryContainer, fontSize: 12 }}
+                      />
+                    </View>
+                  )}
+
+                  {/* Options */}
+                  <View style={{ marginTop: 20 }}>
+                    {options.map((option, index) => {
+                      const val = String(index);
+                      const isSelected = selectedOptions.includes(val);
+                      return (
+                        <Surface
+                          key={index}
+                          style={[
+                            styles.optionCard,
+                            {
+                              backgroundColor: isSelected 
+                                ? theme.colors.primaryContainer 
+                                : theme.colors.surfaceVariant,
+                              borderColor: isSelected 
+                                ? theme.colors.primary 
+                                : theme.colors.outlineVariant,
+                              borderWidth: isSelected ? 2 : 1,
+                            }
+                          ]}
+                          elevation={isSelected ? 1 : 0}
+                        >
+                          <TouchableRipple 
+                            onPress={() => {
+                              if (isMultiSelect) {
+                                setSelectedOptions(isSelected ? selectedOptions.filter(v => v !== val) : [...selectedOptions, val]);
+                              } else {
+                                setSelectedOptions([val]);
+                              }
+                            }}
+                            borderRadius={16}
+                          >
+                            <View style={styles.optionContent}>
+                              {isMultiSelect ? (
+                                <Checkbox 
+                                  status={isSelected ? 'checked' : 'unchecked'} 
+                                  color={theme.colors.primary}
+                                />
+                              ) : (
+                                <RadioButton 
+                                  value={val} 
+                                  status={isSelected ? 'checked' : 'unchecked'}
+                                  color={theme.colors.primary}
+                                />
+                              )}
+                              <Text 
+                                style={{ 
+                                  marginLeft: 12, 
+                                  flex: 1,
+                                  color: isSelected ? theme.colors.onPrimaryContainer : theme.colors.onSurface,
+                                  fontWeight: isSelected ? '600' : '500',
+                                  fontSize: 15,
+                                }}
+                              >
+                                {option}
+                              </Text>
+                            </View>
+                          </TouchableRipple>
+                        </Surface>
+                      );
+                    })}
+                  </View>
+
+                  {/* Submit Button */}
+                  <Button
+                    mode="contained"
+                    onPress={handleQuizSubmit}
+                    disabled={selectedOptions.length === 0}
+                    style={styles.submitBtn}
+                    contentStyle={{ height: 50 }}
+                    buttonColor={theme.colors.primary}
+                    textColor={theme.colors.onPrimary}
+                  >
+                    {currentQuestionIndex === quizzes.length - 1 ? t("completeAssessment") : t("nextQuestion")}
+                  </Button>
+                </View>
+              </ScrollView>
+            );
+          })()}
         </Modal>
       </Portal>
     </View>
@@ -588,6 +669,15 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     marginBottom: 14,
+  },
+  moduleTile: {
+    borderRadius: 18,
+    overflow: "hidden",
+    marginBottom: 12,
+    borderWidth: 0,
+  },
+  locked: {
+    opacity: 0.6,
   },
   moduleCard: {
     borderRadius: 22,
@@ -639,29 +729,33 @@ const styles = StyleSheet.create({
     marginTop: 22,
     borderRadius: 18,
   },
-  quizModal: {
-    margin: 18,
+  modernQuizModal: {
+    margin: 16,
     borderRadius: 28,
-    padding: 24,
+    maxHeight: "90%",
   },
-  question: {
-    marginTop: 18,
-    marginBottom: 18,
-    lineHeight: 28,
+  questionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 20,
   },
   optionCard: {
     borderRadius: 16,
     marginBottom: 12,
     overflow: "hidden",
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
-  optionRow: {
+  optionContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    padding: 14,
   },
   submitBtn: {
-    marginTop: 18,
+    marginTop: 24,
     borderRadius: 16,
+  },
+  boldText: {
+    fontWeight: "900",
   },
 });

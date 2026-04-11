@@ -14,6 +14,8 @@ export default {
     knowledgeCheck: "知识检测",
     cancel: "取消",
     submitAssessment: "提交",
+    nextQuestion: "下一个问题",
+    completeAssessment: "完成评估",
     modulesCount: "模块",
     completed: "完成",
     available: "可完成",

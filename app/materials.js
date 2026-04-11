@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { View, StyleSheet, FlatList } from "react-native";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { View, StyleSheet, FlatList, Alert, Platform, Linking, Modal } from "react-native";
 import {
   Text,
   Surface,
@@ -8,94 +8,533 @@ import {
   Searchbar,
   Chip,
   useTheme,
+  IconButton,
+  ActivityIndicator,
 } from "react-native-paper";
 import { useTranslation } from "react-i18next";
-import * as WebBrowser from "expo-web-browser";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import ReactNativeBlobUtil from "react-native-blob-util";
+import api, { ensureFreshSession } from "../utils/api";
+import { getAccessToken } from "../utils/tokenStorage";
 import AppHeader from "../components/AppHeader";
 
-const STUDY_MATERIALS = [
-  {
-    id: "1",
-    title: "Bako Flora Guide",
-    sub: "PDF • 2.4 MB",
-    category: "Guide",
-    url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-  },
-  {
-    id: "2",
-    title: "Orangutan Ethics",
-    sub: "PDF • 1.1 MB",
-    category: "Policy",
-    url: "https://example-files.pdf2go.com/testing/pdf_collection/example_multipage_landscape.pdf",
-  },
-];
+const DOWNLOAD_STORAGE_KEY = "downloadedSecureMaterialsV2";
+
+const formatBytes = (bytes) => {
+  const value = Number(bytes) || 0;
+  if (value <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  const sized = value / (1024 ** index);
+  return `${sized.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+};
+
+const formatUploadedDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString();
+};
 
 export default function Materials() {
   const { t } = useTranslation();
   const theme = useTheme();
+  const router = useRouter();
 
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [downloadedFiles, setDownloadedFiles] = useState({});
+  const [downloadProgress, setDownloadProgress] = useState({});
+  const [downloadingMap, setDownloadingMap] = useState({});
+  const [studyMaterials, setStudyMaterials] = useState([]);
+  const [loadingMaterials, setLoadingMaterials] = useState(true);
+  const [viewingPdfLoading, setViewingPdfLoading] = useState(false);
 
-  const openPDF = async (url) => {
-    await WebBrowser.openBrowserAsync(url);
+  const handleViewOnline = async (item) => {
+    try {
+      setViewingPdfLoading(true);
+      // Get authenticated download URL
+      const remoteUrl = item.url || (await getMaterialUrl(item));
+      if (!remoteUrl) {
+        setViewingPdfLoading(false);
+        Alert.alert(t("unavailable") || "Unavailable", "This file is not currently available.");
+        return;
+      }
+
+      // Ensure fresh session (refresh token if needed)
+      const hasValidSession = await ensureFreshSession();
+      if (!hasValidSession) {
+        setViewingPdfLoading(false);
+        Alert.alert("Session expired", "Please log in again.");
+        router.replace("/");
+        return;
+      }
+
+      // Get the current access token
+      const token = await getAccessToken();
+      if (!token) {
+        setViewingPdfLoading(false);
+        Alert.alert("Authentication required", "Please log in again.");
+        router.replace("/");
+        return;
+      }
+
+      const tempPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/temp_pdf_${Date.now()}.pdf`;
+      const headers = { Authorization: `Bearer ${token}` };
+
+      try {
+        await ReactNativeBlobUtil.config({
+          path: tempPath,
+          fileCache: true,
+        }).fetch("GET", remoteUrl, headers);
+
+        setViewingPdfLoading(false);
+        // Open PDF viewer in-app with local path
+        router.push({
+          pathname: "/pdfViewer",
+          params: {
+            url: encodeURIComponent(tempPath),
+            isLocalPath: "true",
+            title: encodeURIComponent(item.title),
+          },
+        });
+      } catch (downloadError) {
+        setViewingPdfLoading(false);
+        console.error("PDF download error:", downloadError);
+        Alert.alert("Download failed", "Could not download PDF. Please try again.");
+      }
+    } catch (error) {
+      setViewingPdfLoading(false);
+      console.log("Error opening URL:", error);
+      Alert.alert(t("error") || "Error", "Failed to open file. Please try again.");
+    }
   };
 
+  const getAuthHeaders = async () => {
+    const token = await getAccessToken();
+    if (!token) return {};
+    return { Authorization: `Bearer ${token}` };
+  };
+
+  useEffect(() => {
+    const loadDownloadedFiles = async () => {
+      try {
+        const cached = await AsyncStorage.getItem(DOWNLOAD_STORAGE_KEY);
+        if (!cached) return;
+
+        const parsed = JSON.parse(cached);
+        if (!parsed || typeof parsed !== "object") return;
+
+        const validated = {};
+        const entries = Object.entries(parsed);
+
+        for (const [materialId, filePath] of entries) {
+          const exists = await ReactNativeBlobUtil.fs.exists(filePath);
+          if (exists) {
+            validated[materialId] = filePath;
+          }
+        }
+
+        setDownloadedFiles(validated);
+        await AsyncStorage.setItem(DOWNLOAD_STORAGE_KEY, JSON.stringify(validated));
+      } catch (error) {
+        console.log("Failed loading downloaded files", error.message);
+      }
+    };
+
+    loadDownloadedFiles();
+  }, []);
+
+  useEffect(() => {
+    const loadStudyMaterials = async () => {
+      try {
+        setLoadingMaterials(true);
+        const response = await api.get("/secure-files/files/");
+        const rows = Array.isArray(response.data) ? response.data : [];
+
+        const mapped = rows.map((row) => ({
+          id: String(row.id),
+          fileId: row.id,
+          title: row.original_name || `File ${row.id}`,
+          sub: `${(row.content_type || "FILE").toUpperCase()} • ${formatBytes(row.size)}`,
+          category: row.content_type ? (row.content_type.includes("guide") ? "Guide" : "Policy") : "Guide",
+          url: row.download_url || null,
+          apiDownloadUrl: `${api.defaults.baseURL}/secure-files/files/${row.id}/download/`,
+          uploadedAt: row.uploaded_at || null,
+        }));
+
+        mapped.sort((left, right) => {
+          const leftTime = left.uploadedAt ? new Date(left.uploadedAt).getTime() : 0;
+          const rightTime = right.uploadedAt ? new Date(right.uploadedAt).getTime() : 0;
+          return rightTime - leftTime;
+        });
+
+        setStudyMaterials(mapped);
+      } catch (error) {
+        if (
+          error.response?.status === 401 ||
+          error.response?.status === 403 ||
+          error.isSessionExpired
+        ) {
+          Alert.alert("Session expired", "Please log in again.");
+          router.replace("/");
+          return;
+        }
+
+        console.log("Failed to load study materials", error.response?.data || error.message);
+        setStudyMaterials([]);
+      } finally {
+        setLoadingMaterials(false);
+      }
+    };
+
+    loadStudyMaterials();
+  }, [router]);
+
   const filtered = useMemo(() => {
-    return STUDY_MATERIALS.filter((item) => {
+    return studyMaterials.filter((item) => {
       const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
       const matchesCategory =
         activeCategory === "All" || item.category === activeCategory;
       return matchesQuery && matchesCategory;
     });
-  }, [query, activeCategory]);
+  }, [query, activeCategory, studyMaterials]);
 
-  const cardOverlay = theme.dark ? "rgba(16,38,28,0.96)" : "rgba(255,255,255,0.86)";
-  const chipBg = theme.dark ? "rgba(127,169,138,0.16)" : "rgba(47,125,98,0.10)";
+  const getAppDownloadPath = (item) => {
+    const ext = ".pdf";
+    return `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/material_${item.id}${ext}`;
+  };
+
+  const getMaterialUrl = async (item) => {
+    if (!item?.fileId) {
+      return item?.url || null;
+    }
+
+    try {
+      const response = await api.get(`/secure-files/files/${item.fileId}/download-url/`);
+      return response?.data?.download_url || item?.url || null;
+    } catch (error) {
+      if (
+        error.response?.status === 401 ||
+        error.response?.status === 403 ||
+        error.isSessionExpired
+      ) {
+        Alert.alert("Session expired", "Please log in again.");
+        router.replace("/");
+        return null;
+      }
+      return item?.url || null;
+    }
+  };
+
+  const handleDownloadToPublicDownloads = async (item) => {
+    if (downloadingMap[item.id]) return;
+
+    try {
+      setDownloadingMap((prev) => ({ ...prev, [item.id]: true }));
+      setDownloadProgress((prev) => ({ ...prev, [item.id]: 0 }));
+
+      const fileName = `${item.title.replace(/[^a-zA-Z0-9-_ ]/g, "").trim() || `material_${item.id}`}.pdf`;
+      const filePath = `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${fileName}`;
+
+      const remoteUrl = item.apiDownloadUrl || item.url;
+      if (!remoteUrl) {
+        throw new Error("Missing download URL");
+      }
+
+      const headers = await getAuthHeaders();
+
+      const task = ReactNativeBlobUtil.config({
+        fileCache: true,
+        path: filePath,
+        addAndroidDownloads: {
+          useDownloadManager: true,
+          notification: true,
+          mediaScannable: true,
+          title: fileName,
+          mime: "application/pdf",
+          path: filePath,
+          description: t("downloadDescription"),
+        },
+      }).fetch("GET", remoteUrl, headers);
+
+      task.progress((received, total) => {
+        if (!total) return;
+        const progress = received / total;
+        setDownloadProgress((prev) => ({ ...prev, [item.id]: progress }));
+      });
+
+      await task;
+
+      const updated = {
+        ...downloadedFiles,
+        [item.id]: filePath,
+      };
+
+      setDownloadedFiles(updated);
+      await AsyncStorage.setItem(DOWNLOAD_STORAGE_KEY, JSON.stringify(updated));
+
+      Alert.alert(
+        t("downloadCompleteTitle"),
+        `${t("downloadCompleteMessage")}\n${t("downloadSavedAt")} ${filePath}`
+      );
+    } catch (error) {
+      console.log("Download failed", error.message);
+      Alert.alert(t("downloadFailedTitle"), t("downloadFailedMessage"));
+    } finally {
+      setDownloadingMap((prev) => ({ ...prev, [item.id]: false }));
+      setDownloadProgress((prev) => ({ ...prev, [item.id]: 0 }));
+    }
+  };
+
+  const handleDownloadToAppStorage = async (item, options = {}) => {
+    if (Platform.OS === "web") {
+      openPDF(item.url);
+      return;
+    }
+
+    if (downloadingMap[item.id]) return;
+
+    try {
+      setDownloadingMap((prev) => ({ ...prev, [item.id]: true }));
+      setDownloadProgress((prev) => ({ ...prev, [item.id]: 0 }));
+
+      const filePath = getAppDownloadPath(item);
+      const remoteUrl = item.apiDownloadUrl || item.url;
+      if (!remoteUrl) {
+        throw new Error("Missing download URL");
+      }
+
+      const headers = await getAuthHeaders();
+
+      const task = ReactNativeBlobUtil.config({
+        path: filePath,
+        fileCache: true,
+      }).fetch("GET", remoteUrl, headers);
+
+      task.progress((received, total) => {
+        if (!total) return;
+        const progress = received / total;
+        setDownloadProgress((prev) => ({ ...prev, [item.id]: progress }));
+      });
+
+      await task;
+
+      const updated = {
+        ...downloadedFiles,
+        [item.id]: filePath,
+      };
+
+      setDownloadedFiles(updated);
+      await AsyncStorage.setItem(DOWNLOAD_STORAGE_KEY, JSON.stringify(updated));
+
+      if (options.showSuccessAlert !== false) {
+        Alert.alert(
+          t("downloadCompleteTitle"),
+          `${t("downloadCompleteMessage")}\n${t("downloadSavedAt")} ${filePath}`
+        );
+      }
+
+      return filePath;
+    } catch (error) {
+      console.log("Download failed", error.message);
+      if (options.showErrorAlert !== false) {
+        Alert.alert(t("downloadFailedTitle"), t("downloadFailedMessage"));
+      }
+      return null;
+    } finally {
+      setDownloadingMap((prev) => ({ ...prev, [item.id]: false }));
+      setDownloadProgress((prev) => ({ ...prev, [item.id]: 0 }));
+    }
+  };
+
+  const handleDownload = async (item) => {
+    let remoteUrl = item.apiDownloadUrl;
+    if (Platform.OS === "web") {
+      remoteUrl = await getMaterialUrl(item);
+    }
+
+    if (!remoteUrl) {
+      Alert.alert(t("downloadFailedTitle"), "No download URL available for this file.");
+      return;
+    }
+
+    const hydratedItem = { ...item, url: remoteUrl };
+
+    if (Platform.OS === "web") {
+      Linking.openURL(hydratedItem.url);
+      return;
+    }
+
+    if (Platform.OS === "android") {
+      Alert.alert(
+        t("downloadLocationTitle"),
+        t("downloadLocationMessage"),
+        [
+          {
+            text: t("downloadToDevice"),
+            onPress: () => handleDownloadToPublicDownloads(hydratedItem),
+          },
+          {
+            text: t("downloadInBrowser"),
+            onPress: () => Linking.openURL(hydratedItem.url),
+          },
+          {
+            text: t("downloadToAppStorage"),
+            onPress: () => handleDownloadToAppStorage(hydratedItem),
+          },
+          {
+            text: t("cancelAction"),
+            style: "cancel",
+          },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      t("downloadLocationTitle"),
+      t("downloadLocationMessageIOS"),
+      [
+        {
+          text: t("downloadInBrowser"),
+          onPress: () => Linking.openURL(hydratedItem.url),
+        },
+        {
+          text: t("downloadToAppStorage"),
+          onPress: () => handleDownloadToAppStorage(hydratedItem),
+        },
+        {
+          text: t("cancelAction"),
+          style: "cancel",
+        },
+      ]
+    );
+  };
+
+  const handleDeleteFile = async (item) => {
+    Alert.alert(
+      t("confirmDelete") || "Delete File",
+      t("confirmDeleteFile") || "Are you sure you want to delete this downloaded file?",
+      [
+        {
+          text: t("cancelAction") || "Cancel",
+          style: "cancel",
+        },
+        {
+          text: t("deleteAction") || "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const filePath = downloadedFiles[item.id];
+              if (filePath) {
+                const exists = await ReactNativeBlobUtil.fs.exists(filePath);
+                if (exists) {
+                  await ReactNativeBlobUtil.fs.unlink(filePath);
+                }
+              }
+
+              const updated = { ...downloadedFiles };
+              delete updated[item.id];
+              setDownloadedFiles(updated);
+              await AsyncStorage.setItem(DOWNLOAD_STORAGE_KEY, JSON.stringify(updated));
+
+              Alert.alert(t("successTitle") || "Success", t("fileDeleted") || "File deleted successfully.");
+            } catch (error) {
+              console.log("Delete error:", error);
+              Alert.alert(t("errorTitle") || "Error", t("deleteError") || "Failed to delete file.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const renderItem = ({ item }) => (
-    <Surface
-      style={[
-        styles.card,
-        {
-          backgroundColor: cardOverlay,
-          borderColor: theme.colors.outlineVariant,
-        },
-      ]}
-      elevation={2}
+    <TouchableRipple
+      borderRadius={16}
+      onPress={() => handleViewOnline(item)}
+      style={{ marginBottom: 12 }}
     >
-      <TouchableRipple
-        onPress={() => openPDF(item.url)}
-        borderRadius={24}
-        style={styles.ripple}
+      <Surface
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.outlineVariant,
+          },
+        ]}
+        elevation={1}
       >
-        <View style={styles.cardContent}>
-          <View style={styles.fileTop}>
+        <View style={styles.cardInner}>
+          <View style={styles.cardLeft}>
             <Avatar.Icon
               icon="file-pdf-box"
-              size={50}
+              size={40}
               color={theme.colors.error}
               style={{ backgroundColor: theme.colors.errorContainer }}
             />
-            <Chip
-              compact
-              style={{ backgroundColor: chipBg }}
-              textStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
-            >
-              {item.category}
-            </Chip>
           </View>
 
-          <Text style={[styles.cardTitle, { color: theme.colors.onSurface }]} numberOfLines={2}>
-            {item.title}
-          </Text>
+          <View style={styles.cardMiddle}>
+            <Text
+              style={[styles.cardTitle, { color: theme.colors.onSurface }]}
+              numberOfLines={2}
+            >
+              {item.title}
+            </Text>
 
-          <Text style={[styles.cardSub, { color: theme.colors.onSurfaceVariant }]}>
-            {item.sub}
-          </Text>
+            <View style={styles.metaRow}>
+              <Chip
+                compact
+                size="small"
+                style={[styles.categoryChip, { backgroundColor: theme.colors.primaryContainer }]}
+                textStyle={[styles.categoryChipText, { color: theme.colors.onPrimaryContainer }]}
+              >
+                {item.category}
+              </Chip>
+              {!!item.uploadedAt && (
+                <Text style={[styles.cardMeta, { color: theme.colors.onSurfaceVariant }]}>
+                  {formatUploadedDate(item.uploadedAt)}
+                </Text>
+              )}
+            </View>
+
+            {!!downloadedFiles[item.id] && (
+              <Text style={[styles.savedLabel, { color: theme.colors.primary }]}>
+                ✓ Saved locally
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.cardRight}>
+            {!downloadedFiles[item.id] ? (
+              <IconButton
+                icon="download"
+                disabled={!!downloadingMap[item.id]}
+                onPress={(e) => {
+                  e.stopPropagation ? e.stopPropagation() : null;
+                  handleDownload(item);
+                }}
+                size={20}
+                iconColor={theme.colors.primary}
+              />
+            ) : (
+              <IconButton
+                icon="trash-can"
+                onPress={(e) => {
+                  e.stopPropagation ? e.stopPropagation() : null;
+                  handleDeleteFile(item);
+                }}
+                size={20}
+                iconColor={theme.colors.error}
+              />
+            )}
+          </View>
         </View>
-      </TouchableRipple>
-    </Surface>
+      </Surface>
+    </TouchableRipple>
   );
 
   return (
@@ -108,24 +547,6 @@ export default function Materials() {
       />
 
       <View style={styles.container}>
-        <Surface
-          style={[
-            styles.hero,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.outlineVariant,
-            },
-          ]}
-          elevation={2}
-        >
-          <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
-            Learning Materials
-          </Text>
-          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, lineHeight: 22 }}>
-            Browse training references, policy resources, and quick field guides for daily forest guide operations.
-          </Text>
-        </Surface>
-
         <Searchbar
           placeholder="Search materials"
           placeholderTextColor={theme.colors.onSurfaceVariant}
@@ -151,13 +572,14 @@ export default function Materials() {
                 selected={selected}
                 onPress={() => setActiveCategory(cat)}
                 style={{
-                  marginRight: 10,
                   backgroundColor: selected
                     ? theme.colors.primary
                     : theme.colors.surfaceVariant,
                 }}
                 textStyle={{
-                  color: selected ? theme.colors.onPrimary : theme.colors.onSurface,
+                  color: selected
+                    ? theme.colors.onPrimary
+                    : theme.colors.onSurface,
                   fontWeight: "700",
                 }}
               >
@@ -167,7 +589,15 @@ export default function Materials() {
           })}
         </View>
 
-        {filtered.length === 0 ? (
+        {loadingMaterials ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator
+              animating
+              size="large"
+              color={theme.colors.primary}
+            />
+          </View>
+        ) : filtered.length === 0 ? (
           <Surface
             style={[
               styles.emptyCard,
@@ -184,7 +614,14 @@ export default function Materials() {
               color={theme.colors.primary}
               style={{ backgroundColor: theme.colors.primaryContainer }}
             />
-            <Text style={{ color: theme.colors.onSurface, fontWeight: "800", marginTop: 14, fontSize: 18 }}>
+            <Text
+              style={{
+                color: theme.colors.onSurface,
+                fontWeight: "800",
+                marginTop: 14,
+                fontSize: 18,
+              }}
+            >
               No materials found
             </Text>
             <Text
@@ -204,12 +641,25 @@ export default function Materials() {
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 24, paddingTop: 10 }}
-            numColumns={2}
-            columnWrapperStyle={{ justifyContent: "space-between" }}
+            contentContainerStyle={{ paddingBottom: 24, paddingTop: 4 }}
+            scrollEnabled={true}
           />
         )}
       </View>
+
+      <Modal
+        visible={viewingPdfLoading}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={[styles.loadingOverlay, { backgroundColor: theme.colors.background }]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={{ marginTop: 16, color: theme.colors.onBackground }}>
+            Loading PDF...
+          </Text>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -220,60 +670,85 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 20,
-  },
-  hero: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
+    padding: 16,
   },
   search: {
-    marginBottom: 14,
-    borderRadius: 18,
+    marginBottom: 12,
+    borderRadius: 12,
     borderWidth: 1,
   },
   chipRow: {
     flexDirection: "row",
-    marginBottom: 10,
+    marginBottom: 16,
+    paddingRight: 8,
+    gap: 8,
   },
   card: {
-    flex: 1,
-    marginBottom: 16,
-    borderRadius: 24,
-    overflow: "hidden",
-    marginHorizontal: 4,
+    borderRadius: 16,
     borderWidth: 1,
+    overflow: "hidden",
   },
-  ripple: {
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    minHeight: 182,
-  },
-  cardContent: {
-    flex: 1,
-    justifyContent: "space-between",
-  },
-  fileTop: {
+  cardInner: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  cardLeft: {
+    justifyContent: "center",
+  },
+  cardMiddle: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  cardRight: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   cardTitle: {
-    fontWeight: "800",
-    lineHeight: 22,
+    fontWeight: "700",
+    fontSize: 15,
+    lineHeight: 20,
   },
-  cardSub: {
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+  },
+  categoryChip: {
+    height: 24,
+  },
+  categoryChipText: {
     fontSize: 12,
-    marginTop: 8,
     fontWeight: "600",
   },
+  cardMeta: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  savedLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   emptyCard: {
-    marginTop: 18,
-    borderRadius: 24,
+    marginTop: 24,
+    borderRadius: 16,
     borderWidth: 1,
     padding: 24,
     alignItems: "center",
+  },
+  loadingOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    opacity: 0.95,
   },
 });

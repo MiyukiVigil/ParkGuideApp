@@ -13,15 +13,9 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import ThemedBackground from "../components/ThemedBackground";
 import api from "../utils/api";
-import {
-  clearAuthTokens,
-  getAccessToken,
-  getRefreshToken,
-  getUserRole,
-  setAccessToken,
-  setRefreshToken,
-  setUserRole,
-} from "../utils/tokenStorage";
+import { clearAuthTokens, getAccessToken, getRefreshToken, getUserRole, setAccessToken, setRefreshToken, setUserRole } from "../utils/tokenStorage";
+import { clearProgressData } from "../utils/progressSync";
+import { getModuleMapping } from "../utils/moduleMapping";
 
 export default function Login() {
   const router = useRouter();
@@ -30,6 +24,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const liftAnim = useRef(new Animated.Value(18)).current;
@@ -53,6 +48,10 @@ export default function Login() {
       }),
     ]).start();
   }, [fadeAnim, liftAnim]);
+
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
     const bootstrapAuth = async () => {
       try {
         const access = await getAccessToken();
@@ -64,6 +63,10 @@ export default function Login() {
         }
 
         await api.get("/courses/");
+        
+        // Build module ID mapping from backend courses
+        getModuleMapping().catch(err => console.log('Module mapping build failed (non-critical):', err.message));
+        
         router.replace(role === "admin" ? "/dashboard" : "/home");
       } catch (err) {
         const isAuthFailure =
@@ -73,6 +76,7 @@ export default function Login() {
 
         if (isAuthFailure) {
           await clearAuthTokens();
+          await clearProgressData();
         }
 
         setCheckingAuth(false);
@@ -103,18 +107,20 @@ export default function Login() {
       await setRefreshToken(refresh);
       await setUserRole(role);
 
+      // Build module ID mapping from backend courses
+      getModuleMapping().catch(err => console.log('Module mapping build failed (non-critical):', err.message));
+
       router.replace(isAdmin ? "/dashboard" : "/home");
     } catch (err) {
       console.log("Login error:", err.response?.data || err.message);
 
       if (err.response?.status === 401 || err.response?.status === 400) {
-        setError(t("loginError") || "Invalid email or password");
+        Alert.alert("Login Failed", t("loginError") || "Invalid email or password");
       } else {
-        setError("Something went wrong. Try again.");
+        Alert.alert("Login Failed", "Something went wrong. Try again.");
       }
     } finally {
       setLoading(false);
-      Alert.alert("Login failed", "Unable to sign in.");
     }
   };
 
