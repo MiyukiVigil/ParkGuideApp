@@ -12,6 +12,16 @@ import { TextInput, Button, Text, Surface } from "react-native-paper";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import ThemedBackground from "../components/ThemedBackground";
+import api from "../utils/api";
+import {
+  clearAuthTokens,
+  getAccessToken,
+  getRefreshToken,
+  getUserRole,
+  setAccessToken,
+  setRefreshToken,
+  setUserRole,
+} from "../utils/tokenStorage";
 
 export default function Login() {
   const router = useRouter();
@@ -23,6 +33,11 @@ export default function Login() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const liftAnim = useRef(new Animated.Value(18)).current;
+
+  const resolveAdminFlag = (payload) => {
+    const role = String(payload?.role || payload?.user?.user_type || '').trim().toLowerCase();
+    return role === 'admin' || payload?.user?.is_staff || payload?.user?.is_superuser;
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -38,6 +53,34 @@ export default function Login() {
       }),
     ]).start();
   }, [fadeAnim, liftAnim]);
+    const bootstrapAuth = async () => {
+      try {
+        const access = await getAccessToken();
+        const refresh = await getRefreshToken();
+        const role = String(await getUserRole() || '').trim().toLowerCase();
+        if (!access && !refresh) {
+          setCheckingAuth(false);
+          return;
+        }
+
+        await api.get("/courses/");
+        router.replace(role === "admin" ? "/dashboard" : "/home");
+      } catch (err) {
+        const isAuthFailure =
+          err?.isSessionExpired ||
+          err?.response?.status === 401 ||
+          err?.response?.status === 403;
+
+        if (isAuthFailure) {
+          await clearAuthTokens();
+        }
+
+        setCheckingAuth(false);
+      }
+    };
+
+    bootstrapAuth();
+  }, [router]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -46,14 +89,30 @@ export default function Login() {
     }
 
     try {
-      setLoading(true);
+      const response = await api.post("/accounts/login/", {
+        email: email.trim(), // must match your Django JWT username_field
+        password: password,
+      });
 
-      // UI-only demo login for frontend presentation
-      setTimeout(() => {
-        setLoading(false);
-        router.replace("/home");
-      }, 500);
-    } catch (error) {
+      const { access, refresh } = response.data;
+      const isAdmin = resolveAdminFlag(response.data);
+      const role = isAdmin ? "admin" : "learner";
+
+      // Save tokens for future API calls
+      await setAccessToken(access);
+      await setRefreshToken(refresh);
+      await setUserRole(role);
+
+      router.replace(isAdmin ? "/dashboard" : "/home");
+    } catch (err) {
+      console.log("Login error:", err.response?.data || err.message);
+
+      if (err.response?.status === 401 || err.response?.status === 400) {
+        setError(t("loginError") || "Invalid email or password");
+      } else {
+        setError("Something went wrong. Try again.");
+      }
+    } finally {
       setLoading(false);
       Alert.alert("Login failed", "Unable to sign in.");
     }

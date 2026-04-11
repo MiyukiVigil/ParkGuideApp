@@ -34,13 +34,67 @@ export default function TrainingModule() {
   const [checked, setChecked] = useState("");
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedModule, setSelectedModule] = useState(null);
-  const [completedModules, setCompletedModules] = useState([]);
+  
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedOptions, setSelectedOptions] = useState([]);
+  const [answers, setAnswers] = useState({});
 
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { t, i18n } = useTranslation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const authAlertShown = useRef(false);
 
+  // --- Helpers ---
+  const showSessionExpiredAlert = () => {
+    if (authAlertShown.current) return;
+    authAlertShown.current = true;
+    Alert.alert('Session expired', 'Your session has expired. Please log in again.', [
+      { text: 'OK', onPress: () => { authAlertShown.current = false; router.replace('/'); } },
+    ]);
+  };
+
+  const getQuizOptions = (quiz) => {
+    if (!quiz?.options) return [];
+    if (Array.isArray(quiz.options)) return quiz.options;
+    const langOptions = quiz.options[i18n.language];
+    if (Array.isArray(langOptions) && langOptions.length) return langOptions;
+    const enOptions = quiz.options.en;
+    if (Array.isArray(enOptions) && enOptions.length) return enOptions;
+    const first = Object.values(quiz.options).find(arr => Array.isArray(arr) && arr.length);
+    return first || [];
+  };
+
+  const getModuleQuizzes = (module) => {
+    if (!module) return [];
+    if (Array.isArray(module.quizzes) && module.quizzes.length) return module.quizzes;
+    if (module.quiz && typeof module.quiz === 'object') return [module.quiz];
+    return [];
+  };
+
+  const getCorrectIndexes = (quiz) => {
+    if (!quiz) return [];
+    if (Array.isArray(quiz.correctIndexes) && quiz.correctIndexes.length > 0) {
+      return quiz.correctIndexes.map((index) => String(index));
+    }
+    return quiz.correctIndex !== undefined ? [String(quiz.correctIndex)] : [];
+  };
+
+  const getCourseProgress = (course) => {
+    const modules = course.modules || [];
+    if (modules.length === 0) return 0;
+    const completedCount = modules.filter(m => completedModules.includes(m.id)).length;
+    return completedCount / modules.length;
+  };
+
+  const handleModuleSelect = (module) => {
+    setSelectedModule(module);
+    setCurrentQuestionIndex(0); // reset quiz index
+    setSelectedOptions([]);      // reset selected answers
+  };
+
+  // --- Data Loading ---
   useFocusEffect(
     useCallback(() => {
       const loadProgress = async () => {
@@ -76,6 +130,27 @@ export default function TrainingModule() {
       setShowQuiz(false);
       Alert.alert(t("success"), t("moduleCompleted"));
       setSelectedModule(null);
+    } catch (err) {
+      Alert.alert("Sync Error", "Progress saved locally but failed to sync.");
+    }
+  };
+
+  const handleQuizSubmit = async () => {
+    const quizzes = getModuleQuizzes(selectedModule);
+    const currentQuiz = quizzes[currentQuestionIndex];
+    const correctValues = getCorrectIndexes(currentQuiz);
+    const selectedValues = Array.from(new Set(selectedOptions));
+
+    const isCorrect = selectedValues.length === correctValues.length &&
+                      selectedValues.every(v => correctValues.includes(v));
+
+    if (isCorrect) {
+      if (currentQuestionIndex < quizzes.length - 1) {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setSelectedOptions([]);
+      } else {
+        await handleModuleCompletion();
+      }
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(t("incorrect"), t("reviewContent"));
@@ -255,19 +330,8 @@ export default function TrainingModule() {
                 index !== 0 && !completedModules.includes(selectedCourse.modules[index - 1].id);
 
               return (
-                <Surface
-                  key={module.id}
-                  style={[
-                    styles.moduleCard,
-                    {
-                      backgroundColor: cardBg,
-                      borderColor: theme.colors.outlineVariant,
-                      opacity: isLocked ? 0.5 : 1,
-                    },
-                  ]}
-                  elevation={1}
-                >
-                  <TouchableRipple disabled={isLocked} onPress={() => setSelectedModule(module)} borderRadius={22}>
+                <Surface key={module.id} style={[styles.moduleTile, { backgroundColor: theme.colors.surfaceVariant }, isLocked && styles.locked]} elevation={0}>
+                  <TouchableRipple disabled={isLocked} onPress={() => handleModuleSelect(module)}>
                     <View style={styles.moduleRow}>
                       <View
                         style={[
@@ -401,20 +465,40 @@ export default function TrainingModule() {
       )}
 
       <Portal>
-        <Modal
-          visible={showQuiz}
-          onDismiss={() => setShowQuiz(false)}
-          contentContainerStyle={[
-            styles.quizModal,
-            { backgroundColor: theme.colors.surface },
-          ]}
-        >
-          <Text variant="headlineSmall" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
-            {t("knowledgeCheck")}
-          </Text>
-          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
-            Complete the assessment to unlock progress.
-          </Text>
+        <Modal visible={showQuiz} onDismiss={() => setShowQuiz(false)} contentContainerStyle={[styles.modernQuizModal, { backgroundColor: theme.colors.surface }]}>
+          {(() => {
+            const quizzes = getModuleQuizzes(selectedModule);
+            const currentQuiz = quizzes[currentQuestionIndex];
+            if (!currentQuiz) return <Text>No Quiz Found</Text>;
+
+            const options = getQuizOptions(currentQuiz);
+            const correctValues = getCorrectIndexes(currentQuiz);
+            const isMultiSelect = correctValues.length > 1;
+
+            return (
+              <View>
+                <Text variant="headlineSmall" style={styles.boldText}>{t("knowledgeCheck")}</Text>
+                <Text style={{ opacity: 0.6 }}>{currentQuestionIndex + 1}/{quizzes.length}</Text>
+                <Text style={{ marginVertical: 20 }}>{getLocalizedText(currentQuiz.question, i18n.language)}</Text>
+
+                {options.map((option, index) => {
+                  const val = String(index);
+                  const isSelected = selectedOptions.includes(val);
+                  return (
+                    <TouchableRipple key={index} onPress={() => {
+                      if (isMultiSelect) {
+                        setSelectedOptions(isSelected ? selectedOptions.filter(v => v !== val) : [...selectedOptions, val]);
+                      } else {
+                        setSelectedOptions([val]);
+                      }
+                    }}>
+                      <View style={styles.optionContent}>
+                        {isMultiSelect ? <Checkbox status={isSelected ? 'checked' : 'unchecked'} /> : <RadioButton value={val} status={isSelected ? 'checked' : 'unchecked'} />}
+                        <Text style={{ marginLeft: 8 }}>{option}</Text>
+                      </View>
+                    </TouchableRipple>
+                  );
+                })}
 
           <Text variant="titleMedium" style={[styles.question, { color: theme.colors.onSurface }]}>
             {getLocalizedText(selectedModule?.quiz.question, i18n.language)}

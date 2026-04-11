@@ -1,21 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
-import { Appearance, useColorScheme } from "react-native";
-import * as Localization from "expo-localization";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import i18n from "i18next";
-import { initReactI18next } from "react-i18next";
-import {
-  darkTheme,
-  lightTheme,
-  highContrastDarkTheme,
-  highContrastLightTheme,
-} from "../theme/theme";
-import { en, ms, zh } from "../constants/translations";
-import { ThemeContext } from "../contexts/ThemeContext";
+import { darkTheme, lightTheme } from "../theme/theme";
+import { Appearance, useColorScheme, AppState, Alert, Platform } from "react-native";
+import * as Localization from 'expo-localization';
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import { en, ms, zh } from '../constants/translations';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from "expo-router";
+import { ensureFreshSession } from "../utils/api";
+import { getRefreshToken } from "../utils/tokenStorage";
 
-const supportedLangs = ["en", "ms", "zh"];
+const ThemeContext = createContext();
+export const useThemeContext = () => useContext(ThemeContext);
+
+// Setup Translations
+const supportedLangs = ['en', 'ms', 'zh'];
 const deviceLocales = Localization.getLocales() || [];
 const deviceLang =
   deviceLocales.find((l) => supportedLangs.includes(l.languageCode))?.languageCode || "en";
@@ -101,6 +102,47 @@ export default function RootLayout() {
         console.log("Failed to load settings", e);
       } finally {
         setIsLoaded(true);
+      const savedLang = await AsyncStorage.getItem('appLanguage');
+      const savedFont = await AsyncStorage.getItem('appFontScale');
+      if (savedLang) i18n.changeLanguage(savedLang);
+      if (savedFont) setFontScale(parseFloat(savedFont));
+    };
+    loadSettings();
+  }, []);
+
+  useEffect(() => {
+    const handleActiveState = async (nextState) => {
+      if (nextState !== "active") return;
+
+      try {
+        const refresh = await getRefreshToken();
+        if (!refresh) return;
+
+        const ok = await ensureFreshSession();
+        if (ok || sessionAlertShown.current) return;
+
+        sessionAlertShown.current = true;
+        Alert.alert(
+          "Session expired",
+          "Your session has expired. Please log in again.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                sessionAlertShown.current = false;
+                router.replace("/");
+              },
+            },
+          ]
+        );
+      } catch (error) {
+        // Suppress errors related to activity not being available
+        if (error?.message?.includes("activity is no longer available")) {
+          console.warn("Activity not available during state transition, retry will occur on next app focus");
+          sessionAlertShown.current = false;
+        } else {
+          console.error("Session check error:", error);
+        }
       }
     };
 
