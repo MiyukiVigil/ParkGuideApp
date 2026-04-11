@@ -27,8 +27,7 @@
       "env": {
         "NODE_ENV": "production",
         "ENABLE_MOCK_AUTH": "false"
-      },
-      "postClone": "./scripts/eas-post-clone.sh"
+      }
     }
   },
   "submit": {

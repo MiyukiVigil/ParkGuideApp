@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "408905223058",
+    "project_id": "parkguideapp-c8517",
+    "storage_bucket": "parkguideapp-c8517.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:408905223058:android:940cbaf67ff9ff6c384f4b",
+        "android_client_info": {
+          "package_name": "com.miyukivigil.parkguideapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAobrwBs_E0jWAqH4XXOLZjDaGbx2f48qU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
