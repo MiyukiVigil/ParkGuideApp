@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import CONFIG from '../constants/config';
 import { clearAuthTokens, getAccessToken } from '../utils/tokenStorage';
+import { unregisterPushNotifications } from '../services/notificationService';
 
 // Dashboard URLs from configuration
 const DASHBOARD_BASE_URL = CONFIG.DASHBOARD_BASE_URL;
@@ -49,6 +50,7 @@ export default function Dashboard() {
       return;
     }
 
+    await unregisterPushNotifications();
     await clearAuthTokens();
     router.replace('/');
   };
@@ -61,6 +63,7 @@ export default function Dashboard() {
     }
 
     if (currentUrl.includes('/dashboard/login/') || currentUrl.includes('/dashboard/logout/')) {
+      await unregisterPushNotifications();
       await clearAuthTokens();
       logoutRequestedRef.current = false;
       router.replace('/');
