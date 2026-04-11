@@ -37,6 +37,17 @@
     "bundleIdentifier": "com.miyukivigil.parkguideapp",
     "supportsTabletMode": true
   },
+  "plugins": [
+    "expo-notifications",
+    [
+      "expo-build-properties",
+      {
+        "android": {
+          "usesCleartextTraffic": false
+        }
+      }
+    ]
+  ],
   "extra": {
     "eas": {
       "projectId": "50ad8a0d-3529-4b5f-8945-4114823f64f3"
