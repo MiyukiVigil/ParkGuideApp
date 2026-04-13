@@ -59,6 +59,8 @@ export default function CourseDetail() {
       console.log(`[courseDetail] Attempting to enroll in course ${id}`);
       const response = await courseService.enrollCourse(id);
       console.log(`[courseDetail] Enrollment response:`, response);
+      // Reload immediately after API success
+      await loadCourseDetails();
       Alert.alert(
         t('enrollmentSuccess'), 
         'You have successfully enrolled in this course',
@@ -66,8 +68,8 @@ export default function CourseDetail() {
           { 
             text: 'OK', 
             onPress: () => {
-              console.log(`[courseDetail] Reloading course details after enrollment`);
-              loadCourseDetails();
+              // Just close the alert, course details are already reloaded
+              console.log(`[courseDetail] Course details reloaded after enrollment`);
             } 
           },
         ]
@@ -75,7 +77,7 @@ export default function CourseDetail() {
     } catch (err) {
       console.error(`[courseDetail] Enrollment error:`, err);
       Alert.alert(
-        t('enrollmentFailed'), 
+        'Cannot Enroll', 
         err.message || 'An unknown error occurred during enrollment'
       );
     } finally {
@@ -94,13 +96,14 @@ export default function CourseDetail() {
 
   // Check enrollment status from response
   // The backend returns the full enrollment object or null
+  // User is enrolled if enrollment_status exists and has any active status (enrolled, in_progress, completed)
   const enrollmentData = course?.enrollment_status;
-  const isEnrolled = enrollmentData && (enrollmentData.status === 'enrolled' || enrollmentData === 'enrolled');
+  const isEnrolled = !!enrollmentData;
   
   // Check if prerequisites are met
-  const hasUnmetPrerequisites = course?.enrollment_status === 'prerequisites_not_met';
-  const canEnroll = !isEnrolled && !hasUnmetPrerequisites;
   const prerequisites = course?.prerequisites_info || [];
+  const allPrerequisitesMet = prerequisites.length === 0 || prerequisites.every(p => p.is_completed);
+  const canEnroll = !isEnrolled && allPrerequisitesMet;
 
   if (loading) {
     return (
@@ -211,23 +214,51 @@ export default function CourseDetail() {
                 {t('prerequisites')}
               </Text>
               {prerequisites.map((prereq) => (
-                <Text
-                  key={prereq.id}
-                  variant="bodySmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}
-                >
-                  • {getLocalizedText(prereq.title)}
-                </Text>
+                <View key={prereq.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={{ 
+                    color: prereq.is_completed ? theme.colors.primary : theme.colors.error,
+                    fontSize: 18,
+                    marginRight: 8
+                  }}>
+                    {prereq.is_completed ? '✓' : '•'}
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={{ 
+                      color: prereq.is_completed ? theme.colors.primary : theme.colors.error,
+                      flex: 1
+                    }}
+                  >
+                    {getLocalizedText(prereq.title)}
+                    {prereq.is_completed ? ' (Completed)' : ' (Required)'}
+                  </Text>
+                </View>
               ))}
             </View>
           )}
 
           {/* Enrollment Actions */}
-          {!isEnrolled && (
+          {!isEnrolled && !allPrerequisitesMet && (
+            <View style={{ 
+              marginTop: 16, 
+              padding: 12, 
+              backgroundColor: theme.colors.errorContainer,
+              borderRadius: 8
+            }}>
+              <Text style={{ color: theme.colors.error, fontWeight: '600' }}>
+                ⚠️ Cannot Enroll Yet
+              </Text>
+              <Text style={{ color: theme.colors.error, marginTop: 4 }}>
+                Please complete all prerequisite courses first.
+              </Text>
+            </View>
+          )}
+
+          {!isEnrolled && allPrerequisitesMet && (
             <Button
               mode="contained"
               onPress={handleEnroll}
-              disabled={!canEnroll || enrolling}
+              disabled={enrolling}
               loading={enrolling}
               style={{ marginTop: 16 }}
             >

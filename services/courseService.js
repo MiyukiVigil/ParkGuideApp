@@ -32,7 +32,28 @@ const authenticatedFetch = async (endpoint, options = {}) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[courseService] API Error: ${response.status} ${response.statusText}`, errorText);
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      
+      // Try to parse error details from response
+      let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        
+        // Handle prerequisite errors
+        if (errorData.course && Array.isArray(errorData.course)) {
+          errorMessage = errorData.course[0];
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (e) {
+        // If JSON parsing fails, use generic error message
+      }
+      
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.originalMessage = errorText;
+      throw error;
     }
 
     return response.json();

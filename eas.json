@@ -17,10 +17,6 @@
     },
     "preview": {
       "distribution": "internal",
-<<<<<<< HEAD
-      "environment": "staging",
-=======
->>>>>>> parent of 1cbb190 (Please dun trip)
       "env": {
         "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
         "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",

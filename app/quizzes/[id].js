@@ -2,16 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, useWindowDimensions, Alert } from 'react-native';
 import { useTheme, Surface, Text, Button, ActivityIndicator, RadioButton } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
 import courseService from '../../services/courseService';
 
+const getLocalizedText = (textData, language = 'en') => {
+  if (!textData) return '';
+  if (typeof textData === 'string') return textData;
+  return textData[language] || textData.en || '';
+};
+
 export default function QuizView() {
   const theme = useTheme();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   const { isSimpleMode, highContrast } = useThemeContext();
   const { id } = useLocalSearchParams();
@@ -33,6 +39,13 @@ export default function QuizView() {
   useEffect(() => {
     loadQuiz();
   }, [id]);
+
+  // Reload quiz when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadQuiz();
+    }, [id])
+  );
 
   useEffect(() => {
     let interval;
@@ -203,7 +216,25 @@ export default function QuizView() {
 
             {questions.map((question, idx) => {
               const userAnswer = answers[idx];
-              const isCorrect = userAnswer === question.correctIndex;
+              
+              // Find the correct answer index from options with is_correct flag
+              let correctAnswerIndex = null;
+              if (Array.isArray(question.options)) {
+                for (let i = 0; i < question.options.length; i++) {
+                  const option = question.options[i];
+                  if (typeof option === 'object' && option.is_correct) {
+                    correctAnswerIndex = i;
+                    break;
+                  }
+                }
+              }
+              
+              // Fallback to correctIndex if options don't have is_correct
+              if (correctAnswerIndex === null) {
+                correctAnswerIndex = question.correctIndex;
+              }
+              
+              const isCorrect = userAnswer === correctAnswerIndex;
 
               return (
                 <Surface
@@ -255,7 +286,7 @@ export default function QuizView() {
                       marginBottom: 12,
                     }}
                   >
-                    {question.question}
+                    {getLocalizedText(question.question_text, i18n.language)}
                   </Text>
 
                   <View style={{ marginBottom: 12 }}>
@@ -276,7 +307,7 @@ export default function QuizView() {
                         fontWeight: '600',
                       }}
                     >
-                      {question.options[userAnswer]}
+                      {getLocalizedText(question.options[userAnswer]?.text, i18n.language)}
                     </Text>
                   </View>
 
@@ -305,7 +336,7 @@ export default function QuizView() {
                           fontWeight: '600',
                         }}
                       >
-                        {question.options[question.correctIndex]}
+                        {getLocalizedText(question.options[correctAnswerIndex]?.text, i18n.language)}
                       </Text>
                     </View>
                   )}
@@ -512,6 +543,7 @@ export default function QuizView() {
             highContrast={highContrast}
             cardRadius={cardRadius}
             t={t}
+            language={i18n.language}
           />
         ))}
 
@@ -541,6 +573,7 @@ function QuestionCard({
   highContrast,
   cardRadius,
   t,
+  language = 'en',
 }) {
   return (
     <Surface
@@ -573,25 +606,33 @@ function QuestionCard({
           lineHeight: 22,
         }}
       >
-        {question.question}
+        {getLocalizedText(question.question_text, language)}
       </Text>
 
       <View>
-        {question.options.map((option, optIdx) => (
-          <View key={optIdx} style={{ marginBottom: 12 }}>
-            <RadioButton.Item
-              label={option}
-              value={optIdx}
-              status={selectedAnswer === optIdx ? 'checked' : 'unchecked'}
-              onPress={() => onSelectAnswer(optIdx)}
-              labelVariant="bodyMedium"
-              style={{
-                paddingVertical: 0,
-                paddingHorizontal: 0,
-              }}
-            />
-          </View>
-        ))}
+        {question.options && question.options.length > 0 ? (
+          question.options.map((option, optIdx) => {
+            // Options are objects with a 'text' property that's multilingual
+            const optionText = option?.text ? getLocalizedText(option.text, language) : (typeof option === 'string' ? option : `Option ${optIdx + 1}`);
+            return (
+              <View key={optIdx} style={{ marginBottom: 12 }}>
+                <RadioButton.Item
+                  label={optionText}
+                  value={optIdx}
+                  status={selectedAnswer === optIdx ? 'checked' : 'unchecked'}
+                  onPress={() => onSelectAnswer(optIdx)}
+                  labelVariant="bodyMedium"
+                  style={{
+                    paddingVertical: 0,
+                    paddingHorizontal: 0,
+                  }}
+                />
+              </View>
+            );
+          })
+        ) : (
+          <Text style={{ color: '#999', fontStyle: 'italic' }}>No options available</Text>
+        )}
       </View>
     </Surface>
   );

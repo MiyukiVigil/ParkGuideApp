@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, useWindowDimensions, Alert } from 'react-native';
 import { useTheme, Surface, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
@@ -30,11 +30,29 @@ export default function LessonView() {
     loadLesson();
   }, [id]);
 
+  // Reload lesson when screen comes into focus (e.g., after marking complete)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadLesson();
+    }, [id])
+  );
+
   const loadLesson = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await courseService.getLesson(id);
+      console.log('[LessonView] Lesson data loaded:', {
+        id: data?.id,
+        title: data?.title,
+        content_text: !!data?.content_text,
+        content_images: data?.content_images,
+        content_images_count: data?.content_images?.length || 0,
+        content_videos: data?.content_videos,
+        content_videos_count: data?.content_videos?.length || 0,
+        is_completed: data?.is_completed,
+        progress: data?.progress,
+      });
       setLesson(data);
     } catch (err) {
       setError(err.message);
@@ -48,6 +66,8 @@ export default function LessonView() {
     try {
       setMarking(true);
       await courseService.markLessonComplete(id);
+      // Reload immediately after API success
+      await loadLesson();
       Alert.alert(
         t('lessonCompleted'),
         t('goodJobKeepGoing') || 'Great! Continue to the next lesson.',
@@ -55,7 +75,7 @@ export default function LessonView() {
           {
             text: t('continue'),
             onPress: () => {
-              loadLesson();
+              // Just close the alert, lesson is already reloaded
             },
           },
         ]
@@ -97,7 +117,7 @@ export default function LessonView() {
     );
   }
 
-  const isCompleted = lesson.is_completed;
+  const isCompleted = lesson?.is_completed || (lesson?.progress?.completed) || false;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -168,7 +188,7 @@ export default function LessonView() {
           )}
 
           {/* Images */}
-          {lesson.images && lesson.images.length > 0 && (
+          {lesson?.content_images && lesson.content_images.length > 0 && (
             <View style={{ marginBottom: 20 }}>
               <Text
                 variant="titleSmall"
@@ -180,7 +200,7 @@ export default function LessonView() {
               >
                 {t('images') || 'Images'}
               </Text>
-              {lesson.images.map((image, index) => (
+              {lesson.content_images.map((image, index) => (
                 <View
                   key={index}
                   style={[
@@ -188,6 +208,8 @@ export default function LessonView() {
                     {
                       backgroundColor: theme.colors.surfaceVariant,
                       borderColor: theme.colors.outlineVariant,
+                      borderRadius: 12,
+                      padding: 12,
                     },
                   ]}
                 >
@@ -197,7 +219,7 @@ export default function LessonView() {
                       textAlign: 'center',
                     }}
                   >
-                    📷 {image}
+                    📷 {typeof image === 'string' ? image : JSON.stringify(image)}
                   </Text>
                 </View>
               ))}
@@ -205,7 +227,7 @@ export default function LessonView() {
           )}
 
           {/* Videos */}
-          {lesson.videos && lesson.videos.length > 0 && (
+          {(lesson.content_videos || lesson.videos) && (lesson.content_videos?.length > 0 || lesson.videos?.length > 0) && (
             <View style={{ marginBottom: 20 }}>
               <Text
                 variant="titleSmall"
@@ -217,7 +239,7 @@ export default function LessonView() {
               >
                 {t('videos') || 'Videos'}
               </Text>
-              {lesson.videos.map((video, index) => (
+              {(lesson.content_videos || lesson.videos || []).map((video, index) => (
                 <View
                   key={index}
                   style={[
@@ -225,6 +247,8 @@ export default function LessonView() {
                     {
                       backgroundColor: theme.colors.surfaceVariant,
                       borderColor: theme.colors.outlineVariant,
+                      borderRadius: 12,
+                      padding: 12,
                     },
                   ]}
                 >
@@ -234,7 +258,7 @@ export default function LessonView() {
                       textAlign: 'center',
                     }}
                   >
-                    🎥 {video}
+                    🎥 {typeof video === 'string' ? video : video.name || 'Video'}
                   </Text>
                 </View>
               ))}

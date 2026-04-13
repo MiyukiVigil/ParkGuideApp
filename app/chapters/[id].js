@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { useTheme, Surface, Text, Button, ActivityIndicator, ProgressBar } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
@@ -11,10 +11,16 @@ import courseService from '../../services/courseService';
 export default function ChapterView() {
   const theme = useTheme();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   const { isSimpleMode, highContrast } = useThemeContext();
   const { id } = useLocalSearchParams();
+
+  const getLocalizedText = (textData) => {
+    if (!textData) return '';
+    if (typeof textData === 'string') return textData;
+    return textData[i18n.language] || textData.en || '';
+  };
 
   const [chapter, setChapter] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,11 +35,29 @@ export default function ChapterView() {
     loadChapter();
   }, [id]);
 
+  // Reload chapter when screen comes into focus (e.g., after marking lesson complete)
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log(`[Chapter] useFocusEffect triggered for chapter ${id}, reloading data...`);
+      loadChapter();
+    }, [id])
+  );
+
   const loadChapter = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await courseService.getChapter(id);
+      console.log(`[Chapter] Data loaded:`, {
+        id: data?.id,
+        title: data?.title,
+        lessonsCount: data?.lessons?.length,
+        progressPercentage: data?.progress?.progress_percentage,
+        completedLessons: data?.progress?.completed_lessons,
+        totalLessons: data?.progress?.total_lessons,
+        quizzesCount: data?.quizzes?.length,
+        quizScore: data?.quizzes?.[0]?.score,
+      });
       setChapter(data);
     } catch (err) {
       setError(err.message);
@@ -151,8 +175,8 @@ export default function ChapterView() {
             style={{ color: theme.colors.onSurfaceVariant }}
           >
             {t('lessonsCompleted', {
-              completed: chapter.progress?.lessons_completed || 0,
-              total: lessons.length,
+              completed: chapter.progress?.completed_lessons || 0,
+              total: chapter.progress?.total_lessons || lessons.length || 0,
             })}
           </Text>
         </Surface>
@@ -188,7 +212,7 @@ export default function ChapterView() {
         )}
 
         {/* Practice & Quiz Section */}
-        {(chapter.practice_exercise || chapter.quiz) && (
+        {(chapter.practice_exercises?.length > 0 || chapter.quizzes?.length > 0) && (
           <View style={{ marginTop: 20 }}>
             <Text
               variant={isSimpleMode || highContrast ? 'titleMedium' : 'titleSmall'}
@@ -201,31 +225,33 @@ export default function ChapterView() {
               {t('assessments')}
             </Text>
 
-            {chapter.practice_exercise && (
+            {chapter.practice_exercises && chapter.practice_exercises.map((exercise) => (
               <AssessmentCard
+                key={exercise.id}
                 title={t('practice')}
-                description={t('practiceExercise')}
-                score={chapter.practice_exercise.user_score}
+                description={getLocalizedText(exercise.description) || t('practiceExercise')}
+                score={exercise.user_best_score}
                 theme={theme}
                 cardRadius={cardRadius}
                 onPress={() =>
-                  router.push(`/practice/${chapter.practice_exercise.id}`)
+                  router.push(`/practice/${exercise.id}`)
                 }
                 t={t}
               />
-            )}
+            ))}
 
-            {chapter.quiz && (
+            {chapter.quizzes && chapter.quizzes.map((quiz) => (
               <AssessmentCard
-                title={t('quiz')}
+                key={quiz.id}
+                title={getLocalizedText(quiz.title) || t('quiz')}
                 description={t('quiz')}
-                score={chapter.quiz.user_score}
+                score={quiz.user_best_score}
                 theme={theme}
                 cardRadius={cardRadius}
-                onPress={() => router.push(`/quizzes/${chapter.quiz.id}`)}
+                onPress={() => router.push(`/quizzes/${quiz.id}`)}
                 t={t}
               />
-            )}
+            ))}
           </View>
         )}
       </ScrollView>

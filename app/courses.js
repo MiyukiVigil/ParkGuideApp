@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, useWindowDimensions, RefreshControl, Alert, Image } from 'react-native';
 import { useTheme, Surface, Text, Button, ActivityIndicator, Searchbar } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -58,6 +58,12 @@ export default function CourseCatalog() {
       await loadCourses();
     } catch (err) {
       console.error('Error enrolling:', err);
+      // Error is now a user-friendly message from the backend
+      Alert.alert(
+        'Cannot Enroll',
+        err.message,
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -132,6 +138,7 @@ export default function CourseCatalog() {
 
 function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onPress, onEnroll, t }) {
   const [enrolling, setEnrolling] = useState(false);
+  const [thumbnailError, setThumbnailError] = useState(false);
 
   const handleEnroll = async () => {
     setEnrolling(true);
@@ -142,10 +149,26 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
     }
   };
 
-  // Determine enrollment status
-  const isEnrolled = course.enrollment_status === 'enrolled';
-  const hasUnmetPrerequisites = course.enrollment_status === 'prerequisites_not_met';
-  const completionPercentage = course.enrollment?.progress_percentage || 0;
+  // Debug enrollment status
+  console.log(`[CourseCard] ${course.code}:`, {
+    enrollmentStatus: course.enrollment_status,
+    statusValue: course.enrollment_status?.status,
+    prerequisites: course.prerequisites_info,
+  });
+
+  // Determine enrollment status - FIXED LOGIC
+  const enrollmentStatus = course.enrollment_status?.status;
+  const isCompleted = enrollmentStatus === 'completed';
+  const isEnrolled = !isCompleted && (enrollmentStatus === 'in_progress' || enrollmentStatus === 'enrolled');
+  const hasUnmetPrerequisites = !isEnrolled && !isCompleted && course.prerequisites_info?.some(p => !p.is_completed);
+  const completionPercentage = course.enrollment_status?.progress_percentage || 0;
+
+  console.log(`[CourseCard] ${course.code} state:`, {
+    isCompleted,
+    isEnrolled,
+    hasUnmetPrerequisites,
+    completionPercentage,
+  });
 
   return (
     <Surface
@@ -159,16 +182,29 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
       ]}
       elevation={highContrast ? 0 : isSimpleMode ? 1 : 2}
     >
-      {/* Thumbnail Placeholder */}
+      {/* Thumbnail */}
       <View
         style={[
           styles.thumbnail,
           { backgroundColor: theme.colors.primaryContainer, borderRadius: cardRadius },
         ]}
       >
-        <Text style={{ color: theme.colors.primary, fontSize: 32, fontWeight: 'bold' }}>
-          {course.code?.[0]?.toUpperCase()}
-        </Text>
+        {course.thumbnail && !thumbnailError ? (
+          <Image
+            source={{ uri: course.thumbnail }}
+            style={[styles.thumbnailImage, { borderRadius: cardRadius }]}
+            resizeMode="cover"
+            onLoad={() => console.log(`✓ Loaded thumbnail for ${course.code}`)}
+            onError={(e) => {
+              console.error(`✗ Error loading thumbnail for ${course.code}:`, e.nativeEvent);
+              setThumbnailError(true);
+            }}
+          />
+        ) : (
+          <Text style={{ color: theme.colors.primary, fontSize: 32, fontWeight: 'bold' }}>
+            {course.code?.[0]?.toUpperCase() || 'C'}
+          </Text>
+        )}
       </View>
 
       {/* Course Info */}
@@ -189,8 +225,19 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
           {course.description?.en || 'No description'}
         </Text>
 
-        {/* Enrollment Status Badge */}
-        {isEnrolled && (
+        {/* Status Badge */}
+        {isCompleted && (
+          <View style={[styles.statusBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
+            <Text
+              variant="labelSmall"
+              style={{ color: theme.colors.onSecondaryContainer, fontWeight: '600' }}
+            >
+              ✓ {t('completed') || 'Completed'}
+            </Text>
+          </View>
+        )}
+
+        {isEnrolled && !isCompleted && (
           <>
             <View style={[styles.statusBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
               <Text
@@ -205,24 +252,24 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
                 <View
                   style={[
                     styles.progressBar,
-                    { backgroundColor: theme.colors.secondaryContainer, width: `${completionPercentage}%` },
+                    { backgroundColor: theme.colors.secondary, width: `${completionPercentage}%` },
                   ]}
                 />
               </View>
             )}
             <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-              {t('progressPercentage', { percentage: Math.round(completionPercentage) })}
+              {Math.round(completionPercentage)}% {t('complete') || 'Complete'}
             </Text>
           </>
         )}
 
-        {hasUnmetPrerequisites && (
+        {!isCompleted && !isEnrolled && hasUnmetPrerequisites && (
           <View style={[styles.statusBadge, { backgroundColor: theme.colors.errorContainer }]}>
             <Text
               variant="labelSmall"
               style={{ color: theme.colors.error, fontWeight: '600' }}
             >
-              {t('canNotEnroll')}
+              ⚠️ {t('prerequisitesRequired') || 'Prerequisites Required'}
             </Text>
           </View>
         )}
@@ -230,7 +277,17 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
 
       {/* Actions */}
       <View style={styles.actions}>
-        {isEnrolled ? (
+        {isCompleted ? (
+          <Button
+            mode="contained"
+            onPress={onPress}
+            style={{ flex: 1 }}
+            disabled
+            compact
+          >
+            ✓ {t('completed') || 'Completed'}
+          </Button>
+        ) : isEnrolled ? (
           <Button
             mode="contained"
             onPress={onPress}
@@ -238,7 +295,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
             disabled={enrolling}
             compact
           >
-            {t('continueCourse')}
+            {t('continueCourse') || 'Continue'}
           </Button>
         ) : (
           <>
@@ -248,7 +305,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
               style={{ flex: 1, marginRight: 8 }}
               compact
             >
-              {t('viewCourse')}
+              {t('viewCourse') || 'View'}
             </Button>
             <Button
               mode="contained"
@@ -256,8 +313,11 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
               disabled={hasUnmetPrerequisites || enrolling}
               compact
               loading={enrolling}
+              style={{
+                opacity: hasUnmetPrerequisites ? 0.5 : 1,
+              }}
             >
-              {t('enrollNow')}
+              {t('enrollNow') || 'Enroll'}
             </Button>
           </>
         )}
@@ -291,10 +351,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   thumbnail: {
-    height: 100,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: 120,
   },
   courseInfo: {
     marginBottom: 12,
