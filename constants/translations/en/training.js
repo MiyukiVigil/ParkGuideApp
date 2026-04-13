@@ -1,5 +1,5 @@
 export default {
-    TrainingModules: "Traning Modules",
+    TrainingModules: "Training Modules",
     TrainingModuleR: "modules remaining",
     success: "Success",
     moduleCompleted: "Module completed!",

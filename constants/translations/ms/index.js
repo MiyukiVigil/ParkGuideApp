@@ -6,6 +6,8 @@ import training from './training';
 import cert from './cert';
 import settings from './settings';
 import pdfViewer from './pdfViewer';
+import courses from './courses';
+import common from './common';
 
 export default {
   ...home,
@@ -15,5 +17,7 @@ export default {
   ...training,
   ...cert,
   ...settings,
-  ...pdfViewer
+  ...pdfViewer,
+  ...courses,
+  ...common
 };

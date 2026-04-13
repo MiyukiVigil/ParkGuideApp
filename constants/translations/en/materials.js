@@ -16,5 +16,10 @@ export default {
     downloadToAppStorage: "App Storage",
     cancelAction: "Cancel",
     downloadFailedTitle: "Download Failed",
-    downloadFailedMessage: "Unable to download material. Please try again."
+    downloadFailedMessage: "Unable to download material. Please try again.",
+    materialNotFound: "Material not found",
+    materialExpired: "Material is no longer available",
+    offlineMode: "Offline Mode",
+    availableOffline: "Available Offline",
+    onlineRequired: "Internet connection required"
 }

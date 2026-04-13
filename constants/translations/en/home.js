@@ -13,4 +13,11 @@ export default {
     remainingDesc: "Modules Left",
     settings: "Settings",
     settingsDesc: "Customize App",
+    dashboard: "Dashboard",
+    account: "Account",
+    welcome: "Welcome",
+    profile: "Profile",
+    errorLoading: "Error loading data",
+    tryAgain: "Try Again",
+    noCourses: "No Courses Available",
 };

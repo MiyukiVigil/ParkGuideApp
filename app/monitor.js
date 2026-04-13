@@ -1,16 +1,18 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { Text, Surface, useTheme } from "react-native-paper";
+import { useTranslation } from "react-i18next";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
 
 export default function Monitor() {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
         <ThemedBackground />
-      <AppHeader title="Tour Monitor" subtitle="Live field monitor" showBack showHome />
+      <AppHeader title={t("tourMonitor")} subtitle={t("liveFieldMonitor")} showBack showHome />
 
       <View style={styles.container}>
         <Surface

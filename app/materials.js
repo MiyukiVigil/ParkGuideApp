@@ -66,7 +66,7 @@ export default function Materials() {
       const remoteUrl = item.url || (await getMaterialUrl(item));
       if (!remoteUrl) {
         setViewingPdfLoading(false);
-        Alert.alert(t("unavailable") || "Unavailable", "This file is not currently available.");
+        Alert.alert(t("unavailable"), t("thisFileNotAvailable"));
         return;
       }
 
@@ -74,7 +74,7 @@ export default function Materials() {
       const hasValidSession = await ensureFreshSession();
       if (!hasValidSession) {
         setViewingPdfLoading(false);
-        Alert.alert("Session expired", "Please log in again.");
+        Alert.alert(t("sessionExpired"), t("pleaseLogInAgain"));
         router.replace("/");
         return;
       }
@@ -83,7 +83,7 @@ export default function Materials() {
       const token = await getAccessToken();
       if (!token) {
         setViewingPdfLoading(false);
-        Alert.alert("Authentication required", "Please log in again.");
+        Alert.alert(t("authRequired"), t("pleaseLogInAgain"));
         router.replace("/");
         return;
       }
@@ -185,7 +185,7 @@ export default function Materials() {
           error.response?.status === 403 ||
           error.isSessionExpired
         ) {
-          Alert.alert("Session expired", "Please log in again.");
+          Alert.alert(t("sessionExpired"), t("pleaseLogInAgain"));
           router.replace("/");
           return;
         }
@@ -228,7 +228,7 @@ export default function Materials() {
         error.response?.status === 403 ||
         error.isSessionExpired
       ) {
-        Alert.alert("Session expired", "Please log in again.");
+        Alert.alert(t("sessionExpired"), t("pleaseLogInAgain"));
         router.replace("/");
         return null;
       }
@@ -554,7 +554,7 @@ export default function Materials() {
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <AppHeader
         title={t("matHeadline")}
-        subtitle="Forest knowledge resources"
+        subtitle={t("forestKnowledgeResources")}
         showBack
         showHome
       />

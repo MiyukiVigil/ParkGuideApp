@@ -1,0 +1,457 @@
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { useTheme, Surface, Text, Button, ActivityIndicator, ProgressBar } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import AppHeader from '../../components/AppHeader';
+import ThemedBackground from '../../components/ThemedBackground';
+import { useThemeContext } from '../../contexts/ThemeContext';
+import courseService from '../../services/courseService';
+
+export default function ChapterView() {
+  const theme = useTheme();
+  const router = useRouter();
+  const { t } = useTranslation();
+  const { width } = useWindowDimensions();
+  const { isSimpleMode, highContrast } = useThemeContext();
+  const { id } = useLocalSearchParams();
+
+  const [chapter, setChapter] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const containerWidth = width > 1200 ? 800 : '100%';
+  const containerMargin = width > 1200 ? 'auto' : 0;
+
+  const cardRadius = isSimpleMode || highContrast ? 16 : 24;
+
+  useEffect(() => {
+    loadChapter();
+  }, [id]);
+
+  const loadChapter = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await courseService.getChapter(id);
+      setChapter(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error loading chapter:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+        <ThemedBackground />
+        <AppHeader title={t('chapter')} showBack />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator animating={true} size="large" color={theme.colors.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  if (!chapter) {
+    return (
+      <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+        <ThemedBackground />
+        <AppHeader title={t('chapter')} showBack />
+        <View style={styles.centerContainer}>
+          <Text>{t('errorLoadingCourse')}</Text>
+          <Button onPress={loadChapter} style={{ marginTop: 16 }}>
+            {t('tryAgain')}
+          </Button>
+        </View>
+      </View>
+    );
+  }
+
+  const lessons = chapter.lessons || [];
+  const progress = chapter.progress?.progress_percentage || 0;
+
+  return (
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <ThemedBackground />
+      <AppHeader
+        title={chapter.title?.en || t('chapter')}
+        subtitle={t('chapter')}
+        showBack
+      />
+
+      <ScrollView
+        style={[styles.container, { width: containerWidth, marginLeft: containerMargin, marginRight: containerMargin }]}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {/* Chapter Header */}
+        <Surface
+          style={[
+            styles.headerCard,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outlineVariant,
+              borderRadius: cardRadius,
+            },
+          ]}
+          elevation={highContrast ? 0 : isSimpleMode ? 1 : 2}
+        >
+          <Text
+            variant={isSimpleMode || highContrast ? 'headlineSmall' : 'headlineMedium'}
+            style={{
+              color: theme.colors.onSurface,
+              fontWeight: '800',
+              marginBottom: 8,
+            }}
+          >
+            {chapter.title?.en}
+          </Text>
+
+          {chapter.description?.en && (
+            <Text
+              variant="bodyMedium"
+              style={{
+                color: theme.colors.onSurfaceVariant,
+                marginBottom: 16,
+              }}
+            >
+              {chapter.description.en}
+            </Text>
+          )}
+
+          {/* Progress */}
+          <View style={{ marginBottom: 16 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 8,
+              }}
+            >
+              <Text
+                variant="labelMedium"
+                style={{ color: theme.colors.onSurface, fontWeight: '600' }}
+              >
+                {t('chapterProgress')}
+              </Text>
+              <Text
+                variant="labelMedium"
+                style={{ color: theme.colors.primary, fontWeight: '700' }}
+              >
+                {Math.round(progress)}%
+              </Text>
+            </View>
+            <ProgressBar progress={progress / 100} color={theme.colors.secondary} />
+          </View>
+
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            {t('lessonsCompleted', {
+              completed: chapter.progress?.lessons_completed || 0,
+              total: lessons.length,
+            })}
+          </Text>
+        </Surface>
+
+        {/* Lessons */}
+        {lessons.length > 0 && (
+          <View style={{ marginTop: 20 }}>
+            <Text
+              variant={isSimpleMode || highContrast ? 'titleMedium' : 'titleSmall'}
+              style={{
+                color: theme.colors.onSurface,
+                fontWeight: '800',
+                marginBottom: 12,
+              }}
+            >
+              {t('lessons')}
+            </Text>
+
+            {lessons.map((lesson, index) => (
+              <LessonCard
+                key={lesson.id}
+                lesson={lesson}
+                index={index + 1}
+                theme={theme}
+                isSimpleMode={isSimpleMode}
+                highContrast={highContrast}
+                cardRadius={cardRadius}
+                onPress={() => router.push(`/lessons/${lesson.id}`)}
+                t={t}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Practice & Quiz Section */}
+        {(chapter.practice_exercise || chapter.quiz) && (
+          <View style={{ marginTop: 20 }}>
+            <Text
+              variant={isSimpleMode || highContrast ? 'titleMedium' : 'titleSmall'}
+              style={{
+                color: theme.colors.onSurface,
+                fontWeight: '800',
+                marginBottom: 12,
+              }}
+            >
+              {t('assessments')}
+            </Text>
+
+            {chapter.practice_exercise && (
+              <AssessmentCard
+                title={t('practice')}
+                description={t('practiceExercise')}
+                score={chapter.practice_exercise.user_score}
+                theme={theme}
+                cardRadius={cardRadius}
+                onPress={() =>
+                  router.push(`/practice/${chapter.practice_exercise.id}`)
+                }
+                t={t}
+              />
+            )}
+
+            {chapter.quiz && (
+              <AssessmentCard
+                title={t('quiz')}
+                description={t('quiz')}
+                score={chapter.quiz.user_score}
+                theme={theme}
+                cardRadius={cardRadius}
+                onPress={() => router.push(`/quizzes/${chapter.quiz.id}`)}
+                t={t}
+              />
+            )}
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+function LessonCard({
+  lesson,
+  index,
+  theme,
+  isSimpleMode,
+  highContrast,
+  cardRadius,
+  onPress,
+  t,
+}) {
+  const isCompleted = lesson.is_completed;
+
+  return (
+    <Surface
+      style={[
+        styles.lessonCard,
+        {
+          backgroundColor: isCompleted ? theme.colors.surfaceVariant : theme.colors.surface,
+          borderColor: theme.colors.outlineVariant,
+          borderRadius: cardRadius,
+        },
+      ]}
+      elevation={highContrast ? 0 : 1}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 4,
+            }}
+          >
+            <View
+              style={[
+                styles.lessonNumber,
+                {
+                  backgroundColor: isCompleted
+                    ? theme.colors.secondary
+                    : theme.colors.primaryContainer,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: isCompleted
+                    ? theme.colors.onSecondary
+                    : theme.colors.primary,
+                  fontWeight: '700',
+                  fontSize: 12,
+                }}
+              >
+                {index}
+              </Text>
+            </View>
+            <Text
+              variant="titleSmall"
+              style={{
+                color: theme.colors.onSurface,
+                fontWeight: '700',
+                marginLeft: 12,
+                flex: 1,
+              }}
+              numberOfLines={1}
+            >
+              {lesson.title?.en}
+            </Text>
+            {isCompleted && (
+              <Text
+                variant="labelSmall"
+                style={{ color: theme.colors.secondary, fontWeight: '700' }}
+              >
+                ✓
+              </Text>
+            )}
+          </View>
+
+          {lesson.time_estimate && (
+            <Text
+              variant="bodySmall"
+              style={{
+                color: theme.colors.onSurfaceVariant,
+                marginLeft: 32,
+              }}
+            >
+              {lesson.time_estimate} min
+            </Text>
+          )}
+        </View>
+      </View>
+
+      <Button
+        mode="outlined"
+        size="small"
+        onPress={onPress}
+        style={{ marginTop: 12 }}
+      >
+        {isCompleted ? t('review') : t('start')}
+      </Button>
+    </Surface>
+  );
+}
+
+function AssessmentCard({
+  title,
+  description,
+  score,
+  theme,
+  cardRadius,
+  onPress,
+  t,
+}) {
+  const isPassed = score !== null && score >= 70;
+
+  return (
+    <Surface
+      style={[
+        styles.assessmentCard,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor:
+            score === null
+              ? theme.colors.outlineVariant
+              : isPassed
+              ? theme.colors.secondaryContainer
+              : theme.colors.errorContainer,
+          borderRadius: cardRadius,
+        },
+      ]}
+      elevation={1}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 12,
+        }}
+      >
+        <View>
+          <Text
+            variant="titleSmall"
+            style={{
+              color: theme.colors.onSurface,
+              fontWeight: '700',
+            }}
+          >
+            {title}
+          </Text>
+          <Text
+            variant="bodySmall"
+            style={{
+              color: theme.colors.onSurfaceVariant,
+            }}
+          >
+            {description}
+          </Text>
+        </View>
+
+        {score !== null && (
+          <Text
+            variant="headlineSmall"
+            style={{
+              color: isPassed
+                ? theme.colors.secondary
+                : theme.colors.error,
+              fontWeight: '700',
+            }}
+          >
+            {Math.round(score)}%
+          </Text>
+        )}
+      </View>
+
+      <Button mode="contained" size="small" onPress={onPress}>
+        {score === null ? t('start') : t('retake')}
+      </Button>
+    </Surface>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  container: { flex: 1 },
+  contentContainer: { padding: 16, paddingBottom: 40 },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+  },
+  headerCard: {
+    padding: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  lessonCard: {
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  lessonNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  assessmentCard: {
+    padding: 16,
+    borderWidth: 2,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+});

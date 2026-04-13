@@ -5,9 +5,19 @@
  * The plugin processes .env at build time and injects values at compile time.
  */
 
+// Determine API URL based on platform
+const getApiBaseUrl = () => {
+  const envUrl = process.env.API_BASE_URL;
+  if (envUrl) return envUrl;
+
+  // Default to localhost for web and iOS
+  // Only use 10.0.2.2 for Android emulator if explicitly needed
+  return 'http://localhost:8000/api';
+};
+
 const CONFIG = {
   // API Configuration
-  API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:8000/api',
+  API_BASE_URL: getApiBaseUrl(),
 
   // Dashboard URLs
   DASHBOARD_BASE_URL: process.env.DASHBOARD_BASE_URL || 'http://10.0.2.2:8000',

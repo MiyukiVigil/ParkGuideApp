@@ -8,5 +8,13 @@ export default {
     ttsSwitchDesc: "Read training modules aloud",
     fontSet: "Font Size",
     fontDesc: "Standard",
-    logoutButton: "Secure Logout"
+    logoutButton: "Secure Logout",
+    about: "About",
+    appVersion: "App Version",
+    feedback: "Send Feedback",
+    privacyPolicy: "Privacy Policy",
+    termsOfService: "Terms of Service",
+    highContrast: "High Contrast",
+    notifications: "Notifications",
+    enableNotifications: "Enable push notifications"
 }

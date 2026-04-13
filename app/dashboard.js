@@ -3,6 +3,7 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Appbar, Button, Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
+import { useTranslation } from 'react-i18next';
 import CONFIG from '../constants/config';
 import { clearAuthTokens, getAccessToken } from '../utils/tokenStorage';
 import { unregisterPushNotifications } from '../services/notificationService';
@@ -21,6 +22,7 @@ if (!DASHBOARD_BASE_URL) {
 export default function Dashboard() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const webViewRef = useRef(null);
   const logoutRequestedRef = useRef(false);
   const [initialUrl, setInitialUrl] = useState(null);
@@ -84,9 +86,9 @@ export default function Dashboard() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}> 
       <Appbar.Header elevated>
-        <Appbar.Content title="Admin Dashboard" subtitle="ParkGuide web app" />
+        <Appbar.Content title={t("adminDashboard")} subtitle={t("parkGuideWebApp")} />
         <Button mode="text" onPress={navigateToLogout} textColor={theme.colors.error}>
-          Logout
+          {t("logout")}
         </Button>
       </Appbar.Header>
 

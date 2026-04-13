@@ -4,13 +4,12 @@ import { Text, Avatar, Surface, TouchableRipple, IconButton, Chip, useTheme } fr
 import { useRouter, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
-import { getCompletedModules } from "../utils/progressSync";
-import { TRAINING_COURSES } from "../constants/courses";
 import ThemedBackground from "../components/ThemedBackground";
 import AnimatedHeaderBackground from "../components/AnimatedHeaderBackground";
 import { useThemeContext } from "../contexts/ThemeContext";
 import CONFIG, { getAvatarUrl } from "../constants/config";
 import * as NotificationService from "../services/notificationService";
+import courseService from "../services/courseService";
 
 export default function Home() {
   const router = useRouter();
@@ -23,6 +22,7 @@ export default function Home() {
   const [remainingModules, setRemainingModules] = useState(0);
   const [completedModules, setCompletedModules] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [currentCourse, setCurrentCourse] = useState(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const heroScale = useRef(new Animated.Value(0.98)).current;
@@ -35,28 +35,53 @@ export default function Home() {
     useCallback(() => {
       const loadTrainingProgress = async () => {
         try {
-          const completed = await getCompletedModules(); // Use progressSync for backend-first fetch
+          const enrollments = await courseService.getUserEnrollments();
+          console.log('[home] User enrollments:', enrollments);
+          
+          // Set current course to first incomplete one, or first course overall
+          const incompleteCourse = enrollments.find(e => e.progress_percentage < 100);
+          const nextCourse = incompleteCourse || enrollments[0];
+          
+          // Parse course_title if it's a JSON string (handle both JSON and Python dict strings)
+          let courseTitle = nextCourse?.course_title;
+          if (typeof courseTitle === 'string') {
+            try {
+              // Try parsing as JSON first
+              courseTitle = JSON.parse(courseTitle);
+            } catch (e) {
+              try {
+                // If that fails, try converting Python dict string to JSON (replace single quotes with double quotes)
+                const jsonStr = courseTitle.replace(/'/g, '"');
+                courseTitle = JSON.parse(jsonStr);
+              } catch (e2) {
+                // If parsing fails, keep it as is
+              }
+            }
+          }
+          
+          // Ensure course object has title 
+          const courseToDisplay = nextCourse 
+            ? { ...nextCourse, title: courseTitle || nextCourse.title } 
+            : { title: "No Courses" };
+          setCurrentCourse(courseToDisplay);
 
-          const current =
-            TRAINING_COURSES.find((course) =>
-              course.modules.some((mod) => !completed.includes(mod.id))
-            ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
+          // Calculate overall progress across all enrolled courses
+          const totalProgress = enrollments.length > 0
+            ? enrollments.reduce((sum, e) => sum + (e.progress_percentage || 0), 0) / enrollments.length
+            : 0;
 
-          const completedInCourse = current.modules.filter((mod) =>
-            completed.includes(mod.id)
-          ).length;
+          // Count courses not yet completed
+          const remainingModules = enrollments.filter(e => e.progress_percentage < 100).length;
 
-          const currentCourseProgress = completedInCourse / current.modules.length;
-
-          const totalIncomplete = TRAINING_COURSES.reduce((acc, course) => {
-            return acc + course.modules.filter((m) => !completed.includes(m.id)).length;
-          }, 0);
-
-          setCompletedModules(completed);
-          setTrainingProgress(currentCourseProgress);
-          setRemainingModules(totalIncomplete);
+          setCompletedModules(enrollments.filter(e => e.progress_percentage === 100).map(e => e.id));
+          setTrainingProgress(totalProgress / 100);
+          setRemainingModules(remainingModules);
         } catch (err) {
           console.log("Failed to load progress", err);
+          // Fallback: show no progress
+          setCurrentCourse({ title: "No Courses" });
+          setTrainingProgress(0);
+          setRemainingModules(0);
         }
       };
 
@@ -116,14 +141,13 @@ export default function Home() {
     }).start();
   }, [trainingProgress, barAnim]);
 
-  const currentCourse =
-    TRAINING_COURSES.find((course) =>
-      course.modules.some((mod) => !completedModules.includes(mod.id))
-    ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
-
   const getLocalizedTitle = (titleData) => {
+    if (!titleData) return "Untitled Course";
     if (typeof titleData === "string") return titleData;
-    return titleData[i18n.language] || titleData.en || "Untitled Course";
+    if (typeof titleData === "object") {
+      return titleData[i18n.language] || titleData.en || titleData.course_title || JSON.stringify(titleData);
+    }
+    return String(titleData);
   };
 
   const completedCount = completedModules.length;
@@ -254,7 +278,7 @@ export default function Home() {
             <TouchableRipple
               onPress={() => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                router.push("/training");
+                router.push("/courses");
               }}
               style={styles.cardRipple}
             >
@@ -273,16 +297,16 @@ export default function Home() {
                 </View>
 
                 <Text variant="headlineSmall" style={[styles.featureTitle, { color: theme.colors.onSurface }]}>
-                  {getLocalizedTitle(currentCourse.title)}
+                  {currentCourse ? getLocalizedTitle(currentCourse.title) : t("noCourses")}
                 </Text>
 
                 <Text style={[styles.featureSub, { color: theme.colors.onSurfaceVariant }]}>
-                  Continue your current eco-guide learning path and keep your certification progress on track.
+                  {t("continueYourPath")}
                 </Text>
 
                 <View style={styles.progressMeta}>
                   <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
-                    {remainingModules} modules remaining
+                    {remainingModules} {t("modulesRemaining")}
                   </Text>
                   <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
                     {t("courseCompletion")}
@@ -313,19 +337,19 @@ export default function Home() {
         <View style={styles.statsRow}>
           <StatCard
             theme={theme}
-            label="Completed"
+            label={t("completed")}
             value={String(completedCount)}
             icon="check-circle-outline"
           />
           <StatCard
             theme={theme}
-            label="Remaining"
+            label={t("remaining")}
             value={String(remainingModules)}
             icon="clock-outline"
           />
           <StatCard
             theme={theme}
-            label="Alerts"
+            label={t("alerts")}
             value={String(unreadCount)}
             icon="bell-outline"
           />
@@ -345,7 +369,7 @@ export default function Home() {
             theme={theme}
             icon="book-open-variant"
             label={t("materials")}
-            subtitle="Forest resources"
+            subtitle={t("forestResources")}
             onPress={() => router.push("/materials")}
           />
           <OperationCard
@@ -354,13 +378,13 @@ export default function Home() {
             label={t("training")}
             subtitle={`${remainingModules} remaining`}
             progress={trainingProgress}
-            onPress={() => router.push("/training")}
+            onPress={() => router.push("/courses")}
           />
           <OperationCard
             theme={theme}
             icon="certificate"
             label={t("certs")}
-            subtitle="Verified records"
+            subtitle={t("verifiedRecords")}
             progress={1}
             onPress={() => router.push("/cert")}
           />
@@ -368,14 +392,14 @@ export default function Home() {
             theme={theme}
             icon="cog"
             label={t("settings")}
-            subtitle="Preferences"
+            subtitle={t("preferences")}
             onPress={() => router.push("/settings")}
           />
           <OperationCard
             theme={theme}
             icon="video-check"
             label={t("tourMonitor")}
-            subtitle="Live forest monitor"
+            subtitle={t("liveForestMonitor")}
             isLive
             fullWidth
             onPress={() => router.push("/monitor")}

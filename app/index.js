@@ -89,7 +89,7 @@ export default function Login() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert("Missing fields", "Please enter your email and password.");
+      Alert.alert(t("missingFields"), t("pleaseEnterEmailPassword"));
       return;
     }
 
@@ -126,9 +126,9 @@ export default function Login() {
       console.log("Login error - Response data:", err.response?.data || err.message);
 
       if (err.response?.status === 401 || err.response?.status === 400) {
-        Alert.alert("Login Failed", t("loginError") || "Invalid email or password");
+        Alert.alert(t("loginFailed"), t("somethingWentWrong"));
       } else {
-        Alert.alert("Login Failed", "Something went wrong. Try again.");
+        Alert.alert(t("loginFailed"), t("somethingWentWrong"));
       }
     } finally {
       setLoading(false);
@@ -210,22 +210,22 @@ export default function Login() {
             buttonColor="#D6B36A"
             textColor="#0B1F17"
           >
-            {loading ? "Signing in..." : t("loginButton")}
+            {loading ? t("signingIn") : t("loginButton")}
           </Button>
 
           <View style={styles.helperRow}>
             <Text variant="bodySmall" style={styles.helperText}>
-              Demo login enabled for frontend preview
+              {t("demoLoginEnabled")}
             </Text>
           </View>
         </Surface>
 
         <View style={styles.footer}>
           <Text variant="labelSmall" style={styles.footerMain}>
-            Protected session • Verified access
+            {t("protectedSession")}
           </Text>
           <Text variant="labelSmall" style={styles.footerSub}>
-            v1.0.0 - Sarawak Forestry Corporation
+            {t("appVersion")}
           </Text>
         </View>
       </Animated.View>

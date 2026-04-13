@@ -247,7 +247,7 @@ export default function Notifications() {
 
       <AppHeader
         title={t("notiHeadline")}
-        subtitle={`${unreadCount} unread notifications`}
+        subtitle={`${unreadCount} ${t("unread")} ${t("notifications")}`}
         showBack
         showHome
       />
@@ -264,18 +264,18 @@ export default function Notifications() {
           elevation={1}
         >
           <Text style={{ color: theme.colors.onSurface, fontWeight: "900", fontSize: 18 }}>
-            Notification Centre
+            {t("notificationCentre")}
           </Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 6 }}>
-            Review operational alerts and recent updates for forest guide duties.
+            {t("reviewAlerts")}
           </Text>
 
           <View style={styles.summaryActions}>
             <Button mode="text" onPress={markAllRead}>
-              Mark all read
+              {t("markAllRead")}
             </Button>
             <Button mode="text" onPress={clearRead}>
-              Clear read
+              {t("clearRead")}
             </Button>
           </View>
         </Surface>
@@ -284,9 +284,9 @@ export default function Notifications() {
           value={filter}
           onValueChange={setFilter}
           buttons={[
-            { value: "all", label: "All" },
-            { value: "unread", label: "Unread" },
-            { value: "alerts", label: "Alerts" },
+            { value: "all", label: t("all") },
+            { value: "unread", label: t("unread") },
+            { value: "alerts", label: t("alerts") },
           ]}
         />
       </Animated.View>
@@ -295,7 +295,7 @@ export default function Notifications() {
         <View style={styles.centerLoader}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={{ marginTop: 12, color: theme.colors.onSurfaceVariant }}>
-            Loading notifications...
+            {t("loadingNotifications")}
           </Text>
         </View>
       ) : (
@@ -324,7 +324,7 @@ export default function Notifications() {
                 variant="titleMedium"
                 style={{ color: theme.colors.onSurface, marginTop: 14, fontWeight: "800" }}
               >
-                All caught up
+                {t("allCaughtUp")}
               </Text>
               <Text
                 variant="bodyMedium"
@@ -334,7 +334,7 @@ export default function Notifications() {
                   textAlign: "center",
               }}
             >
-              There are no notifications in this view right now.
+              {t("noNotificationsView")}
             </Text>
           </View>
         }

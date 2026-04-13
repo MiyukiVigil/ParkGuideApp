@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native-paper";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
 import { getProfile, updateProfile } from "../services/profileService";
@@ -23,6 +24,7 @@ import { unregisterPushNotifications } from "../services/notificationService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function AccountScreen() {
+  const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
 
@@ -56,7 +58,7 @@ export default function AccountScreen() {
       setProfile(data);
       setDraftProfile(data);
     } catch (error) {
-      Alert.alert("Error", "Failed to load account information.");
+      Alert.alert(t("error"), t("failedToLoadAccountInfo"));
     } finally {
       setIsLoading(false);
     }
@@ -67,17 +69,17 @@ export default function AccountScreen() {
 
   const handleSaveProfile = async () => {
     if (!draftProfile.name.trim()) {
-      Alert.alert("Invalid Name", "Please enter a valid name.");
+      Alert.alert(t("invalidName"), t("pleaseEnterValidName"));
       return;
     }
 
     if (!validateEmail(draftProfile.email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      Alert.alert(t("invalidEmail"), t("pleaseEnterValidEmailAddress"));
       return;
     }
 
     if (!validatePhone(draftProfile.phone)) {
-      Alert.alert("Invalid Phone", "Please enter a valid phone number.");
+      Alert.alert(t("invalidPhone"), t("pleaseEnterValidPhoneNumber"));
       return;
     }
 
@@ -94,9 +96,9 @@ export default function AccountScreen() {
       setDraftProfile(updated);
       setIsEditing(false);
 
-      Alert.alert("Saved", "Your account details have been updated.");
+      Alert.alert(t("saved"), t("accountDetailsUpdated"));
     } catch (error) {
-      Alert.alert("Error", "Failed to save profile changes.");
+      Alert.alert(t("error"), t("failedToSaveProfileChanges"));
     } finally {
       setIsSavingProfile(false);
     }
@@ -154,7 +156,20 @@ export default function AccountScreen() {
       setPasswordModalVisible(false);
       Alert.alert("Success", "Your password has been changed.");
     } catch (error) {
-      Alert.alert("Password Error", error.message || "Failed to change password.");
+      let errorMessage = t("error");
+      
+      const errorCodeMap = {
+        FILL_ALL_PASSWORD_FIELDS: "fillAllPasswordFields",
+        PASSWORD_MUST_BE_8: "passwordMustBe8",
+        PASSWORDS_DO_NOT_MATCH: "passwordsDoNotMatch",
+        CURRENT_PASSWORD_INCORRECT: "currentPasswordIncorrect",
+      };
+      
+      if (error.code && errorCodeMap[error.code]) {
+        errorMessage = t(errorCodeMap[error.code]);
+      }
+      
+      Alert.alert(t("error"), errorMessage);
     } finally {
       setIsChangingPassword(false);
     }
@@ -164,7 +179,7 @@ export default function AccountScreen() {
     return (
       <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
         <ThemedBackground />
-        <AppHeader title="Account Settings" subtitle="Profile and security" showBack showHome />
+        <AppHeader title={t("accountSettings")} subtitle={t("profileAndSecurity")} showBack showHome />
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
@@ -175,7 +190,7 @@ export default function AccountScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <ThemedBackground />
-      <AppHeader title="Account Settings" subtitle="Profile and security" showBack showHome />
+      <AppHeader title={t("accountSettings")} subtitle={t("profileAndSecurity")} showBack showHome />
 
       <View style={styles.container}>
         <Surface
@@ -264,22 +279,22 @@ export default function AccountScreen() {
           ) : (
             <>
               <List.Item
-                title="Email"
+                title={t("email")}
                 description={profile.email}
                 left={(props) => <List.Icon {...props} icon="email-outline" color={theme.colors.tertiary} />}
                 titleStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
                 descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
               />
               <List.Item
-                title="Phone"
+                title={t("phone")}
                 description={profile.phone}
                 left={(props) => <List.Icon {...props} icon="phone-outline" color={theme.colors.tertiary} />}
                 titleStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
                 descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
               />
               <List.Item
-                title="Change Password"
-                description="Update your login password"
+                title={t("changePassword")}
+                description={t("updateYourLoginPassword")}
                 left={(props) => <List.Icon {...props} icon="lock-reset" color={theme.colors.primary} />}
                 titleStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
                 descriptionStyle={{ color: theme.colors.onSurfaceVariant }}

@@ -236,8 +236,8 @@ export default function Certification() {
           </View>
         ) : sortedModules.length === 0 ? (
           <List.Item
-            title="No completed modules yet"
-            description="Finish training modules to unlock badges."
+            title={t("noCompletedModulesYet")}
+            description={t("finishTrainingModulesUnlockBadges")}
             titleStyle={{ color: theme.colors.onSurface }}
             descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
             left={props => <List.Icon {...props} icon="book-open-page-variant" color={theme.colors.primary} />}
@@ -321,8 +321,8 @@ export default function Certification() {
 
             {lockedEligibleBadges.length === 0 && lockedIneligibleBadges.length === 0 ? (
               <List.Item
-                title="All active badges earned"
-                description="Great work — you have unlocked every active badge."
+                title={t("allActiveBadgesEarned")}
+                description={t("greatWorkUnlockedEveryActiveBadge")}
                 titleStyle={{ color: theme.colors.onSurface }}
                 descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
                 left={props => <List.Icon {...props} icon="star-circle" color={theme.colors.primary} />}
@@ -346,8 +346,8 @@ export default function Certification() {
           </View>
         ) : earnedBadges.length === 0 ? (
           <List.Item
-            title="No badges earned yet"
-            description="Complete more modules to earn badges."
+            title={t("noBadgesEarnedYet")}
+            description={t("completeMoreModulesEarnBadges")}
             titleStyle={{ color: theme.colors.onSurface }}
             descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
             left={props => <List.Icon {...props} icon="medal-outline" color={theme.colors.primary} />}

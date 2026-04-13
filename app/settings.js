@@ -61,12 +61,12 @@ export default function Settings() {
 
   const handleSecureLogout = async () => {
     Alert.alert(
-      "Secure Logout",
-      "Are you sure you want to sign out? All local data will be cleared.",
+      t("logout"),
+      t("logoutConfirm"),
       [
-        { text: "Cancel", onPress: () => {}, style: "cancel" },
+        { text: t("cancel"), onPress: () => {}, style: "cancel" },
         {
-          text: "Sign Out",
+          text: t("signOut"),
           onPress: async () => {
             try {
               // Unregister push notifications first
@@ -80,7 +80,7 @@ export default function Settings() {
                 params: { logout: "true" }
               });
             } catch (error) {
-              Alert.alert("Error", "Failed to sign out.");
+              Alert.alert(t("error"), t("failedToSignOut"));
             }
           },
           style: "destructive",
@@ -103,7 +103,7 @@ export default function Settings() {
         <ThemedBackground />
       <AppHeader
         title={t("setHeader")}
-        subtitle="Preferences and display"
+        subtitle={t("preferencesAndDisplay")}
         showBack
         showHome
       />
@@ -133,10 +133,10 @@ export default function Settings() {
               />
               <View style={{ marginLeft: 14, flex: 1 }}>
                 <Text variant={isSimpleMode || highContrast ? "titleLarge" : "titleMedium"} style={{ color: theme.colors.onSurface, fontWeight: "800" }}>
-                  Guide Preferences
+                  {t("guidePreferences")}
                 </Text>
                 <Text variant={isSimpleMode || highContrast ? "bodyMedium" : "bodySmall"} style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-                  Tap here to open account settings, email, password and profile
+                  {t("tapToOpenSettings")}
                 </Text>
               </View>
             </View>
@@ -164,12 +164,12 @@ export default function Settings() {
               },
             ]}
           >
-            Appearance
+            {t("appearance")}
           </Text>
 
           <List.Item
-            title="Theme Mode"
-            description={isDarkMode ? "Dark mode" : "Light mode"}
+            title={t("themeMode")}
+            description={isDarkMode ? t("darkMode") : t("lightMode")}
             left={(props) => (
               <List.Icon
                 {...props}
@@ -184,8 +184,8 @@ export default function Settings() {
           />
 
           <List.Item
-            title="Interface Mode"
-            description={uiMode === "simple" ? "Basic" : "Pro"}
+            title={t("interfaceMode")}
+            description={uiMode === "simple" ? t("basic") : t("pro")}
             left={(props) => (
               <List.Icon
                 {...props}
@@ -200,8 +200,8 @@ export default function Settings() {
           />
 
           <List.Item
-            title="High Contrast"
-            description={highContrast ? "High contrast on" : "High contrast off"}
+            title={t("highContrast")}
+            description={highContrast ? t("highContrastOn") : t("highContrastOff")}
             left={(props) => (
               <List.Icon
                 {...props}
@@ -216,8 +216,8 @@ export default function Settings() {
           />
 
           <List.Item
-            title="Background Animations"
-            description={animationsEnabled ? "Animations enabled" : "Animations disabled"}
+            title={t("backgroundAnimations")}
+            description={animationsEnabled ? t("animationsEnabled") : t("animationsDisabled")}
             left={(props) => (
               <List.Icon
                 {...props}
@@ -248,9 +248,9 @@ export default function Settings() {
               />
             }
           >
-            <Menu.Item onPress={() => updateLanguage("en")} title="English" />
-            <Menu.Item onPress={() => updateLanguage("ms")} title="Bahasa Melayu" />
-            <Menu.Item onPress={() => updateLanguage("zh")} title="中文" />
+            <Menu.Item onPress={() => updateLanguage("en")} title={t("english")} />
+            <Menu.Item onPress={() => updateLanguage("ms")} title={t("malay")} />
+            <Menu.Item onPress={() => updateLanguage("zh")} title={t("chinese")} />
           </Menu>
 
           <Menu
@@ -272,24 +272,24 @@ export default function Settings() {
           >
             <Menu.Item
               onPress={() => {
-                setFontLabel("Small");
+                setFontLabel(t("small"));
                 setFontMenuVisible(false);
               }}
-              title="Small"
+              title={t("small")}
             />
             <Menu.Item
               onPress={() => {
-                setFontLabel("Standard");
+                setFontLabel(t("standard"));
                 setFontMenuVisible(false);
               }}
-              title="Standard"
+              title={t("standard")}
             />
             <Menu.Item
               onPress={() => {
-                setFontLabel("Large");
+                setFontLabel(t("large"));
                 setFontMenuVisible(false);
               }}
-              title="Large"
+              title={t("large")}
             />
           </Menu>
         </Surface>
@@ -315,12 +315,12 @@ export default function Settings() {
               },
             ]}
           >
-            Accessibility
+            {t("accessibility")}
           </Text>
 
           <List.Item
-            title="Text-to-Speech (TTS)"
-            description="Read training modules aloud"
+            title={t("textToSpeech")}
+            description={t("readTrainingModulesAloud")}
             left={(props) => (
               <List.Icon {...props} icon="volume-high" color={theme.colors.tertiary} />
             )}

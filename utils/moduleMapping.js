@@ -1,132 +1,130 @@
 import api from './api';
-import { TRAINING_COURSES } from '../constants/courses';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const MAPPING_CACHE_KEY = 'parkguide_module_mapping';
+const MAPPING_CACHE_KEY = 'parkguide_module_mapping_v2';
 
 /**
- * Builds a mapping between backend numeric module IDs and frontend string codes (1.1, 1.2, etc)
- * Backend structure: Course has many Modules (with numeric DB IDs)
- * Frontend structure: TRAINING_COURSES has modules with string codes like "1.1", "1.2"
+ * NEW APPROACH: Backend now returns module codes (1.1, 1.2, etc) directly
+ * No more conversion needed! The backend stores:
+ * - Course.code (e.g., "course1")
+ * - Module.code (e.g., "1.1", "1.2")
  * 
- * Mapping strategy:
- * 1. Fetch courses from backend to get module IDs
- * 2. Match by position (first course first modules, etc)
- * 3. Create bidirectional mapping: backendId ↔ frontendCode
+ * Frontend can use these codes directly without any mapping layer.
+ * This file maintains backward compatibility and caching for performance.
  */
 
 let cachedMapping = null;
 
 /**
- * Fetch courses from backend and build the module ID mapping
+ * Build module mapping directly from backend (using codes, no conversion)
  */
 export const buildModuleMapping = async () => {
   try {
-    console.log('Building module mapping from backend...');
+    console.log('📥 Loading module codes from backend...');
     
-    // Fetch courses from backend
     const response = await api.get('/courses/');
     if (!response.data || !Array.isArray(response.data)) {
-      console.log('Invalid courses response:', response.data);
+      console.warn('Invalid courses response:', response.data);
       return null;
     }
 
-    const backendToFrontend = {}; // Backend ID → Frontend code (e.g., "67" → "1.1")
-    const frontendToBackend = {}; // Frontend code → Backend ID (e.g., "1.1" → "67")
+    const backendToFrontend = {}; // Backend numeric ID → Module code (e.g., "67" → "1.1")
+    const frontendToBackend = {}; // Module code → Backend numeric ID (e.g., "1.1" → "67")
+    const codeToModuleInfo = {};  // Module code → {id, courseCode, moduleCode}
 
-    // Sort backend courses by ID to ensure consistent ordering
-    const sortedCourses = response.data.sort((a, b) => a.id - b.id);
-
-    // Map each backend course to frontend course by position
-    for (let courseIdx = 0; courseIdx < sortedCourses.length && courseIdx < TRAINING_COURSES.length; courseIdx++) {
-      const backendCourse = sortedCourses[courseIdx];
-      const frontendCourse = TRAINING_COURSES[courseIdx];
-
-      // Get modules from backend course
-      const backendModules = backendCourse.modules || [];
-      const frontendModules = frontendCourse.modules || [];
-
-      // Sort backend modules by ID for consistent ordering
-      const sortedModules = backendModules.sort((a, b) => a.id - b.id);
-
-      // Map each module by position
-      for (let modIdx = 0; modIdx < sortedModules.length && modIdx < frontendModules.length; modIdx++) {
-        const backendModuleId = String(sortedModules[modIdx].id);
-        const frontendModuleCode = frontendModules[modIdx].id;
-
-        backendToFrontend[backendModuleId] = frontendModuleCode;
-        frontendToBackend[frontendModuleCode] = backendModuleId;
-
-        console.log(`Mapped: Backend ${backendModuleId} ↔ Frontend ${frontendModuleCode}`);
+    // Process each course and its modules
+    for (const course of response.data) {
+      const modules = course.modules || [];
+      
+      for (const module of modules) {
+        // Now backend returns both:
+        // - module.id = numeric ID from database (67, 68, etc)
+        // - module.code = string code from JSON (1.1, 1.2, etc)
+        
+        if (module.code) {
+          const numericId = String(module.id);
+          const moduleCode = module.code;
+          
+          backendToFrontend[numericId] = moduleCode;
+          frontendToBackend[moduleCode] = numericId;
+          codeToModuleInfo[moduleCode] = {
+            id: module.id,
+            code: moduleCode,
+            courseCode: course.code,
+            title: module.title,
+          };
+          
+          console.log(`  ✓ Module ${moduleCode} (ID: ${numericId})`);
+        }
       }
     }
 
-    // Cache the mapping
-    const mapping = { backendToFrontend, frontendToBackend };
+    const mapping = { backendToFrontend, frontendToBackend, codeToModuleInfo };
     cachedMapping = mapping;
     
+    // Cache for offline access
     try {
       await AsyncStorage.setItem(MAPPING_CACHE_KEY, JSON.stringify(mapping));
-    } catch (storageErr) {
-      console.log('Failed to cache mapping:', storageErr.message);
+      console.log('✅ Module mapping cached');
+    } catch (err) {
+      console.warn('⚠️ Failed to cache mapping:', err.message);
     }
 
-    console.log('Module mapping built successfully:', mapping);
+    console.log('✅ Module mapping loaded successfully');
     return mapping;
   } catch (err) {
-    console.log('Failed to build module mapping:', err.message);
+    console.error('❌ Failed to load module mapping:', err.message);
     return null;
   }
 };
 
 /**
- * Load module mapping from cache or fetch from backend
+ * Get module mapping (from cache or fetch)
  */
 export const getModuleMapping = async () => {
-  // Return cached mapping if available
   if (cachedMapping) {
     return cachedMapping;
   }
 
-  // Try to load from storage
   try {
     const stored = await AsyncStorage.getItem(MAPPING_CACHE_KEY);
     if (stored) {
       cachedMapping = JSON.parse(stored);
-      console.log('Module mapping loaded from storage');
+      console.log('📦 Module mapping loaded from cache');
       return cachedMapping;
     }
   } catch (err) {
-    console.log('Failed to load mapping from storage:', err.message);
+    console.warn('⚠️ Failed to load from cache:', err.message);
   }
 
-  // Build fresh mapping from backend
   return await buildModuleMapping();
 };
 
 /**
- * Convert backend module IDs to frontend codes
+ * Convert backend numeric IDs to module codes
  * E.g., ["67", "68", "69"] → ["1.1", "1.2", "1.3"]
+ * 
+ * Now that backend returns codes with modules, this is just a lookup table.
  */
 export const convertBackendIdsToFrontend = async (backendIds) => {
   if (!backendIds || backendIds.length === 0) return [];
 
   const mapping = await getModuleMapping();
   if (!mapping) {
-    console.log('No module mapping available, returning backend IDs as-is');
+    console.warn('No module mapping, returning backend IDs:', backendIds);
     return backendIds;
   }
 
   const converted = backendIds
-    .map(id => mapping.backendToFrontend[id] || id)
-    .filter(id => id); // Remove unmapped IDs
+    .map(id => mapping.backendToFrontend[String(id)])
+    .filter(Boolean);
 
-  console.log('Converted backend IDs to frontend:', backendIds, '→', converted);
+  console.log('🔄 Converted backend IDs:', backendIds, '→', converted);
   return converted;
 };
 
 /**
- * Convert frontend module codes to backend IDs (if needed)
+ * Convert module codes to backend numeric IDs (if needed)
  * E.g., ["1.1", "1.2", "1.3"] → ["67", "68", "69"]
  */
 export const convertFrontendIdsToBackend = async (frontendIds) => {
@@ -134,26 +132,37 @@ export const convertFrontendIdsToBackend = async (frontendIds) => {
 
   const mapping = await getModuleMapping();
   if (!mapping) {
-    console.log('No module mapping available, returning frontend IDs as-is');
+    console.warn('No module mapping, returning frontend IDs:', frontendIds);
     return frontendIds;
   }
 
   const converted = frontendIds
-    .map(id => mapping.frontendToBackend[id] || id)
-    .filter(id => id);
+    .map(id => mapping.frontendToBackend[id])
+    .filter(Boolean);
 
-  console.log('Converted frontend IDs to backend:', frontendIds, '→', converted);
+  console.log('🔄 Converted frontend codes:', frontendIds, '→', converted);
   return converted;
 };
 
 /**
- * Clear cached mapping (on logout, etc)
+ * Get module info by code
+ * Returns: {id, code, courseCode, title}
+ */
+export const getModuleByCode = async (moduleCode) => {
+  const mapping = await getModuleMapping();
+  if (!mapping) return null;
+  return mapping.codeToModuleInfo[moduleCode] || null;
+};
+
+/**
+ * Clear mapping cache (on logout, etc)
  */
 export const clearModuleMapping = async () => {
   cachedMapping = null;
   try {
     await AsyncStorage.removeItem(MAPPING_CACHE_KEY);
+    console.log('🗑️ Module mapping cleared');
   } catch (err) {
-    console.log('Failed to clear mapping:', err.message);
+    console.warn('⚠️ Failed to clear mapping:', err.message);
   }
 };

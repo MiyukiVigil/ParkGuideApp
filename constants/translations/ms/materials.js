@@ -3,9 +3,9 @@ export default {
     materialView: "Lihat",
     materialDownload: "Muat Turun",
     materialDownloading: "Memuat turun...",
-    materialDownloaded: "Dimuat turun",
+    materialDownloaded: "Dimuat Turun",
     downloadCompleteTitle: "Muat Turun Selesai",
-    downloadCompleteMessage: "Bahan disimpan secara tempatan.",
+    downloadCompleteMessage: "Bahan telah disimpan secara tempatan.",
     downloadSavedAt: "Disimpan di:",
     downloadDescription: "Memuat turun bahan PDF",
     downloadLocationTitle: "Pilih lokasi muat turun",
@@ -16,5 +16,10 @@ export default {
     downloadToAppStorage: "Storan Aplikasi",
     cancelAction: "Batal",
     downloadFailedTitle: "Muat Turun Gagal",
-    downloadFailedMessage: "Tidak dapat memuat turun bahan. Sila cuba lagi."
+    downloadFailedMessage: "Tidak dapat memuat turun bahan. Sila cuba lagi.",
+    materialNotFound: "Bahan tidak dijumpai",
+    materialExpired: "Bahan tidak lagi tersedia",
+    offlineMode: "Mod Luar Talian",
+    availableOffline: "Tersedia Luar Talian",
+    onlineRequired: "Sambungan internet diperlukan"
 };

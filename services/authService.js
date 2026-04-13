@@ -24,21 +24,29 @@ export async function ensureMockPassword() {
 
 export async function changePassword({ currentPassword, newPassword, confirmPassword }) {
   if (!currentPassword || !newPassword || !confirmPassword) {
-    throw new Error("Please fill in all password fields.");
+    const error = new Error("FILL_ALL_PASSWORD_FIELDS");
+    error.code = "FILL_ALL_PASSWORD_FIELDS";
+    throw error;
   }
 
   if (newPassword.length < 8) {
-    throw new Error("New password must be at least 8 characters.");
+    const error = new Error("PASSWORD_MUST_BE_8");
+    error.code = "PASSWORD_MUST_BE_8";
+    throw error;
   }
 
   if (newPassword !== confirmPassword) {
-    throw new Error("New password and confirm password do not match.");
+    const error = new Error("PASSWORDS_DO_NOT_MATCH");
+    error.code = "PASSWORDS_DO_NOT_MATCH";
+    throw error;
   }
 
   const savedPassword = await AsyncStorage.getItem(PASSWORD_KEY);
 
   if (currentPassword !== savedPassword) {
-    throw new Error("Your current password is incorrect.");
+    const error = new Error("CURRENT_PASSWORD_INCORRECT");
+    error.code = "CURRENT_PASSWORD_INCORRECT";
+    throw error;
   }
 
   await AsyncStorage.setItem(PASSWORD_KEY, newPassword);

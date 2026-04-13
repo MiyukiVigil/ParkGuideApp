@@ -16,5 +16,10 @@ export default {
     downloadToAppStorage: "应用存储",
     cancelAction: "取消",
     downloadFailedTitle: "下载失败",
-    downloadFailedMessage: "无法下载资料，请重试。"
+    downloadFailedMessage: "无法下载资料，请重试。",
+    materialNotFound: "找不到资料",
+    materialExpired: "资料已不可用",
+    offlineMode: "离线模式",
+    availableOffline: "可离线使用",
+    onlineRequired: "需要互联网连接"
 };
