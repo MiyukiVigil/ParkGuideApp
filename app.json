@@ -17,20 +17,6 @@
     "adaptiveIcon": {
       "foregroundImage": "./assets/android-icon-foreground.png",
       "backgroundImage": "./assets/android-icon-background.png"
-    },
-    "networkSecurityConfig": {
-      "domain_config": [
-        {
-          "domain": "sfc-parkguidebackend-g3epa6bjcpf9hqez.malaysiawest-01.azurewebsites.net",
-          "includeSubdomains": true,
-          "cleartextTrafficPermitted": false,
-          "trust_anchors": [
-            {
-              "type": "system"
-            }
-          ]
-        }
-      ]
     }
   },
   "ios": {
