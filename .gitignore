@@ -40,6 +40,7 @@ build/
 # CRITICAL: Firebase service account keys should NEVER be committed
 # Generate locally or retrieve from secure storage for builds
 # ========================================
+google-services.json
 *-firebase-adminsdk-*.json
 *firebase*.pem
 *.jks
