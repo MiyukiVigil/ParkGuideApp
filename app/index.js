@@ -94,6 +94,8 @@ export default function Login() {
     }
 
     try {
+      console.log("🔐 Login attempt - API Base URL:", api.defaults.baseURL);
+      console.log("🔐 Full endpoint would be:", api.defaults.baseURL + "/accounts/login/");
       const response = await api.post("/accounts/login/", {
         email: email.trim(), // must match your Django JWT username_field
         password: password,
@@ -118,7 +120,10 @@ export default function Login() {
 
       router.replace(isAdmin ? "/dashboard" : "/home");
     } catch (err) {
-      console.log("Login error:", err.response?.data || err.message);
+      console.log("Login error - Full error object:", err);
+      console.log("Login error - URL attempted:", err.config?.url);
+      console.log("Login error - Response status:", err.response?.status);
+      console.log("Login error - Response data:", err.response?.data || err.message);
 
       if (err.response?.status === 401 || err.response?.status === 400) {
         Alert.alert("Login Failed", t("loginError") || "Invalid email or password");

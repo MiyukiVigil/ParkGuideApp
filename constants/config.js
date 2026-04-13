@@ -1,38 +1,44 @@
 /**
  * Environment Configuration Module
  * 
- * React Native doesn't support dotenv (Node.js modules like 'path' aren't available).
- * Instead, this module provides a centralized place for all configuration.
- * 
- * For development: Edit the values here or in your local environment
- * For production: Use EAS Build environment variables which override these values
+ * Loads configuration from .env file via babel-plugin-dotenv Babel plugin
+ * The plugin processes .env at build time and injects values at compile time.
  */
 
-// Configuration values - must be set via environment variables
 const CONFIG = {
   // API Configuration
-  API_BASE_URL: process.env.API_BASE_URL,
+  API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:8000/api',
 
   // Dashboard URLs
-  DASHBOARD_BASE_URL: process.env.DASHBOARD_BASE_URL,
-  DASHBOARD_URL: process.env.DASHBOARD_URL,
-  SSO_URL: process.env.SSO_URL,
+  DASHBOARD_BASE_URL: process.env.DASHBOARD_BASE_URL || 'http://10.0.2.2:8000',
+  DASHBOARD_URL: process.env.DASHBOARD_URL || 'http://localhost:8000/dashboard/',
+  SSO_URL: process.env.SSO_URL || 'http://localhost:8000/dashboard/sso/',
+
+  // Expo Configuration
+  EXPO_PROJECT_ID: process.env.EXPO_PROJECT_ID || '50ad8a0d-3529-4b5f-8945-4114823f64f3',
 
   // Avatar API Configuration
-  AVATAR_API_URL: process.env.AVATAR_API_URL,
-  DEFAULT_AVATAR_SEED: process.env.DEFAULT_AVATAR_SEED,
+  AVATAR_API_URL: process.env.AVATAR_API_URL || 'https://api.dicebear.com/7.x/avataaars/png',
+  DEFAULT_AVATAR_SEED: process.env.DEFAULT_AVATAR_SEED || 'default',
 
   // Default User Profile (for development/testing)
-  DEFAULT_USER_NAME: process.env.DEFAULT_USER_NAME,
-  DEFAULT_USER_EMAIL: process.env.DEFAULT_USER_EMAIL,
-  DEFAULT_USER_PHONE: process.env.DEFAULT_USER_PHONE,
-  DEFAULT_USER_ROLE: process.env.DEFAULT_USER_ROLE,
+  DEFAULT_USER_NAME: process.env.DEFAULT_USER_NAME || 'Test User',
+  DEFAULT_USER_EMAIL: process.env.DEFAULT_USER_EMAIL || 'test@example.com',
+  DEFAULT_USER_PHONE: process.env.DEFAULT_USER_PHONE || '+60 1234 5678',
+  DEFAULT_USER_ROLE: process.env.DEFAULT_USER_ROLE || 'Park Guide',
 
   // Default Password (for development only)
-  DEFAULT_PASSWORD: process.env.DEFAULT_PASSWORD,
+  DEFAULT_PASSWORD: process.env.DEFAULT_PASSWORD || '12345678',
 
   // Environment
-  NODE_ENV: process.env.NODE_ENV,
+  NODE_ENV: process.env.NODE_ENV || 'development',
+
+  // Firebase Configuration
+  FIREBASE_API_KEY: process.env.FIREBASE_API_KEY || 'AIzaSyAobrwBs_E0jWAqH4XXOLZjDaGbx2f48qU',
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || 'parkguideapp-c8517',
+  FIREBASE_PROJECT_NUMBER: process.env.FIREBASE_PROJECT_NUMBER || '408905223058',
+  FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET || 'parkguideapp-c8517.firebasestorage.app',
+  FIREBASE_ANDROID_APP_ID: process.env.FIREBASE_ANDROID_APP_ID || '1:408905223058:android:940cbaf67ff9ff6c384f4b',
 };
 
 // Helper function to get avatar URL with seed
