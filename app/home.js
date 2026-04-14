@@ -39,7 +39,7 @@ export default function Home() {
           console.log('[home] User enrollments:', enrollments);
           
           // Set current course to first incomplete one, or first course overall
-          const incompleteCourse = enrollments.find(e => e.progress_percentage < 100);
+          const incompleteCourse = enrollments.find(e => e.status !== 'completed' && (e.progress_percentage || 0) < 100);
           const nextCourse = incompleteCourse || enrollments[0];
           
           // Parse course_title if it's a JSON string (handle both JSON and Python dict strings)
@@ -71,9 +71,9 @@ export default function Home() {
             : 0;
 
           // Count courses not yet completed
-          const remainingModules = enrollments.filter(e => e.progress_percentage < 100).length;
+          const remainingModules = enrollments.filter(e => e.status !== 'completed' && (e.progress_percentage || 0) < 100).length;
 
-          setCompletedModules(enrollments.filter(e => e.progress_percentage === 100).map(e => e.id));
+          setCompletedModules(enrollments.filter(e => e.status === 'completed' || (e.progress_percentage || 0) >= 100).map(e => e.id));
           setTrainingProgress(totalProgress / 100);
           setRemainingModules(remainingModules);
         } catch (err) {

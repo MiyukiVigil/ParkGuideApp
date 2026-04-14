@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import api from '../utils/api';
+import badgeService from '../services/badgeService';
 import CONFIG, { getAvatarUrl } from '../constants/config';
 
 export default function Certification() {
@@ -12,9 +13,10 @@ export default function Certification() {
   const { t } = useTranslation();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [moduleRows, setModuleRows] = useState([]);
-  const [earnedBadges, setEarnedBadges] = useState([]);
-  const [badgeStatuses, setBadgeStatuses] = useState([]);
+  const [grantedBadges, setGrantedBadges] = useState([]);
+  const [pendingBadges, setPendingBadges] = useState([]);
+  const [allBadges, setAllBadges] = useState([]);
+  const [achievements, setAchievements] = useState([]);
 
   const showSessionExpiredAlert = useCallback(() => {
     router.replace('/');
@@ -27,58 +29,30 @@ export default function Certification() {
       const loadCertificationData = async () => {
         setLoading(true);
         try {
-          const [progressRes, coursesRes, badgesRes, badgeStatusRes] = await Promise.all([
-            api.get('/progress/'),
-            api.get('/courses/'),
-            api.get('/user-progress/my-badges/'),
-            api.get('/user-progress/badges/'),
+          // Use badgeService to fetch badges
+          const [granted, pending, allBadgesData, achievementBadges] = await Promise.all([
+            badgeService.getGrantedBadges(),
+            badgeService.getPendingBadges(),
+            badgeService.getAllBadges(),
+            badgeService.getAchievementBadges(),
           ]);
 
           if (!isActive) return;
 
-          const progressRows = Array.isArray(progressRes.data)
-            ? progressRes.data.filter((row) => row && row.completed)
-            : [];
-
-          const courses = Array.isArray(coursesRes.data) ? coursesRes.data : [];
-          const moduleById = {};
-
-          courses.forEach((course) => {
-            const modules = Array.isArray(course.modules) ? course.modules : [];
-            modules.forEach((module) => {
-              moduleById[module.id] = {
-                moduleTitle:
-                  module?.title?.en ||
-                  module?.contentTitle?.en ||
-                  'Module',
-                courseTitle: course?.title?.en || 'Course',
-              };
-            });
-          });
-
-          const completedRows = progressRows.map((row) => ({
-            id: row.id,
-            module: row.module,
-            completed_at: row.completed_at,
-            moduleTitle: moduleById[row.module]?.moduleTitle || `Module ${row.module}`,
-            courseTitle: moduleById[row.module]?.courseTitle || 'Course',
-          }));
-
-          const awardedBadges = Array.isArray(badgesRes.data) ? badgesRes.data : [];
-          const statusRows = Array.isArray(badgeStatusRes.data) ? badgeStatusRes.data : [];
-
-          setModuleRows(completedRows);
-          setEarnedBadges(awardedBadges);
-          setBadgeStatuses(statusRows);
+          setGrantedBadges(granted || []);
+          setPendingBadges(pending || []);
+          setAllBadges(allBadgesData || []);
+          setAchievements(achievementBadges || []);
         } catch (err) {
-          if (err.response?.status === 401 || err.response?.status === 403 || err.isSessionExpired) {
+          if (err.status === 401 || err.status === 403) {
             showSessionExpiredAlert();
             return;
           }
-          setModuleRows([]);
-          setEarnedBadges([]);
-          setBadgeStatuses([]);
-          console.log('Failed loading certifications', err.response?.data || err.message);
+          console.error('Failed loading certifications:', err.message);
+          setGrantedBadges([]);
+          setPendingBadges([]);
+          setAllBadges([]);
+          setAchievements([]);
         } finally {
           if (isActive) {
             setLoading(false);
@@ -94,30 +68,24 @@ export default function Certification() {
     }, [showSessionExpiredAlert])
   );
 
-  const sortedModules = useMemo(() => {
-    return [...moduleRows].sort((a, b) => {
-      const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-      const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
-      return bTime - aTime;
-    });
-  }, [moduleRows]);
-
-  const lockedEligibleBadges = useMemo(
-    () => badgeStatuses.filter((badge) => !badge.earned && badge.eligible),
-    [badgeStatuses]
+  const lockedBadges = useMemo(
+    () => allBadges.filter((badge) => !badge.earned && !badge.pending && !badge.eligible),
+    [allBadges]
   );
 
-  const lockedIneligibleBadges = useMemo(
-    () => badgeStatuses.filter((badge) => !badge.earned && !badge.eligible),
-    [badgeStatuses]
+  const eligibleBadges = useMemo(
+    () => allBadges.filter((badge) => !badge.earned && badge.eligible && !badge.pending),
+    [allBadges]
   );
 
   const badgeSummary = useMemo(() => ({
-    total: badgeStatuses.length,
-    earned: earnedBadges.length,
-    pending: badgeStatuses.filter((badge) => badge.pending).length,
-    locked: lockedIneligibleBadges.length,
-  }), [badgeStatuses, earnedBadges, lockedIneligibleBadges]);
+    total: allBadges.length,
+    earned: grantedBadges.length,
+    achievements: achievements.length,
+    pending: pendingBadges.length,
+    locked: lockedBadges.length,
+    eligible: eligibleBadges.length,
+  }), [allBadges.length, grantedBadges.length, achievements.length, pendingBadges.length, lockedBadges.length, eligibleBadges.length]);
 
   const isVerifiedGuide = useMemo(() => {
     if (loading) return false;
@@ -126,9 +94,9 @@ export default function Certification() {
   }, [loading, badgeSummary]);
 
   const getBadgeProgressValue = useCallback((badge) => {
-    const required = Number(badge?.required_completed_modules || 0);
-    const completed = Number(badge?.completed_modules || 0);
-    if (required <= 0) return 0;
+    const required = Number(badge?.required_badges_count || 0);
+    const completed = Number(badge?.completed_badges || 0);
+    if (required <= 0 || required === 1) return completed > 0 ? 1 : 0;
     return Math.min(1, completed / required);
   }, []);
 
@@ -357,11 +325,11 @@ export default function Certification() {
             {earnedBadges.map((row) => (
               <Card key={row.id} style={[styles.badgeCard, { backgroundColor: theme.colors.surfaceVariant }]}>
                 <List.Item
-                  title={row.badge_name}
-                  description={row.badge_course_title ? `Course: ${row.badge_course_title}` : 'Global badge'}
+                  title={row.name}
+                  description={row.course_title ? `Course: ${row.course_title}` : (row.is_major_badge ? 'Achievement Badge' : 'Global badge')}
                   titleStyle={{ color: theme.colors.onSurfaceVariant, fontWeight: '700' }}
                   descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
-                  left={props => <List.Icon {...props} icon="medal" color={theme.colors.primary} />}
+                  left={props => <List.Icon {...props} icon={row.is_major_badge ? 'trophy' : 'medal'} color={theme.colors.primary} />}
                   right={() => (
                     <View style={styles.badgeRight}>
                       <Chip compact icon="check-circle" style={{ backgroundColor: theme.colors.secondaryContainer }} textStyle={{ color: theme.colors.onSecondaryContainer }}>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, useWindowDimensions, Alert } from 'react-native';
 import { useTheme, Surface, Text, Button, ActivityIndicator, ProgressBar } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
@@ -35,6 +35,12 @@ export default function CourseDetail() {
   useEffect(() => {
     loadCourseDetails();
   }, [id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadCourseDetails();
+    }, [id])
+  );
 
   const loadCourseDetails = async () => {
     try {
@@ -98,6 +104,8 @@ export default function CourseDetail() {
   // The backend returns the full enrollment object or null
   // User is enrolled if enrollment_status exists and has any active status (enrolled, in_progress, completed)
   const enrollmentData = course?.enrollment_status;
+  const enrollmentStatus = enrollmentData?.status;
+  const isCompleted = enrollmentStatus === 'completed' || (enrollmentData?.progress_percentage || 0) >= 100;
   const isEnrolled = !!enrollmentData;
   
   // Check if prerequisites are met
@@ -266,13 +274,17 @@ export default function CourseDetail() {
             </Button>
           )}
 
-          {isEnrolled && (
+          {isCompleted ? (
+            <Button mode="contained" disabled style={{ marginTop: 16 }}>
+              {t('completed') || 'Completed'}
+            </Button>
+          ) : isEnrolled ? (
             <Button mode="contained" onPress={handleStartCourse} style={{ marginTop: 16 }}>
               {enrollmentData?.progress_percentage > 0
                 ? t('continueCourse')
                 : t('startCourse')}
             </Button>
-          )}
+          ) : null}
         </Surface>
 
         {/* Chapters */}

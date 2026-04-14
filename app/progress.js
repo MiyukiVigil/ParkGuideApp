@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, useWindowDimensions, RefreshControl } from 'react-native';
 import { useTheme, Surface, Text, Button, ActivityIndicator, ProgressBar } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../components/AppHeader';
 import ThemedBackground from '../components/ThemedBackground';
 import { useThemeContext } from '../contexts/ThemeContext';
@@ -29,6 +29,12 @@ export default function MyProgress() {
     loadEnrollments();
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      loadEnrollments();
+    }, [])
+  );
+
   const loadEnrollments = async () => {
     try {
       setLoading(true);
@@ -52,13 +58,13 @@ export default function MyProgress() {
   // Calculate overall statistics
   const totalEnrolled = enrollments.length;
   const completed = enrollments.filter(
-    (e) => e.progress_percentage === 100
+    (e) => e.status === 'completed' || (e.progress_percentage || 0) >= 100
   ).length;
   const inProgress = enrollments.filter(
-    (e) => e.progress_percentage > 0 && e.progress_percentage < 100
+    (e) => e.status === 'in_progress' || (e.progress_percentage || 0) > 0 && (e.progress_percentage || 0) < 100
   ).length;
   const notStarted = enrollments.filter(
-    (e) => e.progress_percentage === 0
+    (e) => e.status === 'enrolled' || (e.progress_percentage || 0) === 0
   ).length;
   const avgProgress = enrollments.length > 0
       ? Math.round(
@@ -306,7 +312,7 @@ function EnrollmentCard({
   t,
 }) {
   const progress = enrollment.progress_percentage || 0;
-  const isCompleted = progress === 100;
+  const isCompleted = enrollment.status === 'completed' || progress >= 100;
 
   return (
     <Surface

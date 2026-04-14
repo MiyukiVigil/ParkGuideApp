@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, useWindowDimensions, RefreshControl, Alert, Image } from 'react-native';
 import { useTheme, Surface, Text, Button, ActivityIndicator, Searchbar } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../components/AppHeader';
 import ThemedBackground from '../components/ThemedBackground';
 import { useThemeContext } from '../contexts/ThemeContext';
@@ -50,6 +50,12 @@ export default function CourseCatalog() {
   useEffect(() => {
     loadCourses();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadCourses();
+    }, [searchQuery])
+  );
 
   const handleEnroll = async (courseId) => {
     try {
