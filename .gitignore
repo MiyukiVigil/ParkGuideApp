@@ -109,3 +109,4 @@ coverage/
 # ========================================
 coverage/
 lcov.info
+.codex

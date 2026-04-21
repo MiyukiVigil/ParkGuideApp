@@ -11,7 +11,7 @@ import courseService from '../../services/courseService';
 export default function PracticeView() {
   const theme = useTheme();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   const { isSimpleMode, highContrast } = useThemeContext();
   const { id } = useLocalSearchParams();
@@ -27,6 +27,15 @@ export default function PracticeView() {
   const containerMargin = width > 1200 ? 'auto' : 0;
 
   const cardRadius = isSimpleMode || highContrast ? 16 : 24;
+
+  const getLocalizedText = (textData) => {
+    if (!textData) return '';
+    if (typeof textData === 'string') return textData;
+    if (typeof textData === 'object') {
+      return textData[i18n.language] || textData.en || textData.ms || textData.zh || '';
+    }
+    return String(textData);
+  };
 
   useEffect(() => {
     loadPractice();
@@ -229,7 +238,7 @@ export default function PracticeView() {
                       marginBottom: 12,
                     }}
                   >
-                    {question.question}
+                    {getLocalizedText(question.question_text)}
                   </Text>
 
                   <View style={{ marginBottom: 12 }}>
@@ -250,7 +259,7 @@ export default function PracticeView() {
                         fontWeight: '600',
                       }}
                     >
-                      {question.options[userAnswer]}
+                      {getLocalizedText(question.options[userAnswer]?.text)}
                     </Text>
                   </View>
 
@@ -279,7 +288,7 @@ export default function PracticeView() {
                           fontWeight: '600',
                         }}
                       >
-                        {question.options[question.correctIndex]}
+                        {getLocalizedText(question.options[question.correctIndex]?.text)}
                       </Text>
                     </View>
                   )}
@@ -309,7 +318,7 @@ export default function PracticeView() {
                           color: theme.colors.onSurfaceVariant,
                         }}
                       >
-                        {question.explanation}
+                        {getLocalizedText(question.explanation)}
                       </Text>
                     </View>
                   )}
@@ -390,6 +399,7 @@ export default function PracticeView() {
             highContrast={highContrast}
             cardRadius={cardRadius}
             t={t}
+            getLocalizedText={getLocalizedText}
           />
         ))}
 
@@ -419,6 +429,7 @@ function QuestionCard({
   highContrast,
   cardRadius,
   t,
+  getLocalizedText,
 }) {
   return (
     <Surface
@@ -451,25 +462,33 @@ function QuestionCard({
           lineHeight: 22,
         }}
       >
-        {question.question}
+        {getLocalizedText(question.question_text)}
       </Text>
 
       <View>
-        {question.options.map((option, optIdx) => (
-          <View key={optIdx} style={{ marginBottom: 12 }}>
-            <RadioButton.Item
-              label={option}
-              value={optIdx}
-              status={selectedAnswer === optIdx ? 'checked' : 'unchecked'}
-              onPress={() => onSelectAnswer(optIdx)}
-              labelVariant="bodyMedium"
-              style={{
-                paddingVertical: 0,
-                paddingHorizontal: 0,
-              }}
-            />
-          </View>
-        ))}
+        {question.options && question.options.length > 0 ? (
+          question.options.map((option, optIdx) => {
+            // Options are objects with a 'text' property that's multilingual
+            const optionText = option?.text ? getLocalizedText(option.text) : (typeof option === 'string' ? option : `Option ${optIdx + 1}`);
+            return (
+              <View key={optIdx} style={{ marginBottom: 12 }}>
+                <RadioButton.Item
+                  label={optionText}
+                  value={optIdx}
+                  status={selectedAnswer === optIdx ? 'checked' : 'unchecked'}
+                  onPress={() => onSelectAnswer(optIdx)}
+                  labelVariant="bodyMedium"
+                  style={{
+                    paddingVertical: 0,
+                    paddingHorizontal: 0,
+                  }}
+                />
+              </View>
+            );
+          })
+        ) : (
+          <Text style={{ color: '#999', fontStyle: 'italic' }}>No options available</Text>
+        )}
       </View>
     </Surface>
   );

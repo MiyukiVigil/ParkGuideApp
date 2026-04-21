@@ -1,10 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Card, Text, Avatar, Divider, List, Chip, useTheme, ActivityIndicator, ProgressBar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Card, Text, Avatar, Divider, List, Chip, useTheme, ActivityIndicator, ProgressBar, Portal, Modal, Button } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect, useRouter } from 'expo-router';
 
-import api from '../utils/api';
 import badgeService from '../services/badgeService';
 import CONFIG, { getAvatarUrl } from '../constants/config';
 
@@ -13,10 +12,8 @@ export default function Certification() {
   const { t } = useTranslation();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [grantedBadges, setGrantedBadges] = useState([]);
-  const [pendingBadges, setPendingBadges] = useState([]);
   const [allBadges, setAllBadges] = useState([]);
-  const [achievements, setAchievements] = useState([]);
+  const [selectedBadge, setSelectedBadge] = useState(null);
 
   const showSessionExpiredAlert = useCallback(() => {
     router.replace('/');
@@ -29,30 +26,21 @@ export default function Certification() {
       const loadCertificationData = async () => {
         setLoading(true);
         try {
-          // Use badgeService to fetch badges
-          const [granted, pending, allBadgesData, achievementBadges] = await Promise.all([
-            badgeService.getGrantedBadges(),
-            badgeService.getPendingBadges(),
-            badgeService.getAllBadges(),
-            badgeService.getAchievementBadges(),
-          ]);
+          const allBadgesData = await badgeService.getAllBadges();
+          const normalizedBadges = Array.isArray(allBadgesData)
+            ? allBadgesData
+            : (allBadgesData?.results || []);
 
           if (!isActive) return;
 
-          setGrantedBadges(granted || []);
-          setPendingBadges(pending || []);
-          setAllBadges(allBadgesData || []);
-          setAchievements(achievementBadges || []);
+          setAllBadges(normalizedBadges);
         } catch (err) {
           if (err.status === 401 || err.status === 403) {
             showSessionExpiredAlert();
             return;
           }
           console.error('Failed loading certifications:', err.message);
-          setGrantedBadges([]);
-          setPendingBadges([]);
           setAllBadges([]);
-          setAchievements([]);
         } finally {
           if (isActive) {
             setLoading(false);
@@ -66,6 +54,21 @@ export default function Certification() {
         isActive = false;
       };
     }, [showSessionExpiredAlert])
+  );
+
+  const grantedBadges = useMemo(
+    () => allBadges.filter((badge) => badge.earned || badge.status === 'granted'),
+    [allBadges]
+  );
+
+  const pendingBadges = useMemo(
+    () => allBadges.filter((badge) => badge.pending || badge.status === 'pending'),
+    [allBadges]
+  );
+
+  const achievements = useMemo(
+    () => allBadges.filter((badge) => badge.is_major_badge && (badge.earned || badge.status === 'granted')),
+    [allBadges]
   );
 
   const lockedBadges = useMemo(
@@ -92,6 +95,47 @@ export default function Certification() {
     if (badgeSummary.total === 0) return false;
     return badgeSummary.earned === badgeSummary.total;
   }, [loading, badgeSummary]);
+
+  const sortedModules = useMemo(() => [], []);
+
+  const courseGroupedBadges = useMemo(() => {
+    return allBadges.reduce((acc, badge) => {
+      const groupKey = badge.course_title || 'Global Achievements';
+      if (!acc[groupKey]) {
+        acc[groupKey] = [];
+      }
+      acc[groupKey].push(badge);
+      return acc;
+    }, {});
+  }, [allBadges]);
+
+  const groupedBadgeEntries = useMemo(() => {
+    return Object.entries(courseGroupedBadges)
+      .map(([courseTitle, badges]) => {
+        const earnedCount = badges.filter((badge) => badge.earned || badge.status === 'granted').length;
+        return {
+          courseTitle,
+          badges,
+          earnedCount,
+          totalCount: badges.length,
+        };
+      })
+      .sort((a, b) => b.earnedCount - a.earnedCount);
+  }, [courseGroupedBadges]);
+
+  const getBadgeStatusLabel = useCallback((badge) => {
+    if (badge.earned || badge.status === 'granted') return 'Earned';
+    if (badge.pending || badge.status === 'pending') return 'Pending approval';
+    if (badge.eligible) return 'Ready to claim';
+    return 'In progress';
+  }, []);
+
+  const getBadgeStatusColor = useCallback((badge) => {
+    if (badge.earned || badge.status === 'granted') return '#1B8A5A';
+    if (badge.pending || badge.status === 'pending') return '#B98900';
+    if (badge.eligible) return '#2E7D5A';
+    return '#546E7A';
+  }, []);
 
   const getBadgeProgressValue = useCallback((badge) => {
     const required = Number(badge?.required_badges_count || 0);
@@ -240,7 +284,7 @@ export default function Certification() {
           </View>
         ) : (
           <View style={styles.badgeWrap}>
-            {lockedEligibleBadges.map((badge) => (
+            {eligibleBadges.map((badge) => (
               <Card key={`eligible-${badge.id}`} style={[styles.badgeCard, { backgroundColor: theme.colors.secondaryContainer }]}>
                 <List.Item
                   title={badge.name}
@@ -259,7 +303,7 @@ export default function Certification() {
               </Card>
             ))}
 
-            {lockedIneligibleBadges.map((badge) => (
+            {lockedBadges.map((badge) => (
               <Card key={`locked-${badge.id}`} style={[styles.badgeCard, { backgroundColor: theme.colors.surfaceVariant }]}>
                 <View style={styles.lockedTopRow}>
                   <View style={styles.lockedTitleWrap}>
@@ -287,7 +331,7 @@ export default function Certification() {
               </Card>
             ))}
 
-            {lockedEligibleBadges.length === 0 && lockedIneligibleBadges.length === 0 ? (
+            {eligibleBadges.length === 0 && lockedBadges.length === 0 ? (
               <List.Item
                 title={t("allActiveBadgesEarned")}
                 description={t("greatWorkUnlockedEveryActiveBadge")}
@@ -304,15 +348,17 @@ export default function Certification() {
         variant="titleMedium"
         style={[styles.sectionTitle, { color: theme.colors.onBackground }]}
       >
-        Badges
+        Course Badges
       </Text>
 
-      <Card style={{ marginBottom: 20, backgroundColor: theme.colors.surface }}>
-        {loading ? (
+      {loading ? (
+        <Card style={{ marginBottom: 20, backgroundColor: theme.colors.surface }}>
           <View style={styles.loadingBox}>
             <ActivityIndicator animating color={theme.colors.primary} />
           </View>
-        ) : earnedBadges.length === 0 ? (
+        </Card>
+      ) : groupedBadgeEntries.length === 0 ? (
+        <Card style={{ marginBottom: 20, backgroundColor: theme.colors.surface }}>
           <List.Item
             title={t("noBadgesEarnedYet")}
             description={t("completeMoreModulesEarnBadges")}
@@ -320,29 +366,58 @@ export default function Certification() {
             descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
             left={props => <List.Icon {...props} icon="medal-outline" color={theme.colors.primary} />}
           />
-        ) : (
-          <View style={styles.badgeWrap}>
-            {earnedBadges.map((row) => (
-              <Card key={row.id} style={[styles.badgeCard, { backgroundColor: theme.colors.surfaceVariant }]}>
-                <List.Item
-                  title={row.name}
-                  description={row.course_title ? `Course: ${row.course_title}` : (row.is_major_badge ? 'Achievement Badge' : 'Global badge')}
-                  titleStyle={{ color: theme.colors.onSurfaceVariant, fontWeight: '700' }}
-                  descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
-                  left={props => <List.Icon {...props} icon={row.is_major_badge ? 'trophy' : 'medal'} color={theme.colors.primary} />}
-                  right={() => (
-                    <View style={styles.badgeRight}>
-                      <Chip compact icon="check-circle" style={{ backgroundColor: theme.colors.secondaryContainer }} textStyle={{ color: theme.colors.onSecondaryContainer }}>
-                        Earned
-                      </Chip>
+        </Card>
+      ) : (
+        groupedBadgeEntries.map((group) => (
+          <Card key={group.courseTitle} style={[styles.groupCard, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.groupHeader}>
+              <View style={{ flex: 1 }}>
+                <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700' }}>
+                  {group.courseTitle}
+                </Text>
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  {group.earnedCount}/{group.totalCount} badges earned
+                </Text>
+              </View>
+              <Chip icon="medal" compact>
+                {Math.round((group.earnedCount / Math.max(group.totalCount, 1)) * 100)}%
+              </Chip>
+            </View>
+
+            <Divider style={{ marginBottom: 12 }} />
+
+            {group.badges.map((badge) => (
+              <TouchableOpacity
+                key={`badge-${group.courseTitle}-${badge.id}`}
+                activeOpacity={0.85}
+                onPress={() => setSelectedBadge(badge)}
+              >
+                <View style={[styles.badgeItem, { backgroundColor: theme.colors.surfaceVariant }]}>
+                  <View style={styles.badgeItemLeft}>
+                    <List.Icon
+                      icon={badge.is_major_badge ? 'trophy' : 'medal-outline'}
+                      color={theme.colors.primary}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.badgeName, { color: theme.colors.onSurfaceVariant }]}>{badge.name}</Text>
+                      <Text style={{ color: theme.colors.onSurfaceVariant, opacity: 0.8 }}>
+                        {getBadgeStatusLabel(badge)}
+                      </Text>
                     </View>
-                  )}
-                />
-              </Card>
+                  </View>
+                  <Chip
+                    compact
+                    style={{ backgroundColor: getBadgeStatusColor(badge) }}
+                    textStyle={{ color: '#FFFFFF', fontWeight: '700' }}
+                  >
+                    {badge.earned || badge.status === 'granted' ? 'Done' : 'View'}
+                  </Chip>
+                </View>
+              </TouchableOpacity>
             ))}
-          </View>
-        )}
-      </Card>
+          </Card>
+        ))
+      )}
       
       <Text 
         variant="bodySmall" 
@@ -350,6 +425,62 @@ export default function Certification() {
       >
         {t("certSecDesc")}
       </Text>
+
+      <Portal>
+        <Modal
+          visible={Boolean(selectedBadge)}
+          onDismiss={() => setSelectedBadge(null)}
+          contentContainerStyle={[styles.badgeModal, { backgroundColor: theme.colors.surface }]}
+        >
+          {selectedBadge ? (
+            <>
+              <Text variant="headlineSmall" style={{ color: theme.colors.onSurface, fontWeight: '700' }}>
+                {selectedBadge.name}
+              </Text>
+              <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+                {selectedBadge.course_title || 'Global Achievement'}
+              </Text>
+
+              <View style={styles.modalChipRow}>
+                <Chip
+                  icon={selectedBadge.is_major_badge ? 'trophy' : 'medal'}
+                  style={{ backgroundColor: theme.colors.secondaryContainer }}
+                >
+                  {selectedBadge.is_major_badge ? 'Achievement Badge' : 'Course Badge'}
+                </Chip>
+                <Chip
+                  style={{ backgroundColor: getBadgeStatusColor(selectedBadge) }}
+                  textStyle={{ color: '#FFFFFF' }}
+                >
+                  {getBadgeStatusLabel(selectedBadge)}
+                </Chip>
+              </View>
+
+              <Divider style={{ marginVertical: 12 }} />
+
+              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>What You Achieved</Text>
+              <Text style={{ color: theme.colors.onSurface }}>
+                {selectedBadge.earned || selectedBadge.status === 'granted'
+                  ? `You completed ${selectedBadge.completed_modules || selectedBadge.completed_badges || 0} required module milestones and earned this badge.`
+                  : selectedBadge.pending || selectedBadge.status === 'pending'
+                    ? 'You met the requirement. This badge is waiting for admin approval.'
+                    : `Progress is ${selectedBadge.completed_modules || selectedBadge.completed_badges || 0} of ${selectedBadge.required_completed_modules || selectedBadge.required_badges_count || 1} requirements.`}
+              </Text>
+
+              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant, marginTop: 12 }]}>Progress</Text>
+              <ProgressBar
+                progress={getBadgeProgressValue(selectedBadge)}
+                color={theme.colors.primary}
+                style={styles.badgeProgressBar}
+              />
+
+              <Button mode="contained" onPress={() => setSelectedBadge(null)} style={styles.modalCloseButton}>
+                Close
+              </Button>
+            </>
+          ) : null}
+        </Modal>
+      </Portal>
     </ScrollView>
   );
 }
@@ -385,6 +516,32 @@ const styles = StyleSheet.create({
 
   badgeCard: { marginBottom: 10, borderRadius: 14 },
 
+  groupCard: { marginBottom: 14, borderRadius: 14, padding: 12 },
+
+  groupHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+
+  badgeItem: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+
+  badgeItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  badgeName: {
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+
   badgeRight: { justifyContent: 'center', marginRight: 10 },
 
   lockedTopRow: {
@@ -400,6 +557,31 @@ const styles = StyleSheet.create({
   lockedTextWrap: { flexShrink: 1, marginLeft: -2 },
 
   badgeProgressBar: { marginHorizontal: 14, marginBottom: 14, marginTop: 8, height: 8, borderRadius: 8 },
+
+  badgeModal: {
+    margin: 20,
+    borderRadius: 14,
+    padding: 18,
+  },
+
+  modalLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+
+  modalChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+
+  modalCloseButton: {
+    marginTop: 16,
+  },
 
   disclaimer: { marginTop: 20, textAlign: 'center' }
 });

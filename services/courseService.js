@@ -113,10 +113,16 @@ export const courseService = {
   },
 
   /**
-   * Get enrollment details with progress
+   * Get enrollment details with full course and chapter information
    */
-  getEnrollmentDetails: async (enrollmentId) => {
-    return authenticatedFetch(`/enrollments/${enrollmentId}/`);
+  getEnrollmentWithChapters: async (enrollmentId) => {
+    const enrollment = await authenticatedFetch(`/enrollments/${enrollmentId}/`);
+    // Fetch full course details including chapters
+    const courseDetails = await authenticatedFetch(`/courses/${enrollment.course}/`);
+    return {
+      ...enrollment,
+      chapters: courseDetails.chapters || []
+    };
   },
 
   /**

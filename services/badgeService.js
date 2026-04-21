@@ -73,7 +73,7 @@ export const badgeService = {
    */
   getGrantedBadges: async () => {
     try {
-      const allBadges = await authenticatedFetch('/user-progress/my-badges/');
+      const allBadges = await authenticatedFetch('/user-progress/badges/');
       // Filter for granted/earned badges
       if (Array.isArray(allBadges)) {
         return allBadges.filter(badge => badge.earned === true || badge.status === 'granted');
@@ -94,7 +94,7 @@ export const badgeService = {
    */
   getPendingBadges: async () => {
     try {
-      const allBadges = await authenticatedFetch('/user-progress/my-badges/');
+      const allBadges = await authenticatedFetch('/user-progress/badges/');
       // Filter for pending badges
       if (Array.isArray(allBadges)) {
         return allBadges.filter(badge => badge.pending === true || badge.status === 'pending');
@@ -115,14 +115,14 @@ export const badgeService = {
    */
   getAchievementBadges: async () => {
     try {
-      const allBadges = await authenticatedFetch('/user-progress/my-badges/');
+      const allBadges = await authenticatedFetch('/user-progress/badges/');
       // Filter for major/achievement badges
       if (Array.isArray(allBadges)) {
-        return allBadges.filter(badge => badge.is_major_badge === true);
+        return allBadges.filter(badge => badge.is_major_badge === true && (badge.earned === true || badge.status === 'granted'));
       }
       // Handle paginated response
       if (allBadges.results) {
-        return allBadges.results.filter(badge => badge.is_major_badge === true);
+        return allBadges.results.filter(badge => badge.is_major_badge === true && (badge.earned === true || badge.status === 'granted'));
       }
       return [];
     } catch (error) {
@@ -136,7 +136,7 @@ export const badgeService = {
    */
   getBadgeStatistics: async () => {
     try {
-      const userBadges = await authenticatedFetch('/user-progress/my-badges/');
+      const userBadges = await authenticatedFetch('/user-progress/badges/');
       
       const stats = {
         total: 0,
@@ -155,7 +155,7 @@ export const badgeService = {
         if (badge.pending || badge.status === 'pending') stats.pending++;
         if (badge.in_progress || badge.status === 'in_progress') stats.inProgress++;
         if (badge.rejected || badge.status === 'rejected') stats.rejected++;
-        if (badge.is_major_badge && badge.earned) stats.achievements++;
+          if (badge.is_major_badge && (badge.earned || badge.status === 'granted')) stats.achievements++;
       });
 
       return stats;

@@ -7,25 +7,36 @@ import {
   Image,
   Animated,
   Alert,
+  useWindowDimensions,
 } from "react-native";
-import { TextInput, Button, Text, Surface } from "react-native-paper";
+import { TextInput, Button, Text, Surface, Portal, Modal } from "react-native-paper";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import ThemedBackground from "../components/ThemedBackground";
 import api from "../utils/api";
-import { clearAuthTokens, getAccessToken, getRefreshToken, getUserRole, setAccessToken, setRefreshToken, setUserRole } from "../utils/tokenStorage";
+import { clearAuthTokens, getAccessToken, getMustChangePassword, getRefreshToken, getUserRole, setAccessToken, setMustChangePassword, setRefreshToken, setUserRole } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
 import { getModuleMapping } from "../utils/moduleMapping";
 import * as NotificationService from "../services/notificationService";
+import { getFriendlyPasskeyError, isPasskeySupported, signInWithPasskey } from "../services/passkeyService";
+import { getFriendlyTwoFactorError, verifyTwoFactorLogin } from "../services/twoFactorService";
 
 export default function Login() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === "web";
+  const contentWidth = isWeb ? Math.min(460, width - 28) : "100%";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [error, setError] = useState("");
+  const [twoFactorVisible, setTwoFactorVisible] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [twoFactorSubmitting, setTwoFactorSubmitting] = useState(false);
+  const [twoFactorRequestId, setTwoFactorRequestId] = useState("");
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const liftAnim = useRef(new Animated.Value(18)).current;
@@ -57,9 +68,15 @@ export default function Login() {
       try {
         const access = await getAccessToken();
         const refresh = await getRefreshToken();
+        const mustResetPassword = await getMustChangePassword();
         const role = String(await getUserRole() || '').trim().toLowerCase();
         if (!access && !refresh) {
           setCheckingAuth(false);
+          return;
+        }
+
+        if (mustResetPassword) {
+          router.replace('/force-reset-password');
           return;
         }
 
@@ -87,6 +104,32 @@ export default function Login() {
     bootstrapAuth();
   }, [router]);
 
+  const completeLogin = async (payload) => {
+    const { access, refresh } = payload;
+    const mustChangePassword = Boolean(payload?.must_change_password || payload?.user?.must_change_password);
+    const isAdmin = resolveAdminFlag(payload);
+    const role = isAdmin ? "admin" : "learner";
+
+    await setAccessToken(access);
+    await setRefreshToken(refresh);
+    await setUserRole(role);
+    await setMustChangePassword(mustChangePassword);
+
+    if (mustChangePassword) {
+      router.replace("/force-reset-password");
+      return;
+    }
+
+    NotificationService.registerForPushNotifications().catch((err) =>
+      console.log("Push notification registration failed (non-critical):", err.message)
+    );
+    getModuleMapping().catch((err) =>
+      console.log("Module mapping build failed (non-critical):", err.message)
+    );
+
+    router.replace(isAdmin ? "/dashboard" : "/home");
+  };
+
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert(t("missingFields"), t("pleaseEnterEmailPassword"));
@@ -94,6 +137,7 @@ export default function Login() {
     }
 
     try {
+      setLoading(true);
       console.log("🔐 Login attempt - API Base URL:", api.defaults.baseURL);
       console.log("🔐 Full endpoint would be:", api.defaults.baseURL + "/accounts/login/");
       const response = await api.post("/accounts/login/", {
@@ -101,24 +145,14 @@ export default function Login() {
         password: password,
       });
 
-      const { access, refresh } = response.data;
-      const isAdmin = resolveAdminFlag(response.data);
-      const role = isAdmin ? "admin" : "learner";
+      if (response.data?.requires_2fa && response.data?.request_id) {
+        setTwoFactorRequestId(response.data.request_id);
+        setTwoFactorCode("");
+        setTwoFactorVisible(true);
+        return;
+      }
 
-      // Save tokens for future API calls
-      await setAccessToken(access);
-      await setRefreshToken(refresh);
-      await setUserRole(role);
-
-      // Register for push notifications now that user is authenticated
-      NotificationService.registerForPushNotifications().catch(err => 
-        console.log("Push notification registration failed (non-critical):", err.message)
-      );
-
-      // Build module ID mapping from backend courses
-      getModuleMapping().catch(err => console.log('Module mapping build failed (non-critical):', err.message));
-
-      router.replace(isAdmin ? "/dashboard" : "/home");
+      await completeLogin(response.data);
     } catch (err) {
       console.log("Login error - Full error object:", err);
       console.log("Login error - URL attempted:", err.config?.url);
@@ -132,6 +166,41 @@ export default function Login() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTwoFactorLogin = async () => {
+    if (!twoFactorCode.trim()) {
+      Alert.alert("Authenticator code required", "Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+
+    try {
+      setTwoFactorSubmitting(true);
+      const payload = await verifyTwoFactorLogin({
+        requestId: twoFactorRequestId,
+        code: twoFactorCode.trim(),
+      });
+      setTwoFactorVisible(false);
+      setTwoFactorCode("");
+      setTwoFactorRequestId("");
+      await completeLogin(payload);
+    } catch (err) {
+      Alert.alert("Two-factor sign in failed", getFriendlyTwoFactorError(err, "Unable to verify authenticator code."));
+    } finally {
+      setTwoFactorSubmitting(false);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    try {
+      setPasskeyLoading(true);
+      const payload = await signInWithPasskey(email);
+      await completeLogin(payload);
+    } catch (err) {
+      Alert.alert("Passkey sign in failed", getFriendlyPasskeyError(err, "Unable to sign in with passkey."));
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -153,6 +222,7 @@ export default function Login() {
       <Animated.View
         style={[
           styles.container,
+          { width: contentWidth },
           {
             opacity: fadeAnim,
             transform: [{ translateY: liftAnim }],
@@ -204,7 +274,7 @@ export default function Login() {
             mode="contained"
             onPress={handleLogin}
             loading={loading}
-            disabled={loading}
+            disabled={loading || passkeyLoading}
             style={styles.button}
             contentStyle={styles.buttonContent}
             buttonColor="#D6B36A"
@@ -213,10 +283,40 @@ export default function Login() {
             {loading ? t("signingIn") : t("loginButton")}
           </Button>
 
+          {isPasskeySupported() ? (
+            <Button
+              mode="outlined"
+              onPress={handlePasskeyLogin}
+              loading={passkeyLoading}
+              disabled={loading || passkeyLoading}
+              style={styles.passkeyButton}
+              contentStyle={styles.buttonContent}
+              textColor="#E6F2EA"
+            >
+              {passkeyLoading ? "Checking passkey..." : "Sign in with passkey"}
+            </Button>
+          ) : null}
+
           <View style={styles.helperRow}>
             <Text variant="bodySmall" style={styles.helperText}>
               {t("demoLoginEnabled")}
             </Text>
+            <Button
+              mode="text"
+              onPress={() => router.push('/register')}
+              textColor="#D6B36A"
+              style={styles.applyButton}
+            >
+              Apply for account
+            </Button>
+            <Button
+              mode="text"
+              onPress={() => router.push('/forgot-password')}
+              textColor="#A8CFAF"
+              style={styles.applyButton}
+            >
+              Forgot password
+            </Button>
           </View>
         </Surface>
 
@@ -229,6 +329,56 @@ export default function Login() {
           </Text>
         </View>
       </Animated.View>
+
+      <Portal>
+        <Modal
+          visible={twoFactorVisible}
+          dismissable={!twoFactorSubmitting}
+          onDismiss={() => {
+            if (twoFactorSubmitting) return;
+            setTwoFactorVisible(false);
+            setTwoFactorCode("");
+            setTwoFactorRequestId("");
+          }}
+          contentContainerStyle={styles.twoFactorModal}
+        >
+          <Text variant="titleLarge" style={styles.twoFactorTitle}>
+            Authenticator Check
+          </Text>
+          <Text style={styles.twoFactorSubtitle}>
+            Enter the 6-digit code from your authenticator app to finish signing in.
+          </Text>
+          <TextInput
+            label="Authenticator code"
+            mode="outlined"
+            keyboardType="number-pad"
+            value={twoFactorCode}
+            onChangeText={setTwoFactorCode}
+            style={styles.input}
+          />
+          <View style={styles.twoFactorActions}>
+            <Button
+              mode="outlined"
+              disabled={twoFactorSubmitting}
+              onPress={() => {
+                setTwoFactorVisible(false);
+                setTwoFactorCode("");
+                setTwoFactorRequestId("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              loading={twoFactorSubmitting}
+              disabled={twoFactorSubmitting}
+              onPress={handleTwoFactorLogin}
+            >
+              Verify
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
     </KeyboardAvoidingView>
   );
 }
@@ -287,7 +437,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
-    padding: 24,
+    alignSelf: "center",
+    padding: 20,
   },
   headerSection: {
     alignItems: "center",
@@ -314,7 +465,7 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 8,
     textAlign: "center",
-    maxWidth: 280,
+    maxWidth: 340,
     lineHeight: 22,
     color: "rgba(244,247,242,0.72)",
   },
@@ -333,6 +484,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     borderRadius: 18,
   },
+  passkeyButton: {
+    marginTop: 10,
+    borderRadius: 18,
+    borderColor: "rgba(214,179,106,0.45)",
+  },
   buttonContent: {
     height: 54,
   },
@@ -342,6 +498,9 @@ const styles = StyleSheet.create({
   },
   helperText: {
     color: "rgba(244,247,242,0.65)",
+  },
+  applyButton: {
+    marginTop: 4,
   },
   footer: {
     alignItems: "center",
@@ -353,6 +512,27 @@ const styles = StyleSheet.create({
   },
   footerSub: {
     color: "rgba(244,247,242,0.58)",
+    marginTop: 6,
+  },
+  twoFactorModal: {
+    margin: 20,
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: "#10261C",
+  },
+  twoFactorTitle: {
+    color: "#F4F7F2",
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  twoFactorSubtitle: {
+    color: "rgba(244,247,242,0.78)",
+    marginBottom: 14,
+  },
+  twoFactorActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
     marginTop: 6,
   },
 });

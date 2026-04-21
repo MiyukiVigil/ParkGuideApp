@@ -12,12 +12,29 @@
  * - IOS_BUNDLE_ID: iOS bundle identifier
  */
 
+const getAbsoluteUrl = (value) => {
+  if (!value) return "";
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+};
+
+const getHostFromUrl = (value) => {
+  try {
+    return new URL(getAbsoluteUrl(value)).host;
+  } catch {
+    return "";
+  }
+};
+
+const apiBaseUrl =
+  process.env.EXPO_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || "";
+const associatedWebHost = getHostFromUrl(apiBaseUrl);
+
 module.exports = {
   expo: {
     name: "ParkGuideApp",
     slug: "parkguideapp",
     scheme: "parkguideapp",
-    version: "1.0.0",
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
@@ -56,6 +73,21 @@ module.exports = {
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
       ],
+      intentFilters: associatedWebHost
+        ? [
+            {
+              action: "VIEW",
+              autoVerify: true,
+              data: [
+                {
+                  scheme: "https",
+                  host: associatedWebHost,
+                },
+              ],
+              category: ["BROWSABLE", "DEFAULT"],
+            },
+          ]
+        : [],
     },
     web: {
       favicon: "./assets/favicon.png",
@@ -64,7 +96,6 @@ module.exports = {
     platforms: ["ios", "android", "web"],
     plugins: [
       "expo-camera",
-      "expo-haptics",
       "expo-localization",
       "expo-notifications",
       "expo-router",
@@ -78,6 +109,7 @@ module.exports = {
       router: {
         origin: false,
       },
+      associatedWebHost,
     },
     runtimeVersion: {
       policy: "appVersion",

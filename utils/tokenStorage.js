@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 const ACCESS_TOKEN_KEY = 'parkguide_access_token';
 const REFRESH_TOKEN_KEY = 'parkguide_refresh_token';
 const ROLE_KEY = 'parkguide_user_role';
+const MUST_CHANGE_PASSWORD_KEY = 'parkguide_must_change_password';
 
 // Helper functions for platform-specific storage
 const getStorage = () => {
@@ -86,6 +87,7 @@ export const clearAuthTokens = async () => {
     await storage.removeItem(ACCESS_TOKEN_KEY);
     await storage.removeItem(REFRESH_TOKEN_KEY);
     await storage.removeItem(ROLE_KEY);
+    await storage.removeItem(MUST_CHANGE_PASSWORD_KEY);
   } catch (error) {
     console.error('Error clearing auth tokens:', error);
   }
@@ -109,5 +111,23 @@ export const setUserRole = async (role) => {
     }
   } catch (error) {
     console.error('Error storing user role:', error);
+  }
+};
+
+export const getMustChangePassword = async () => {
+  try {
+    const value = await storage.getItem(MUST_CHANGE_PASSWORD_KEY);
+    return value === 'true';
+  } catch (error) {
+    console.error('Error retrieving must-change-password flag:', error);
+    return false;
+  }
+};
+
+export const setMustChangePassword = async (mustChangePassword) => {
+  try {
+    await storage.setItem(MUST_CHANGE_PASSWORD_KEY, mustChangePassword ? 'true' : 'false');
+  } catch (error) {
+    console.error('Error storing must-change-password flag:', error);
   }
 };

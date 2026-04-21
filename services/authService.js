@@ -1,26 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import CONFIG from "../constants/config";
-
-const PASSWORD_KEY = "userPassword";
-
-// Default password from configuration
-// For development only - should be changed in production
-const DEFAULT_PASSWORD = CONFIG.DEFAULT_PASSWORD;
-
-if (CONFIG.NODE_ENV === "development") {
-  console.log("ℹ️  Using development password configuration");
-}
-
 export async function ensureMockPassword() {
-  try {
-    const existing = await AsyncStorage.getItem(PASSWORD_KEY);
-    if (!existing) {
-      await AsyncStorage.setItem(PASSWORD_KEY, DEFAULT_PASSWORD);
-    }
-  } catch (error) {
-    console.log("ensureMockPassword error:", error);
-  }
+  return true;
 }
+
+import api from "../utils/api";
 
 export async function changePassword({ currentPassword, newPassword, confirmPassword }) {
   if (!currentPassword || !newPassword || !confirmPassword) {
@@ -41,14 +23,32 @@ export async function changePassword({ currentPassword, newPassword, confirmPass
     throw error;
   }
 
-  const savedPassword = await AsyncStorage.getItem(PASSWORD_KEY);
-
-  if (currentPassword !== savedPassword) {
-    const error = new Error("CURRENT_PASSWORD_INCORRECT");
-    error.code = "CURRENT_PASSWORD_INCORRECT";
+  try {
+    const response = await api.post("/accounts/change-password/", {
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    });
+    return response.data;
+  } catch (apiError) {
+    const mappedCode = apiError?.response?.data?.code;
+    const backendDetail = apiError?.response?.data?.detail;
+    const error = new Error(backendDetail || mappedCode || "CHANGE_PASSWORD_FAILED");
+    error.code = mappedCode || "CHANGE_PASSWORD_FAILED";
+    error.detail = backendDetail || "";
     throw error;
   }
+}
 
-  await AsyncStorage.setItem(PASSWORD_KEY, newPassword);
-  return true;
+export async function requestForgotPasswordCode(email) {
+  return api.post("/accounts/forgot-password/", { email });
+}
+
+export async function confirmForgotPassword({ email, code, newPassword, confirmPassword }) {
+  return api.post("/accounts/forgot-password/confirm/", {
+    email,
+    code,
+    newPassword,
+    confirmPassword,
+  });
 }
