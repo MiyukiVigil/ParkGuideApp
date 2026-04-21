@@ -46,9 +46,16 @@ const getApiBaseUrl = () => {
   return "http://localhost:8000/api";
 };
 
+const getPasskeyApiBaseUrl = () => {
+  const configuredUrl = getConfigValue("passkeyApiBaseUrl", "PASSKEY_API_BASE_URL", "");
+  if (configuredUrl) return normalizeUrl(configuredUrl);
+  return getApiBaseUrl();
+};
+
 const CONFIG = {
   // API Configuration
   API_BASE_URL: getApiBaseUrl(),
+  PASSKEY_API_BASE_URL: getPasskeyApiBaseUrl(),
 
   // Dashboard URLs
   DASHBOARD_BASE_URL: normalizeUrl(

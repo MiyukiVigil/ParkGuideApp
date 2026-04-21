@@ -20,6 +20,7 @@ import { getModuleMapping } from "../utils/moduleMapping";
 import * as NotificationService from "../services/notificationService";
 import { getFriendlyPasskeyError, isPasskeySupported, signInWithPasskey } from "../services/passkeyService";
 import { getFriendlyTwoFactorError, verifyTwoFactorLogin } from "../services/twoFactorService";
+import { saveProfileSnapshotFromAuthPayload } from "../services/profileService";
 
 export default function Login() {
   const router = useRouter();
@@ -114,6 +115,7 @@ export default function Login() {
     await setRefreshToken(refresh);
     await setUserRole(role);
     await setMustChangePassword(mustChangePassword);
+    await saveProfileSnapshotFromAuthPayload(payload);
 
     if (mustChangePassword) {
       router.replace("/force-reset-password");
@@ -298,9 +300,6 @@ export default function Login() {
           ) : null}
 
           <View style={styles.helperRow}>
-            <Text variant="bodySmall" style={styles.helperText}>
-              {t("demoLoginEnabled")}
-            </Text>
             <Button
               mode="text"
               onPress={() => router.push('/register')}
@@ -325,7 +324,7 @@ export default function Login() {
             {t("protectedSession")}
           </Text>
           <Text variant="labelSmall" style={styles.footerSub}>
-            {t("appVersion")}
+            1.2.0
           </Text>
         </View>
       </Animated.View>

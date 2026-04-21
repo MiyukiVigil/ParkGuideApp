@@ -10,6 +10,7 @@ import { useThemeContext } from "../contexts/ThemeContext";
 import CONFIG, { getAvatarUrl } from "../constants/config";
 import * as NotificationService from "../services/notificationService";
 import courseService from "../services/courseService";
+import { getProfile } from "../services/profileService";
 
 export default function Home() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function Home() {
   const [completedModules, setCompletedModules] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [currentCourse, setCurrentCourse] = useState(null);
+  const [profile, setProfile] = useState(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const heroScale = useRef(new Animated.Value(0.98)).current;
@@ -33,6 +35,17 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
+      let isActive = true;
+
+      const loadProfile = async () => {
+        try {
+          const data = await getProfile();
+          if (isActive) setProfile(data);
+        } catch (err) {
+          console.log('Failed to load profile', err);
+        }
+      };
+
       const loadTrainingProgress = async () => {
         try {
           const enrollments = await courseService.getUserEnrollments();
@@ -85,7 +98,12 @@ export default function Home() {
         }
       };
 
+      loadProfile();
       loadTrainingProgress();
+
+      return () => {
+        isActive = false;
+      };
     }, [])
   );
 
@@ -195,7 +213,7 @@ export default function Home() {
             <Avatar.Image
               size={54}
               source={{
-                uri: getAvatarUrl("Miyuki"),
+                uri: profile?.profile_image_url || getAvatarUrl(profile?.name || profile?.email || 'Park Guide'),
               }}
             />
           </TouchableRipple>
@@ -208,7 +226,7 @@ export default function Home() {
               variant="headlineSmall"
               style={[styles.nameText, { color: theme.colors.onSurface }]}
             >
-              Miyuki Vigil
+              {profile?.name || 'Park Guide'}
             </Text>
             <Text
               variant="bodySmall"
@@ -383,9 +401,8 @@ export default function Home() {
           <OperationCard
             theme={theme}
             icon="certificate"
-            label={t("certs")}
-            subtitle={t("verifiedRecords")}
-            progress={1}
+            label={t("badges")}
+            subtitle={t("badgesEarned")}
             onPress={() => router.push("/cert")}
           />
           <OperationCard

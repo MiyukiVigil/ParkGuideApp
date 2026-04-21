@@ -4,7 +4,9 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
+    "start:dev": "expo start --dev-client -c",
     "android": "expo run:android",
+    "android:dev": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web"
   },
@@ -22,6 +24,7 @@
     "expo-notifications": "~55.0.14",
     "expo-router": "~55.0.12",
     "expo-secure-store": "~55.0.13",
+    "expo-sensors": "^55.0.13",
     "expo-status-bar": "~55.0.5",
     "expo-web-browser": "~55.0.14",
     "i18next": "^25.8.14",

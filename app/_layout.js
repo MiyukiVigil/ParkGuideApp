@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
 import { darkTheme, lightTheme } from "../theme/theme";
-import { Appearance, useColorScheme, AppState, Alert, Platform } from "react-native";
+import { Appearance, useColorScheme, AppState, Alert, Platform, View, ActivityIndicator } from "react-native";
 import * as Localization from 'expo-localization';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
@@ -125,7 +125,19 @@ export default function RootLayout() {
         setIsLoaded(true);
       }
     };
+
+    const timeoutId = setTimeout(() => {
+      setIsLoaded((prev) => {
+        if (!prev) {
+          console.warn("Settings load timeout reached, continuing app startup.");
+        }
+        return true;
+      });
+    }, 4000);
+
     loadSettings();
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   useEffect(() => {
@@ -170,6 +182,8 @@ export default function RootLayout() {
 
   // Setup push notifications
   useEffect(() => {
+    let disposePushListeners = null;
+
     const setupNotifications = async () => {
       try {
         // Initialize notification handler
@@ -179,21 +193,20 @@ export default function RootLayout() {
         await NotificationService.registerForPushNotifications();
 
         // Listen to incoming push notifications
-        const cleanup = NotificationService.listenToPushNotifications((notification) => {
+        disposePushListeners = NotificationService.listenToPushNotifications((notification) => {
           console.log("Push notification received:", notification);
           // You can add logic here to refresh notifications or navigate
         });
-
-        return cleanup;
       } catch (err) {
         console.log("Error setting up notifications:", err);
       }
     };
 
-    const cleanup = setupNotifications();
+    setupNotifications();
+
     return () => {
-      if (cleanup && typeof cleanup === "function") {
-        cleanup();
+      if (disposePushListeners && typeof disposePushListeners === "function") {
+        disposePushListeners();
       }
     };
   }, []);
@@ -202,7 +215,13 @@ export default function RootLayout() {
     return isDarkMode ? darkTheme : lightTheme;
   }, [isDarkMode]);
 
-  if (!isLoaded) return null;
+  if (!isLoaded) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" }}>
+        <ActivityIndicator size="large" color="#2E7D5A" />
+      </View>
+    );
+  }
 
   return (
     <ThemeContext.Provider

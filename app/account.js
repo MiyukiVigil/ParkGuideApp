@@ -12,12 +12,14 @@ import {
   Modal,
   ActivityIndicator,
 } from "react-native-paper";
+import * as DocumentPicker from "expo-document-picker";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
-import { getProfile, updateProfile } from "../services/profileService";
-import { ensureMockPassword, changePassword } from "../services/authService";
+import { getProfile, updateProfile, uploadProfileImage } from "../services/profileService";
+import { changePassword } from "../services/authService";
 import { clearAuthTokens } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
 import { unregisterPushNotifications } from "../services/notificationService";
@@ -38,6 +40,7 @@ export default function AccountScreen() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -53,7 +56,6 @@ export default function AccountScreen() {
   const initialize = async () => {
     try {
       setIsLoading(true);
-      await ensureMockPassword();
       const data = await getProfile();
       setProfile(data);
       setDraftProfile(data);
@@ -104,6 +106,52 @@ export default function AccountScreen() {
     }
   };
 
+  const handleUploadProfileImage = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const fileSize = Number(asset.size || 0);
+      const fileType = String(asset.mimeType || asset.type || '').toLowerCase();
+
+      if (fileType && !fileType.startsWith('image/')) {
+        Alert.alert('Unsupported file', 'Please choose an image file for your profile photo.');
+        return;
+      }
+
+      if (fileSize > 5 * 1024 * 1024) {
+        Alert.alert('Image too large', 'Please choose an image smaller than 5 MB.');
+        return;
+      }
+
+      setIsUploadingImage(true);
+      await Haptics.selectionAsync();
+      const uploadedProfile = await uploadProfileImage(asset);
+      setProfile(uploadedProfile);
+      setDraftProfile((prev) => ({
+        ...prev,
+        ...uploadedProfile,
+      }));
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Profile photo updated', 'Your new profile photo has been saved to your account.');
+    } catch (error) {
+      console.log('Profile image upload error:', error?.response?.data || error?.message || error);
+      const detail = error?.response?.data?.profile_image?.[0] || error?.response?.data?.detail;
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Upload failed', detail || 'We could not upload your profile photo right now.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleCancelEdit = () => {
     if (profile) {
       setDraftProfile(profile);
@@ -127,10 +175,10 @@ export default function AccountScreen() {
           text: "Sign Out",
           onPress: async () => {
             try {
-              // Unregister push notifications first
               await unregisterPushNotifications();
               await clearAuthTokens();
               await clearProgressData();
+              await AsyncStorage.removeItem("userProfile");
               router.replace("/");
             } catch (error) {
               Alert.alert("Error", "Failed to sign out.");
@@ -157,18 +205,18 @@ export default function AccountScreen() {
       Alert.alert("Success", "Your password has been changed.");
     } catch (error) {
       let errorMessage = t("error");
-      
+
       const errorCodeMap = {
         FILL_ALL_PASSWORD_FIELDS: "fillAllPasswordFields",
         PASSWORD_MUST_BE_8: "passwordMustBe8",
         PASSWORDS_DO_NOT_MATCH: "passwordsDoNotMatch",
         CURRENT_PASSWORD_INCORRECT: "currentPasswordIncorrect",
       };
-      
+
       if (error.code && errorCodeMap[error.code]) {
         errorMessage = t(errorCodeMap[error.code]);
       }
-      
+
       Alert.alert(t("error"), errorMessage);
     } finally {
       setIsChangingPassword(false);
@@ -203,12 +251,29 @@ export default function AccountScreen() {
           ]}
           elevation={2}
         >
-          <Avatar.Icon
-            size={64}
-            icon="account"
-            style={{ backgroundColor: theme.colors.primaryContainer }}
-            color={theme.colors.primary}
-          />
+          <View style={styles.avatarColumn}>
+            {profile.profile_image_url ? (
+              <Avatar.Image size={76} source={{ uri: profile.profile_image_url }} />
+            ) : (
+              <Avatar.Icon
+                size={76}
+                icon="account"
+                style={{ backgroundColor: theme.colors.primaryContainer }}
+                color={theme.colors.primary}
+              />
+            )}
+            <Button
+              mode="text"
+              compact
+              onPress={handleUploadProfileImage}
+              loading={isUploadingImage}
+              disabled={isUploadingImage}
+              style={styles.uploadButton}
+            >
+              {isUploadingImage ? "Uploading..." : "Choose Photo"}
+            </Button>
+          </View>
+
           <View style={{ marginLeft: 14, flex: 1 }}>
             <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
               {profile.name}
@@ -409,6 +474,13 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 1,
     marginBottom: 18,
+  },
+  avatarColumn: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadButton: {
+    marginTop: 8,
   },
   sectionCard: {
     borderRadius: 24,
