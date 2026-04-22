@@ -31,7 +31,7 @@ module.exports = {
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
     splash: {
-      image: "./assets/splash.png",
+      image: "./assets/icon.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff",
     },
@@ -53,7 +53,7 @@ module.exports = {
       package: process.env.PACKAGE_NAME || "com.miyukivigil.parkguideapp",
       googleServicesFile: "./google-services.json",
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
+        foregroundImage: "./assets/icon.png",
         backgroundColor: "#ffffff",
       },
       permissions: [
