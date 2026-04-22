@@ -2,17 +2,15 @@ import React, { useRef, useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
   Image,
   Animated,
   Alert,
-  useWindowDimensions,
 } from "react-native";
 import { TextInput, Button, Text, Surface, Portal, Modal } from "react-native-paper";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import ThemedBackground from "../components/ThemedBackground";
+import AuthScreenLayout from "../components/AuthScreenLayout";
 import api from "../utils/api";
 import { clearAuthTokens, getAccessToken, getMustChangePassword, getRefreshToken, getUserRole, setAccessToken, setMustChangePassword, setRefreshToken, setUserRole } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
@@ -25,9 +23,6 @@ import { saveProfileSnapshotFromAuthPayload } from "../services/profileService";
 export default function Login() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { width } = useWindowDimensions();
-  const isWeb = Platform.OS === "web";
-  const contentWidth = isWeb ? Math.min(460, width - 28) : "100%";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -207,24 +202,10 @@ export default function Login() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.master}
-    >
-      <ThemedBackground />
-
-      <View style={styles.backgroundBase}>
-        <View style={styles.deepForest} />
-        <View style={styles.midForest} />
-        <View style={styles.topGlow} />
-        <View style={styles.mistOne} />
-        <View style={styles.mistTwo} />
-      </View>
-
+    <AuthScreenLayout maxWidth={Platform.OS === "web" ? 460 : 430}>
       <Animated.View
         style={[
           styles.container,
-          { width: contentWidth },
           {
             opacity: fadeAnim,
             transform: [{ translateY: liftAnim }],
@@ -314,7 +295,7 @@ export default function Login() {
               textColor="#A8CFAF"
               style={styles.applyButton}
             >
-              Forgot password
+              {t("forgotPasswordLink")}
             </Button>
           </View>
         </Surface>
@@ -378,70 +359,17 @@ export default function Login() {
           </View>
         </Modal>
       </Portal>
-    </KeyboardAvoidingView>
+    </AuthScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  master: {
-    flex: 1,
-    backgroundColor: "#0B1F17",
-  },
-  backgroundBase: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
-  deepForest: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#091B14",
-  },
-  midForest: {
-    position: "absolute",
-    top: 0,
-    left: -40,
-    right: -40,
-    height: 360,
-    backgroundColor: "#123024",
-    opacity: 0.45,
-    borderBottomLeftRadius: 120,
-    borderBottomRightRadius: 120,
-  },
-  topGlow: {
-    position: "absolute",
-    top: 80,
-    alignSelf: "center",
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: "rgba(80,140,103,0.12)",
-  },
-  mistOne: {
-    position: "absolute",
-    top: 140,
-    left: -80,
-    width: 260,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: "rgba(255,255,255,0.04)",
-  },
-  mistTwo: {
-    position: "absolute",
-    top: 240,
-    right: -80,
-    width: 280,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(255,255,255,0.03)",
-  },
   container: {
-    flex: 1,
-    justifyContent: "center",
-    alignSelf: "center",
-    padding: 20,
+    width: "100%",
   },
   headerSection: {
     alignItems: "center",
-    marginBottom: 34,
+    marginBottom: 28,
   },
   logoSurface: {
     borderRadius: 30,
@@ -494,9 +422,6 @@ const styles = StyleSheet.create({
   helperRow: {
     marginTop: 14,
     alignItems: "center",
-  },
-  helperText: {
-    color: "rgba(244,247,242,0.65)",
   },
   applyButton: {
     marginTop: 4,

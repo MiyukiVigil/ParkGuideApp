@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet } from "react-native";
 import { Button, Surface, Text, TextInput } from "react-native-paper";
 import { useRouter } from "expo-router";
 
-import ThemedBackground from "../components/ThemedBackground";
+import AuthScreenLayout from "../components/AuthScreenLayout";
 import { changePassword } from "../services/authService";
 import { setMustChangePassword } from "../utils/tokenStorage";
 
@@ -38,9 +38,7 @@ export default function ForceResetPasswordScreen() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.screen}>
-      <ThemedBackground />
-      <ScrollView contentContainerStyle={styles.content}>
+    <AuthScreenLayout maxWidth={440}>
         <Surface style={styles.card} elevation={3}>
           <Text variant="headlineSmall" style={styles.title}>
             Change Temporary Password
@@ -86,22 +84,16 @@ export default function ForceResetPasswordScreen() {
             Continue
           </Button>
         </Surface>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </AuthScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#0C1E17" },
-  content: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
   card: {
     borderRadius: 24,
     padding: 20,
     backgroundColor: "rgba(8, 28, 20, 0.94)",
+    width: "100%",
   },
   title: {
     color: "#F4F7F2",

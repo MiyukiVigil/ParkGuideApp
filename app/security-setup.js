@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Alert, Image, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Button, Surface, Text, TextInput } from "react-native-paper";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
-import ThemedBackground from "../components/ThemedBackground";
+import AuthScreenLayout from "../components/AuthScreenLayout";
 import {
   getFriendlyPasskeyError,
   isPasskeySupported,
@@ -20,12 +20,14 @@ import { getUserRole } from "../utils/tokenStorage";
 export default function SecuritySetupScreen() {
   const router = useRouter();
   const { recommended } = useLocalSearchParams();
+  const { width } = useWindowDimensions();
   const [password, setPassword] = useState("");
   const [passkeyLabel, setPasskeyLabel] = useState("");
   const [passkeySubmitting, setPasskeySubmitting] = useState(false);
   const [twoFactorSubmitting, setTwoFactorSubmitting] = useState(false);
   const [twoFactorSetupData, setTwoFactorSetupData] = useState(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  const qrSize = Math.max(168, Math.min(220, width - 160));
 
   const goToApp = async () => {
     const role = String(await getUserRole() || "").trim().toLowerCase();
@@ -81,9 +83,7 @@ export default function SecuritySetupScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <ThemedBackground />
-      <ScrollView contentContainerStyle={styles.content}>
+    <AuthScreenLayout centerContent={false} maxWidth={460}>
         <Surface style={styles.card} elevation={3}>
           <Text variant="headlineSmall" style={styles.title}>
             Secure Your New Account
@@ -141,7 +141,10 @@ export default function SecuritySetupScreen() {
 
             {twoFactorSetupData ? (
               <View style={styles.qrBlock}>
-                <Image source={{ uri: getTwoFactorQrUrl(twoFactorSetupData.otpauth_uri) }} style={styles.qrImage} />
+                <Image
+                  source={{ uri: getTwoFactorQrUrl(twoFactorSetupData.otpauth_uri) }}
+                  style={[styles.qrImage, { width: qrSize, height: qrSize }]}
+                />
                 <Text style={styles.secretLabel}>Secret key</Text>
                 <Text selectable style={styles.secretValue}>
                   {twoFactorSetupData.secret}
@@ -173,22 +176,16 @@ export default function SecuritySetupScreen() {
             Skip for Now
           </Button>
         </Surface>
-      </ScrollView>
-    </View>
+    </AuthScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#0C1E17" },
-  content: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
   card: {
     borderRadius: 24,
     padding: 20,
     backgroundColor: "rgba(8, 28, 20, 0.94)",
+    width: "100%",
   },
   title: {
     color: "#F4F7F2",
@@ -233,8 +230,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   qrImage: {
-    width: 220,
-    height: 220,
     borderRadius: 16,
     marginBottom: 12,
     backgroundColor: "#FFFFFF",
