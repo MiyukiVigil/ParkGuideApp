@@ -8,6 +8,33 @@ import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
 import courseService from '../../services/courseService';
 
+const isLessonCompleted = (lesson) => Boolean(
+  lesson?.is_completed ||
+  lesson?.completed ||
+  lesson?.progress?.completed ||
+  lesson?.progress?.is_completed
+);
+
+const getChapterProgress = (chapter) => {
+  const lessons = chapter?.lessons || [];
+  const completedFromLessons = lessons.filter(isLessonCompleted).length;
+  const reportedLessonsCompleted =
+    chapter?.progress?.lessons_completed ??
+    chapter?.progress?.completed_lessons ??
+    0;
+  const lessonsCompleted = Math.max(reportedLessonsCompleted, completedFromLessons);
+  const progressPercentage =
+    Math.max(
+      chapter?.progress?.progress_percentage ?? 0,
+      (lessons.length > 0 ? lessonsCompleted / lessons.length : 0) * 100
+    );
+
+  return {
+    lessonsCompleted,
+    progressPercentage,
+  };
+};
+
 export default function CourseDetail() {
   const theme = useTheme();
   const router = useRouter();
@@ -334,7 +361,8 @@ function ChapterCard({
   t,
 }) {
   const lessonsCount = chapter.lessons?.length || 0;
-  const progress = chapter.progress?.progress_percentage || 0;
+  const chapterProgress = getChapterProgress(chapter);
+  const progress = chapterProgress.progressPercentage || 0;
 
   return (
     <Surface
@@ -387,7 +415,7 @@ function ChapterCard({
         }}
       >
         {t('lessonsCompleted', {
-          completed: chapter.progress?.lessons_completed || 0,
+          completed: chapterProgress.lessonsCompleted,
           total: lessonsCount,
         })}
       </Text>

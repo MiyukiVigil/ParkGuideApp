@@ -8,6 +8,36 @@ import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
 import courseService from '../../services/courseService';
 
+const isLessonCompleted = (lesson) => Boolean(
+  lesson?.is_completed ||
+  lesson?.completed ||
+  lesson?.progress?.completed ||
+  lesson?.progress?.is_completed
+);
+
+const getChapterProgress = (chapter) => {
+  const lessons = chapter?.lessons || [];
+  const completedFromLessons = lessons.filter(isLessonCompleted).length;
+  const totalLessons = chapter?.progress?.total_lessons ?? lessons.length ?? 0;
+  const reportedCompletedLessons =
+    chapter?.progress?.completed_lessons ??
+    chapter?.progress?.lessons_completed ??
+    0;
+  const completedLessons = Math.max(reportedCompletedLessons, completedFromLessons);
+
+  const progressPercentage =
+    Math.max(
+      chapter?.progress?.progress_percentage ?? 0,
+      totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0
+    );
+
+  return {
+    totalLessons,
+    completedLessons,
+    progressPercentage,
+  };
+};
+
 export default function ChapterView() {
   const theme = useTheme();
   const router = useRouter();
@@ -95,7 +125,8 @@ export default function ChapterView() {
   }
 
   const lessons = chapter.lessons || [];
-  const progress = chapter.progress?.progress_percentage || 0;
+  const chapterProgress = getChapterProgress(chapter);
+  const progress = chapterProgress.progressPercentage || 0;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -175,8 +206,8 @@ export default function ChapterView() {
             style={{ color: theme.colors.onSurfaceVariant }}
           >
             {t('lessonsCompleted', {
-              completed: chapter.progress?.completed_lessons || 0,
-              total: chapter.progress?.total_lessons || lessons.length || 0,
+              completed: chapterProgress.completedLessons,
+              total: chapterProgress.totalLessons,
             })}
           </Text>
         </Surface>
@@ -269,7 +300,7 @@ function LessonCard({
   onPress,
   t,
 }) {
-  const isCompleted = lesson.is_completed;
+  const isCompleted = isLessonCompleted(lesson);
 
   return (
     <Surface

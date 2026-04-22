@@ -184,10 +184,23 @@ export const listenToPushNotifications = (onNotification) => {
     }
   );
 
+  const removeSubscription = (subscription) => {
+    if (!subscription) return;
+
+    if (typeof subscription.remove === "function") {
+      subscription.remove();
+      return;
+    }
+
+    if (typeof Notifications.removeNotificationSubscription === "function") {
+      Notifications.removeNotificationSubscription(subscription);
+    }
+  };
+
   // Return cleanup function
   return () => {
-    Notifications.removeNotificationSubscription(notificationListener);
-    Notifications.removeNotificationSubscription(responseListener);
+    removeSubscription(notificationListener);
+    removeSubscription(responseListener);
   };
 };
 

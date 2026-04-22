@@ -12,6 +12,12 @@ import * as NotificationService from "../services/notificationService";
 import courseService from "../services/courseService";
 import { getProfile } from "../services/profileService";
 
+const withCacheBust = (url, version) => {
+  if (!url) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}v=${version}`;
+};
+
 export default function Home() {
   const router = useRouter();
   const theme = useTheme();
@@ -25,6 +31,7 @@ export default function Home() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [currentCourse, setCurrentCourse] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [profileImageVersion, setProfileImageVersion] = useState(Date.now());
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const heroScale = useRef(new Animated.Value(0.98)).current;
@@ -40,7 +47,10 @@ export default function Home() {
       const loadProfile = async () => {
         try {
           const data = await getProfile();
-          if (isActive) setProfile(data);
+          if (isActive) {
+            setProfile(data);
+            setProfileImageVersion(Date.now());
+          }
         } catch (err) {
           console.log('Failed to load profile', err);
         }
@@ -169,6 +179,9 @@ export default function Home() {
   };
 
   const completedCount = completedModules.length;
+  const profileImageUri = profile?.profile_image_url
+    ? withCacheBust(profile.profile_image_url, profileImageVersion)
+    : getAvatarUrl(profile?.name || profile?.email || 'Park Guide');
 
   const barWidth = barAnim.interpolate({
     inputRange: [0, 1],
@@ -213,7 +226,7 @@ export default function Home() {
             <Avatar.Image
               size={54}
               source={{
-                uri: profile?.profile_image_url || getAvatarUrl(profile?.name || profile?.email || 'Park Guide'),
+                uri: profileImageUri,
               }}
             />
           </TouchableRipple>

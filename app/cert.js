@@ -522,21 +522,25 @@ export default function Certification() {
           contentContainerStyle={[styles.badgeModal, { backgroundColor: palette.modalBackground, borderColor: palette.modalBorder }]}
         >
           {selectedBadge ? (
-            <>
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.modalHeader}>
                 <Image source={{ uri: getBadgeImageUri(selectedBadge) }} style={styles.modalBadgeImage} />
                 <View style={styles.modalHeaderText}>
-                  <Text variant="titleLarge" style={[styles.modalTitle, { color: theme.colors.onSurface }]}> 
+                  <Text variant="titleLarge" style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
                     {selectedBadge.name}
                   </Text>
-                  <Text style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}> 
+                  <Text style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}>
                     {selectedBadge.course_title || 'Milestone Badge'}
                   </Text>
                   <View style={styles.modalChipRow}>
-                    <Chip style={[styles.modalStateChip, { backgroundColor: getBadgeStatusTone(selectedBadge).chip }]} textStyle={[styles.modalStateChipText, { color: getBadgeStatusTone(selectedBadge).text }]}> 
+                    <Chip style={[styles.modalStateChip, { backgroundColor: getBadgeStatusTone(selectedBadge).chip }]} textStyle={[styles.modalStateChipText, { color: getBadgeStatusTone(selectedBadge).text }]}>
                       {getBadgeStatusLabel(selectedBadge)}
                     </Chip>
-                    <Chip style={[styles.modalTypeChip, { backgroundColor: palette.modalAccentSoft }]} textStyle={[styles.modalTypeChipText, { color: theme.colors.onSurface }]}> 
+                    <Chip style={[styles.modalTypeChip, { backgroundColor: palette.modalAccentSoft }]} textStyle={[styles.modalTypeChipText, { color: theme.colors.onSurface }]}>
                       {selectedBadge.is_major_badge ? 'Major Badge' : 'Course Badge'}
                     </Chip>
                   </View>
@@ -546,12 +550,12 @@ export default function Certification() {
               <Divider style={[styles.modalDivider, { backgroundColor: palette.summaryBorder }]} />
 
               <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>Badge Details</Text>
-              <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}> 
+              <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>
                 {selectedBadge.description || 'This badge recognizes the course skills and lessons you completed.'}
               </Text>
 
               <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>Progress</Text>
-              <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}> 
+              <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>
                 {isEarnedBadge(selectedBadge)
                   ? `You have already obtained this badge after completing ${selectedBadge.completed_modules || selectedBadge.completed_badges || 0} required milestones.`
                   : isPendingBadge(selectedBadge)
@@ -568,7 +572,7 @@ export default function Certification() {
               <View style={styles.modalSkillWrap}>
                 {(selectedBadge.skills_awarded || []).length ? (
                   selectedBadge.skills_awarded.map((skill, index) => (
-                    <Chip key={`${skill}-${index}`} compact style={[styles.skillChip, { backgroundColor: palette.modalAccentSoft }]} textStyle={[styles.skillChipText, { color: theme.colors.onSurface }]}> 
+                    <Chip key={`${skill}-${index}`} compact style={[styles.skillChip, { backgroundColor: palette.modalAccentSoft }]} textStyle={[styles.skillChipText, { color: theme.colors.onSurface }]}>
                       {skill}
                     </Chip>
                   ))
@@ -600,7 +604,7 @@ export default function Certification() {
               <TouchableOpacity style={[styles.closeButton, { backgroundColor: theme.colors.primary }]} onPress={closeModal} activeOpacity={0.92}>
                 <Text style={[styles.closeButtonText, { color: theme.colors.onPrimary }]}>Close</Text>
               </TouchableOpacity>
-            </>
+            </ScrollView>
           ) : null}
         </Modal>
       </Portal>
@@ -761,9 +765,15 @@ const styles = StyleSheet.create({
   badgeModal: {
     margin: 18,
     borderRadius: 24,
-    padding: 18,
     maxHeight: '88%',
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  modalScroll: {
+    flexGrow: 0,
+  },
+  modalScrollContent: {
+    padding: 18,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -771,6 +781,7 @@ const styles = StyleSheet.create({
   },
   modalHeaderText: {
     flex: 1,
+    flexShrink: 1,
     marginLeft: 14,
   },
   modalBadgeImage: {
@@ -779,7 +790,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#D7E2E4',
   },
-  modalTitle: { fontWeight: '800' },
+  modalTitle: { fontWeight: '800', flexShrink: 1 },
   modalSubtitle: { marginTop: 4 },
   modalChipRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10, marginBottom: 2 },
   modalStateChip: { marginRight: 8, marginBottom: 8 },
@@ -795,7 +806,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 10,
   },
-  modalBody: { lineHeight: 20 },
+  modalBody: { lineHeight: 20, flexShrink: 1 },
   modalProgressBar: { height: 8, borderRadius: 8, marginTop: 8 },
   modalSkillWrap: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 },
   skillChip: { marginRight: 8, marginBottom: 8 },

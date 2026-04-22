@@ -52,3 +52,35 @@ export async function confirmForgotPassword({ email, code, newPassword, confirmP
     confirmPassword,
   });
 }
+
+export async function registerAccountApplication({ fullName, email, phoneNumber, birthdate, cvFile }) {
+  const endpoint = `${String(api.defaults.baseURL || "").replace(/\/+$/, "")}/accounts/applications/`;
+  const formData = new FormData();
+
+  formData.append("full_name", fullName);
+  formData.append("email", email);
+  formData.append("phone_number", phoneNumber);
+  formData.append("birthdate", birthdate);
+  formData.append("cv_file", {
+    uri: cvFile.uri,
+    name: cvFile.name,
+    type: cvFile.mimeType || cvFile.type || "application/pdf",
+  });
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    body: formData,
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload?.detail || "APPLICATION_SUBMIT_FAILED");
+    error.response = {
+      status: response.status,
+      data: payload,
+    };
+    throw error;
+  }
+
+  return payload;
+}
