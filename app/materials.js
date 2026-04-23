@@ -639,7 +639,7 @@ export default function Materials() {
                 fontSize: 18,
               }}
             >
-              No materials found
+              {t("noMaterialsFound")}
             </Text>
             <Text
               style={{
@@ -649,7 +649,7 @@ export default function Materials() {
                 lineHeight: 22,
               }}
             >
-              Try another keyword or switch categories to view available learning resources.
+              {t("noMaterialsFoundDesc")}
             </Text>
           </Surface>
         ) : (
