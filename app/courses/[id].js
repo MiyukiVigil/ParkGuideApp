@@ -96,10 +96,11 @@ export default function CourseDetail() {
       // Reload immediately after API success
       await loadCourseDetails();
       Alert.alert(
-        t('enrollmentSuccess'), 
+        t('enrollmentSuccess'),
+        t('enrollmentSuccessMessage'),
         [
-          { 
-            text: t('ok'), 
+          {
+            text: t('ok'),
             onPress: () => {
               console.log(`[courseDetail] Course details reloaded after enrollment`);
             }
@@ -109,8 +110,8 @@ export default function CourseDetail() {
     } catch (err) {
       console.error(`[courseDetail] Enrollment error:`, err);
       Alert.alert(
-        t('error'), 
-        err.message || t('somethingWentWrong')
+        t('cannotEnroll'),
+        err.message || t('unknownEnrollmentError')
       );
     } finally {
       setEnrolling(false);
@@ -122,7 +123,7 @@ export default function CourseDetail() {
     if (course?.chapters && course.chapters.length > 0) {
       router.push(`/chapters/${course.chapters[0].id}`);
     } else {
-      Alert.alert(t('error'), t('noCourses'));
+      Alert.alert(t('noChapters'), t('noChaptersMessage'));
     }
   };
 
@@ -291,7 +292,7 @@ export default function CourseDetail() {
                     }}
                   >
                     {getLocalizedText(prereq.title)}
-                    {prereq.is_completed ? ` (${t('completed')})` : ` (${t('required')})`}
+                    {prereq.is_completed ? ` ${t('prerequisiteCompleted')}` : ` ${t('prerequisiteRequired')}`}
                   </Text>
                 </View>
               ))}
@@ -307,10 +308,10 @@ export default function CourseDetail() {
               borderRadius: 8
             }}>
               <Text style={{ color: theme.colors.error, fontWeight: '600' }}>
-                ⚠️ {t('canNotEnroll')}
+                ⚠️ {t('cannotEnrollYet')}
               </Text>
               <Text style={{ color: theme.colors.error, marginTop: 4 }}>
-                {t('canNotEnroll')}
+                {t('completePrerequisitesFirst')}
               </Text>
             </View>
           )}

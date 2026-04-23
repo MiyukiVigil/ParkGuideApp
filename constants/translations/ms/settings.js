@@ -7,7 +7,7 @@ export default {
     langSwitch: "Bahasa",
     accessSet: "Kebolehcapaian",
     ttsSwitch: "Teks-ke-Pertuturan (TTS)",
-    ttsSwitchDesc: "Baca skrin semasa dengan kuat",
+    ttsSwitchDesc: "Baca modul latihan dengan suara",
     fontSet: "Saiz Fon",
     fontDesc: "Standard",
     logoutButton: "Log Keluar Selamat",

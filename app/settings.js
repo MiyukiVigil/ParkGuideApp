@@ -239,13 +239,13 @@ export default function Settings() {
       setPasskeySubmitting(true);
       if (passkeyAction === "disable") {
         await disablePasskeys(passkeyPassword);
-        Alert.alert(t("passkeyDisabled"), t("passkeyDisabledMessage"));
+        Alert.alert(t("passkeyDisabledTitle"), t("passkeySignInTurnedOff"));
       } else {
         await registerPasskey({
           currentPassword: passkeyPassword,
           label: passkeyLabel.trim(),
         });
-        Alert.alert(t("passkeySaved"), t("passkeySavedMessage"));
+        Alert.alert(t("passkeySavedTitle"), t("canNowUsePasskey"));
       }
 
       setPasskeyModalVisible(false);
@@ -275,24 +275,24 @@ export default function Settings() {
       setTwoFactorSubmitting(true);
       if (twoFactorAction === "disable") {
         if (!twoFactorCode.trim()) {
-          Alert.alert(t("authenticatorCodeRequired"), t("enterAuthenticatorCode"));
+          Alert.alert(t("authenticatorCodeRequired"), t("enter6DigitCode"));
           return;
         }
         await disableTwoFactor({
           currentPassword: twoFactorPassword,
           code: twoFactorCode.trim(),
         });
-        Alert.alert(t("authenticatorDisabled"), t("authenticatorDisabledMessage"));
+        Alert.alert(t("authenticatorDisabledTitle"), t("authenticator2FADisabled"));
       } else if (!twoFactorSetupData) {
         const setupPayload = await setupTwoFactor(twoFactorPassword);
         setTwoFactorSetupData(setupPayload);
       } else {
         if (!twoFactorCode.trim()) {
-          Alert.alert(t("authenticatorCodeRequired"), t("enterAuthenticatorCode"));
+          Alert.alert(t("authenticatorCodeRequired"), t("enter6DigitCode"));
           return;
         }
         await confirmTwoFactor(twoFactorCode.trim());
-        Alert.alert(t("authenticatorEnabled"), t("authenticatorEnabledMessage"));
+        Alert.alert(t("authenticatorEnabledTitle"), t("canNowSignInWithAuthenticator"));
       }
 
       if (twoFactorAction === "disable" || twoFactorSetupData) {
@@ -308,7 +308,7 @@ export default function Settings() {
         getFriendlyTwoFactorError(
           error,
           twoFactorAction === "disable"
-            ? t("unableToDisableAuthenticator")
+            ? t("unableToDisable2FA")
             : t("unableToFinishAuthenticatorSetup")
         )
       );
@@ -588,9 +588,9 @@ export default function Settings() {
               loadingPasskeyStatus
                 ? t("checkingPasskeyStatus")
                 : passkeyStatus.enabled
-                  ? t("passkeySavedCount", { count: passkeyStatus.count })
+                  ? `${passkeyStatus.count} ${t("passkeySaved")}`
                   : passkeyStatus.available
-                    ? t("addPasskeyForFasterSignIn")
+                    ? t("addPasskeyDesc")
                     : t("passkeysNotSupported")
             }
             left={(props) => (
@@ -674,7 +674,7 @@ export default function Settings() {
           contentStyle={{ height: isSimpleMode || highContrast ? 56 : 48 }}
           onPress={handleSecureLogout}
         >
-          {t("logoutButton")}
+          {t("logout")}
         </Button>
       </ScrollView>
 
@@ -692,8 +692,8 @@ export default function Settings() {
           </Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, marginBottom: 14 }}>
             {passkeyAction === "disable"
-              ? t("enterPasswordTurnOffPasskey")
-              : t("enterPasswordBeforeSavingPasskey")}
+              ? t("enterPasswordDisablePasskey")
+              : t("enterPasswordCreatePasskey")}
           </Text>
 
           {passkeyAction === "create" ? (
@@ -738,10 +738,10 @@ export default function Settings() {
           </Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, marginBottom: 14 }}>
             {twoFactorAction === "disable"
-              ? t("enterPasswordAndCodeTurnOff2FA")
+              ? t("enterPasswordDisable2FA")
               : twoFactorSetupData
                 ? t("scanQrOrCopySecret")
-                : t("enterPasswordGenerateAuthenticatorSecret")}
+                : t("enterPasswordGenerateSecret")}
           </Text>
 
           <TextInput

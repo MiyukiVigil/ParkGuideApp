@@ -293,7 +293,7 @@ export default function Home() {
               variant="bodySmall"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              {t("forestGuideOperationsDashboard")}
+              {t("forestGuideOpsDashboard")}
             </Text>
           </View>
 
@@ -455,7 +455,7 @@ export default function Home() {
             theme={theme}
             icon="school"
             label={t("training")}
-            subtitle={t("remainingCount", { count: remainingModules })}
+            subtitle={`${remainingModules} ${t("remaining")}`}
             progress={trainingProgress}
             onPress={() => router.push("/courses")}
           />
@@ -498,6 +498,24 @@ export default function Home() {
             onPress={() => router.push("/settings")}
           />
         </View>
+
+        <Surface
+          style={[
+            styles.bottomPanel,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outlineVariant,
+            },
+          ]}
+          elevation={1}
+        >
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
+            {t("todaysFocus")}
+          </Text>
+          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, lineHeight: 22 }}>
+            {t("todaysFocusDesc")}
+          </Text>
+        </Surface>
       </ScrollView>
     </View>
   );

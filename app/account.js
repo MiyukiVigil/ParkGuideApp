@@ -142,12 +142,12 @@ export default function AccountScreen() {
       const fileType = String(asset.mimeType || asset.type || '').toLowerCase();
 
       if (fileType && !fileType.startsWith('image/')) {
-        Alert.alert(t("unsupportedFile"), t("chooseImageFile"));
+        Alert.alert(t('unsupportedFile'), t('pleaseChooseImageFile'));
         return;
       }
 
       if (fileSize > 5 * 1024 * 1024) {
-        Alert.alert(t("imageTooLarge"), t("chooseImageSmaller"));
+        Alert.alert(t('imageTooLarge'), t('pleaseChooseSmallerImage'));
         return;
       }
 
@@ -160,12 +160,12 @@ export default function AccountScreen() {
         ...uploadedProfile,
       }));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(t("profilePhotoUpdated"), t("profilePhotoUpdatedMessage"));
+      Alert.alert(t('profilePhotoUpdated'), t('profilePhotoSaved'));
     } catch (error) {
       console.log('Profile image upload error:', error?.response?.data || error?.message || error);
       const detail = error?.response?.data?.profile_image?.[0] || error?.response?.data?.detail;
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(t("uploadFailed"), detail || t("profilePhotoUploadFailed"));
+      Alert.alert(t('uploadFailed'), detail || t('couldNotUploadPhoto'));
     } finally {
       setIsUploadingImage(false);
     }
@@ -185,20 +185,28 @@ export default function AccountScreen() {
   };
 
   const handleSignOut = async () => {
-    setSignOutDialogVisible(true);
-  };
-
-  const confirmSignOut = async () => {
-    setSignOutDialogVisible(false);
-    try {
-      await unregisterPushNotifications();
-      await clearAuthTokens();
-      await clearProgressData();
-      await AsyncStorage.removeItem("userProfile");
-      router.replace("/");
-    } catch (error) {
-      Alert.alert(t("error"), t("failedToSignOut"));
-    }
+    Alert.alert(
+      t("signOut"),
+      t("logoutConfirm"),
+      [
+        { text: t("cancel"), onPress: () => {}, style: "cancel" },
+        {
+          text: t("signOut"),
+          onPress: async () => {
+            try {
+              await unregisterPushNotifications();
+              await clearAuthTokens();
+              await clearProgressData();
+              await AsyncStorage.removeItem("userProfile");
+              router.replace("/");
+            } catch (error) {
+              Alert.alert(t("error"), t("failedToSignOut"));
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
   };
 
   const handleChangePassword = async () => {
@@ -213,7 +221,7 @@ export default function AccountScreen() {
 
       resetPasswordForm();
       setPasswordModalVisible(false);
-      Alert.alert(t("successTitle"), t("yourPasswordHasBeenChanged"));
+      Alert.alert(t("success"), t("yourPasswordHasBeenChanged"));
     } catch (error) {
       let errorMessage = t("error");
 
@@ -281,7 +289,7 @@ export default function AccountScreen() {
               disabled={isUploadingImage}
               style={styles.uploadButton}
             >
-              {isUploadingImage ? t("uploading") : t("choosePhoto")}
+              {isUploadingImage ? t("uploadingPhoto") : t("choosePhoto")}
             </Button>
           </View>
 
@@ -458,7 +466,7 @@ export default function AccountScreen() {
               loading={isChangingPassword}
               disabled={isChangingPassword}
             >
-              {t("updateAction")}
+              {t("update")}
             </Button>
           </View>
         </Modal>

@@ -315,7 +315,7 @@ export default function Login() {
               contentStyle={styles.buttonContent}
               textColor="#E6F2EA"
             >
-              {passkeyLoading ? t("signingIn") : t("signInWithPasskey")}
+              {passkeyLoading ? t("checkingPasskey") : t("signInWithPasskey")}
             </Button>
           ) : null}
 

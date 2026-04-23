@@ -126,17 +126,10 @@ export default function Monitor() {
           ]}
           elevation={4}
         >
-          <View style={styles.compactStats}>
-            <CompactStat theme={theme} label={tr("camera", "Camera")} value={cameraProductName} />
-            <CompactStat theme={theme} label={tr("statusCheck", "Status Check")} value={statusCheckLabel} />
-            <CompactStat theme={theme} label={tr("alerts", "Alerts")} value={String(alertCount)} onPress={handleOpenAlerts} />
-          </View>
-
-          {cameraError && (
-            <Text numberOfLines={2} style={[styles.errorText, { color: theme.colors.error }]}>
-              {cameraError}
-            </Text>
-          )}
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>{t("monitorPreview")}</Text>
+          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
+            {t("monitorPreviewDesc")}
+          </Text>
         </Surface>
       </View>
     </View>
