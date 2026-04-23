@@ -1,5 +1,5 @@
 export default {
-    inProgress: "IN PROGRESS",
+    inProgress: "In Progress",
     courseCompletion: "Course Completion",
     guideOperations: "Guide Operations",
     map: "Map",
@@ -20,4 +20,9 @@ export default {
     errorLoading: "Error loading data",
     tryAgain: "Try Again",
     noCourses: "No Courses Available",
+    quickAccess: "Quick access",
+    todaysFocus: "Today's focus",
+    todaysFocusDesc: "Complete your next training module, review guide materials, and check alerts before field deployment.",
+    sarawakForestry: "SARAWAK FORESTRY",
+    forestGuideOpsDashboard: "Forest guide operations dashboard",
 };

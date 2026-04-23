@@ -1,4 +1,5 @@
 // Common UI strings, alerts, and error messages
+
 export default {
     // Alert titles
     missingFields: "Missing Fields",
@@ -163,4 +164,43 @@ export default {
     
     // Missing error
     missingDownloadURL: "Missing download URL",
+
+    // Login page
+    signInWithPasskey: "Sign in with passkey",
+    checkingPasskey: "Checking passkey...",
+    applyForAccount: "Apply for account",
+
+    // Profile photo
+    unsupportedFile: "Unsupported File",
+    pleaseChooseImageFile: "Please choose an image file for your profile photo.",
+    imageTooLarge: "Image Too Large",
+    pleaseChooseSmallerImage: "Please choose an image smaller than 5 MB.",
+    uploadingPhoto: "Uploading...",
+    choosePhoto: "Choose Photo",
+    profilePhotoUpdated: "Profile Photo Updated",
+    profilePhotoSaved: "Your new profile photo has been saved to your account.",
+    uploadFailed: "Upload Failed",
+    couldNotUploadPhoto: "We could not upload your profile photo right now.",
+
+    // Generic actions
+    success: "Success",
+    ok: "OK",
+    save: "Save",
+    update: "Update",
+    fullName: "Full Name",
+    editProfile: "Edit Profile",
+    currentPassword: "Current Password",
+    newPassword: "New Password",
+    confirmNewPassword: "Confirm New Password",
+
+    // Enrollment
+    cannotEnroll: "Cannot Enroll",
+    cannotEnrollYet: "Cannot Enroll Yet",
+    enrollmentSuccessMessage: "You have successfully enrolled in this course.",
+    unknownEnrollmentError: "An unknown error occurred during enrollment.",
+    noChaptersMessage: "This course has no chapters yet.",
+    completePrerequisitesFirst: "Please complete all prerequisite courses first.",
+    prerequisiteCompleted: "(Completed)",
+    prerequisiteRequired: "(Required)",
 }
+

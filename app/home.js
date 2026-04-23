@@ -233,7 +233,7 @@ export default function Home() {
 
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={[styles.brandTop, { color: theme.colors.primary }]}>
-              SARAWAK FORESTRY
+              {t("sarawakForestry")}
             </Text>
             <Text
               variant="headlineSmall"
@@ -245,7 +245,7 @@ export default function Home() {
               variant="bodySmall"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              Forest guide operations dashboard
+              {t("forestGuideOpsDashboard")}
             </Text>
           </View>
 
@@ -391,7 +391,7 @@ export default function Home() {
             {t("guideOperations")}
           </Text>
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Quick access
+            {t("quickAccess")}
           </Text>
         </View>
 
@@ -407,7 +407,7 @@ export default function Home() {
             theme={theme}
             icon="school"
             label={t("training")}
-            subtitle={`${remainingModules} remaining`}
+            subtitle={`${remainingModules} ${t("remaining")}`}
             progress={trainingProgress}
             onPress={() => router.push("/courses")}
           />
@@ -447,10 +447,10 @@ export default function Home() {
           elevation={1}
         >
           <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
-            Today’s focus
+            {t("todaysFocus")}
           </Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, lineHeight: 22 }}>
-            Complete your next training module, review guide materials, and check alerts before field deployment.
+            {t("todaysFocusDesc")}
           </Text>
         </Surface>
       </ScrollView>

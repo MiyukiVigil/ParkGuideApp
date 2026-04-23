@@ -1,9 +1,8 @@
-// ChatGPT is used for translation, please double check for me tq - Ivan
-// 常见UI字符串、警报和错误消息
+// all checked
 
 export default {
     // 提示标题
-    missingFields: "字段缺失",
+    missingFields: "有未填项目",
     loginFailed: "登录失败",
     sessionExpired: "会话已过期",
     unavailable: "不可用",
@@ -15,13 +14,13 @@ export default {
     
     // 常见消息
     pleaseEnterEmailPassword: "请输入您的邮箱和密码。",
-    somethingWentWrong: "出现问题。请重试。",
+    somethingWentWrong: "出错了，请重试。",
     pleaseLogInAgain: "请重新登录。",
     thisFileNotAvailable: "此文件目前不可用。",
-    couldNotDownloadPDF: "无法下载PDF。请重试。",
-    failedToOpenFile: "打开文件失败。请重试。",
+    couldNotDownloadPDF: "无法下载 PDF，请重试。",
+    failedToOpenFile: "打开文件失败，请重试。",
     failedToSignOut: "登出失败。",
-    sessionHasExpired: "您的会话已过期。请重新登录。",
+    sessionHasExpired: "您的会话已过期，请重新登录。",
     
     // 按钮标签
     signOut: "登出",
@@ -29,21 +28,21 @@ export default {
     signingIn: "正在登录...",
     
     // 加载状态
-    loadingNotifications: "加载通知中...",
+    loadingNotifications: "正在加载通知...",
     
     // 空状态
-    allCaughtUp: "已全部读取",
-    noNotificationsView: "此视图中目前没有通知。",
+    allCaughtUp: "已读完所有消息",
+    noNotificationsView: "目前没有新通知。",
     noQuizFound: "未找到测验",
     
     // 设置标签
-    demoLoginEnabled: "已启用演示登录用于前端预览",
-    protectedSession: "受保护的会话•已验证的访问权限",
-    appVersion: "v1.0.0 - 砂拉越林业公司",
+    demoLoginEnabled: "已启用演示登录（仅供预览）",
+    protectedSession: "受保护会话 • 已验证访问权限",
+    appVersion: "v1.0.0 - 砂拉越林业机构",
     
     // 通知部分
     notificationCentre: "通知中心",
-    reviewAlerts: "查看操作警报和森林导游职责的最新更新。",
+    reviewAlerts: "查看操作警报和公园导游职责的最新更新。",
     markAllRead: "全部标记为已读",
     clearRead: "清除已读",
     
@@ -57,20 +56,20 @@ export default {
     update: "更新",
     
     // 导游偏好
-    guidePreferences: "导游偏好",
-    tapToOpenSettings: "点击打开账户设置、邮箱、密码和个人资料",
+    guidePreferences: "导游偏好设置",
+    tapToOpenSettings: "点击查看账户设置、邮箱、密码和个人资料",
     
     // 外观部分
-    appearance: "外观",
+    appearance: "外观设置",
     themeMode: "主题模式",
     darkMode: "深色模式",
     lightMode: "浅色模式",
     interfaceMode: "界面模式",
-    basic: "基础",
-    pro: "专业",
+    basic: "基础版",
+    pro: "专业版",
     highContrast: "高对比度",
-    highContrastOn: "高对比度开启",
-    highContrastOff: "高对比度关闭",
+    highContrastOn: "已开启高对比度",
+    highContrastOff: "已关闭高对比度",
     backgroundAnimations: "背景动画",
     animationsEnabled: "启用动画",
     animationsDisabled: "禁用动画",
@@ -83,25 +82,25 @@ export default {
     // 培训部分
     trainingOverview: "培训概述",
     learnFlexibly: "灵活学习、跟踪进度并解锁新的导游技能。",
-    completedModules: "已完成的模块",
+    completedModules: "已完成模块",
     overallProgress: "总体进度",
     modules: "模块",
-    interactiveLessons: "交互式课程、评估和完成跟踪。",
+    interactiveLessons: "交互式课程、评估和进度跟踪。",
     courseSummary: "课程总结",
-    completeModulesInOrder: "按顺序完成模块以解锁下一课程，并保持您的导游培训最新。",
-    tapToStartMedia: "点击开始模块媒体",
+    completeModulesInOrder: "按顺序完成模块以解锁后续课程，保持导游培训状态最新。",
+    tapToStartMedia: "点击播放教学内容",
     
     // 主页部分
-    continueYourPath: "继续您当前的生态导游学习路径，并保持您的认证进度在正轨上。",
+    continueYourPath: "继续您的生态导游学习路径，确保认证进度不掉队。",
     modulesRemaining: "剩余模块",
     completed: "已完成",
     remaining: "剩余",
     
     // 验证错误（密码）
-    fillAllPasswordFields: "请填写所有密码字段。",
-    passwordMustBe8: "新密码必须至少8个字符。",
-    passwordsDoNotMatch: "新密码和确认密码不匹配。",
-    currentPasswordIncorrect: "您的当前密码不正确。",
+    fillAllPasswordFields: "请填写所有密码选项。",
+    passwordMustBe8: "新密码必须至少为 8 个字符。",
+    passwordsDoNotMatch: "两次输入的密码不一致。",
+    currentPasswordIncorrect: "当前密码错误。",
     
     // 语言名称
     english: "English",
@@ -109,29 +108,29 @@ export default {
     chinese: "中文",
     
     // 设置
-    preferencesAndDisplay: "偏好设置和显示",
+    preferencesAndDisplay: "偏好与显示",
     
-    // 无障碍部分
-    accessibility: "无障碍功能",
-    textToSpeech: "文本转语音 (TTS)",
-    readTrainingModulesAloud: "朗读培训模块",
+    // 辅助功能 (Accessibility)
+    accessibility: "辅助功能",
+    textToSpeech: "文字转语音 (TTS)",
+    readTrainingModulesAloud: "语音朗读培训模块",
     
     // 帐户设置
     accountSettings: "帐户设置",
-    profileAndSecurity: "个人资料和安全性",
+    profileAndSecurity: "个人资料与安全",
     failedToLoadAccountInfo: "无法加载帐户信息。",
-    invalidName: "无效名称",
-    pleaseEnterValidName: "请输入有效的名称。",
-    invalidEmail: "无效电子邮件",
+    invalidName: "姓名无效",
+    pleaseEnterValidName: "请输入有效的姓名。",
+    invalidEmail: "电子邮件无效",
     pleaseEnterValidEmailAddress: "请输入有效的电子邮件地址。",
-    invalidPhone: "无效电话号码",
+    invalidPhone: "电话号码无效",
     pleaseEnterValidPhoneNumber: "请输入有效的电话号码。",
     saved: "已保存",
-    accountDetailsUpdated: "您的帐户详情已更新。",
-    failedToSaveProfileChanges: "保存个人资料更改失败。",
-    failedToSignOut: "退出登录失败。",
+    accountDetailsUpdated: "帐户详情已更新。",
+    failedToSaveProfileChanges: "保存个人资料失败。",
+    failedToSignOut: "登出失败。",
     passwordChanged: "密码已更改",
-    yourPasswordHasBeenChanged: "您的密码已更改。",
+    yourPasswordHasBeenChanged: "您的密码已成功更改。",
     email: "电子邮件",
     phone: "电话",
     changePassword: "更改密码",
@@ -143,8 +142,8 @@ export default {
     courseModules: "课程模块",
     
     // 仪表板
-    adminDashboard: "管理仪表板",
-    parkGuideWebApp: "ParkGuide 网络应用",
+    adminDashboard: "管理控制台",
+    parkGuideWebApp: "ParkGuide 网页版",
     
     // 其他部分
     tourMonitor: "旅游监测",
@@ -156,13 +155,51 @@ export default {
     liveForestMonitor: "森林实况监测",
     
     // 徽章/证书部分
-    noCompletedModulesYet: "尚未完成模块",
-    finishTrainingModulesUnlockBadges: "完成培训模块以解锁徽章。",
-    allActiveBadgesEarned: "所有活跃徽章已获得",
-    greatWorkUnlockedEveryActiveBadge: "干得好 — 您已解锁所有活跃徽章。",
-    noBadgesEarnedYet: "尚未获得徽章",
-    completeMoreModulesEarnBadges: "完成更多模块以获得徽章。",
+    noCompletedModulesYet: "暂无完成的模块",
+    finishTrainingModulesUnlockBadges: "完成培训模块以解锁勋章。",
+    allActiveBadgesEarned: "已获得所有活动勋章",
+    greatWorkUnlockedEveryActiveBadge: "做得好！您已解锁所有活动勋章。",
+    noBadgesEarnedYet: "尚未获得勋章",
+    completeMoreModulesEarnBadges: "完成更多模块以赢取勋章。",
     
     // 缺失错误
-    missingDownloadURL: "缺失下载URL",
+    missingDownloadURL: "缺少下载链接",
+
+    // 登录页面
+    signInWithPasskey: "使用通行密钥登录",
+    checkingPasskey: "正在验证通行密钥...",
+    applyForAccount: "申请账户",
+
+    // 个人资料照片
+    unsupportedFile: "不支持的文件",
+    pleaseChooseImageFile: "请为您的个人资料照片选择图片文件。",
+    imageTooLarge: "图片太大",
+    pleaseChooseSmallerImage: "请选择小于 5 MB 的图片。",
+    uploadingPhoto: "上传中...",
+    choosePhoto: "选择照片",
+    profilePhotoUpdated: "个人资料照片已更新",
+    profilePhotoSaved: "您的新个人资料照片已保存到您的账户。",
+    uploadFailed: "上传失败",
+    couldNotUploadPhoto: "我们现在无法上传您的个人资料照片。",
+
+    // 通用操作
+    success: "成功",
+    ok: "确定",
+    save: "保存",
+    update: "更新",
+    fullName: "全名",
+    editProfile: "编辑资料",
+    currentPassword: "当前密码",
+    newPassword: "新密码",
+    confirmNewPassword: "确认新密码",
+
+    // 注册
+    cannotEnroll: "无法报名",
+    cannotEnrollYet: "暂时无法报名",
+    enrollmentSuccessMessage: "您已成功报名此课程。",
+    unknownEnrollmentError: "报名时发生未知错误。",
+    noChaptersMessage: "此课程暂无章节内容。",
+    completePrerequisitesFirst: "请先完成所有前置必修课程。",
+    prerequisiteCompleted: "（已完成）",
+    prerequisiteRequired: "（必修）",
 }
