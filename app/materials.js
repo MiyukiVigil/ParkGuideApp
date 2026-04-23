@@ -654,7 +654,7 @@ export default function Materials() {
                 fontSize: 18,
               }}
             >
-                {t("noMaterialsFound")}
+              {t("noMaterialsFound")}
             </Text>
             <Text
               style={{
