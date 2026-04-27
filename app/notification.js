@@ -44,11 +44,11 @@ export default function Notifications() {
       setNotifications(data);
     } catch (err) {
       console.log("Error loading notifications:", err);
-      Alert.alert("Error", "Failed to load notifications");
+      Alert.alert(t("error"), t("failedToLoadNotifications"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Initial load
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function Notifications() {
       setNotifications((prev) => prev.filter((n) => !n.isRead));
     } catch (err) {
       console.log("Error clearing read notifications:", err);
-      Alert.alert("Error", "Failed to clear notifications");
+      Alert.alert(t("error"), t("failedToClearNotifications"));
     }
   };
 
@@ -154,7 +154,7 @@ export default function Notifications() {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (err) {
       console.log("Error marking all read:", err);
-      Alert.alert("Error", "Failed to mark all as read");
+      Alert.alert(t("error"), t("failedToMarkAllRead"));
     }
   };
 
@@ -229,7 +229,7 @@ export default function Notifications() {
                 style={{ backgroundColor: theme.colors.primaryContainer }}
                 textStyle={{ color: theme.colors.onPrimaryContainer, fontWeight: "700" }}
               >
-                {item.type === "alerts" ? "Alert" : "Update"}
+                {item.type === "alerts" ? t("alert") : t("update")}
               </Chip>
               <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
                 {item.time}
@@ -395,7 +395,7 @@ export default function Notifications() {
                     style={{ backgroundColor: theme.colors.primaryContainer }}
                     textStyle={{ color: theme.colors.onPrimaryContainer, fontWeight: "700" }}
                   >
-                    {selected.type === "alerts" ? "Alert" : "Update"}
+                    {selected.type === "alerts" ? t("alert") : t("update")}
                   </Chip>
                 </View>
 

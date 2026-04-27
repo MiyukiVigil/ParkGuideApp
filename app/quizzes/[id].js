@@ -89,7 +89,7 @@ export default function QuizView() {
 
     const allAnswered = quiz.questions.every((q, idx) => answers[idx] !== undefined);
     if (!allAnswered) {
-      Alert.alert(t('error'), t('answerAllQuestions') || 'Please answer all questions');
+      Alert.alert(t('error'), t('answerAllQuestions'));
       return;
     }
 
@@ -441,7 +441,7 @@ export default function QuizView() {
                 lineHeight: 22,
               }}
             >
-              {t('readyToStart') || 'Test your knowledge with this quiz. You will have limited time to answer all questions.'}
+              {t('readyToStart')}
             </Text>
 
             <View
@@ -496,7 +496,7 @@ export default function QuizView() {
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <AppHeader
         title={t('quiz')}
-        subtitle={`${formatTime(timeRemaining || 0)} remaining`}
+        subtitle={`${formatTime(timeRemaining || 0)} ${t('timeRemaining').toLowerCase()}`}
         showBack={false}
       />
 
@@ -631,7 +631,7 @@ function QuestionCard({
             );
           })
         ) : (
-          <Text style={{ color: '#999', fontStyle: 'italic' }}>No options available</Text>
+          <Text style={{ color: '#999', fontStyle: 'italic' }}>{t('noOptionsAvailable')}</Text>
         )}
       </View>
     </Surface>

@@ -19,7 +19,7 @@ export default function ForgotPasswordScreen() {
 
   const handleRequestCode = async () => {
     if (!email.trim()) {
-      Alert.alert(t("missingFields"), "Please enter your email address.");
+      Alert.alert(t("missingFields"), t("pleaseEnterEmailPassword"));
       return;
     }
 
@@ -29,7 +29,7 @@ export default function ForgotPasswordScreen() {
       setCodeRequested(true);
       Alert.alert(t("resetCodeSent"), t("resetCodeSentMessage"));
     } catch (error) {
-      Alert.alert("Reset request failed", error?.response?.data?.detail || "Unable to send reset code.");
+      Alert.alert(t("error"), error?.response?.data?.detail || t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -37,7 +37,7 @@ export default function ForgotPasswordScreen() {
 
   const handleResetPassword = async () => {
     if (!email.trim() || !code.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      Alert.alert(t("missingFields"), "Please fill in all reset fields.");
+      Alert.alert(t("missingFields"), t("fillAllPasswordFields"));
       return;
     }
 
@@ -51,12 +51,12 @@ export default function ForgotPasswordScreen() {
       });
       Alert.alert(t("passwordResetSuccess"), t("passwordResetSuccessMessage"), [
         {
-          text: "OK",
+          text: t("ok"),
           onPress: () => router.replace("/"),
         },
       ]);
     } catch (error) {
-      Alert.alert("Password reset failed", error?.response?.data?.detail || "Unable to reset password.");
+      Alert.alert(t("error"), error?.response?.data?.detail || t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
     }

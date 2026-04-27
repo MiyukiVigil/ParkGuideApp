@@ -5,33 +5,52 @@
 
 import CONFIG from '../constants/config';
 import { getAccessToken } from '../utils/tokenStorage';
+import { ensureFreshSession } from '../utils/api';
 
 const API_URL = CONFIG.API_BASE_URL;
 
 // Helper function to make authenticated requests
 const authenticatedFetch = async (endpoint, options = {}) => {
-  const token = await getAccessToken();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
+  const fullUrl = `${API_URL}${endpoint}`;
+  const buildHeaders = async () => {
+    const token = await getAccessToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  const performRequest = async () => {
+    const headers = await buildHeaders();
 
-  const fullUrl = `${API_URL}${endpoint}`;
-  console.log(`[courseService] Fetching: ${fullUrl}`);
-
-  try {
-    const response = await fetch(fullUrl, {
+    console.log(`[courseService] Fetching: ${fullUrl}`);
+    return fetch(fullUrl, {
       ...options,
       headers,
     });
+  };
+
+  try {
+    let response = await performRequest();
+
+    if (response.status === 401) {
+      const refreshed = await ensureFreshSession();
+      if (refreshed) {
+        response = await performRequest();
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[courseService] API Error: ${response.status} ${response.statusText}`, errorText);
+      if (response.status !== 401) {
+        console.error(`[courseService] API Error: ${response.status} ${response.statusText}`, errorText);
+      }
       
       // Try to parse error details from response
       let errorMessage = `API Error: ${response.status} ${response.statusText}`;
@@ -58,7 +77,9 @@ const authenticatedFetch = async (endpoint, options = {}) => {
 
     return response.json();
   } catch (error) {
-    console.error(`[courseService] Network error for ${fullUrl}:`, error.message);
+    if (error.status !== 401) {
+      console.error(`[courseService] Network error for ${fullUrl}:`, error.message);
+    }
     throw error;
   }
 };

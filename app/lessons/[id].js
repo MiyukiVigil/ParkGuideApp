@@ -11,7 +11,7 @@ import courseService from '../../services/courseService';
 export default function LessonView() {
   const theme = useTheme();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   const { isSimpleMode, highContrast } = useThemeContext();
   const { id } = useLocalSearchParams();
@@ -25,6 +25,11 @@ export default function LessonView() {
   const containerMargin = width > 1200 ? 'auto' : 0;
 
   const cardRadius = isSimpleMode || highContrast ? 16 : 24;
+  const getLocalizedText = (textData) => {
+    if (!textData) return "";
+    if (typeof textData === "string") return textData;
+    return textData[i18n.language] || textData.en || textData.ms || textData.zh || "";
+  };
 
   useEffect(() => {
     loadLesson();
@@ -70,7 +75,7 @@ export default function LessonView() {
       await loadLesson();
       Alert.alert(
         t('lessonCompleted'),
-        t('goodJobKeepGoing') || 'Great! Continue to the next lesson.',
+        t('goodJobKeepGoing'),
         [
           {
             text: t('continue'),
@@ -123,7 +128,7 @@ export default function LessonView() {
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <ThemedBackground />
       <AppHeader
-        title={lesson.title?.en || t('lesson')}
+        title={getLocalizedText(lesson.title) || t('lesson')}
         showBack
       />
 
@@ -151,7 +156,7 @@ export default function LessonView() {
               marginBottom: 16,
             }}
           >
-            {lesson.title?.en}
+            {getLocalizedText(lesson.title)}
           </Text>
 
           {isCompleted && (
@@ -173,7 +178,7 @@ export default function LessonView() {
           )}
 
           {/* Text Content */}
-          {lesson.content_text?.en && (
+          {getLocalizedText(lesson.content_text) ? (
             <View style={{ marginBottom: 20 }}>
               <Text
                 variant="bodyLarge"
@@ -182,10 +187,10 @@ export default function LessonView() {
                   lineHeight: 24,
                 }}
               >
-                {lesson.content_text.en}
+                {getLocalizedText(lesson.content_text)}
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Images */}
           {lesson?.content_images && lesson.content_images.length > 0 && (
@@ -198,7 +203,7 @@ export default function LessonView() {
                   marginBottom: 12,
                 }}
               >
-                {t('images') || 'Images'}
+                {t('images')}
               </Text>
               {lesson.content_images.map((image, index) => (
                 <View
@@ -258,7 +263,7 @@ export default function LessonView() {
                       textAlign: 'center',
                     }}
                   >
-                    🎥 {typeof video === 'string' ? video : video.name || 'Video'}
+                    🎥 {typeof video === 'string' ? video : video.name || t('videos')}
                   </Text>
                 </View>
               ))}
@@ -266,7 +271,7 @@ export default function LessonView() {
           )}
 
           {/* Key Takeaways */}
-          {lesson.key_takeaways?.en && (
+          {getLocalizedText(lesson.key_takeaways) ? (
             <View
               style={[
                 styles.takeawaysBox,
@@ -284,7 +289,7 @@ export default function LessonView() {
                   marginBottom: 8,
                 }}
               >
-                {t('keyTakeaways') || 'Key Takeaways'}
+                {t('keyTakeaways')}
               </Text>
               <Text
                 variant="bodySmall"
@@ -293,10 +298,10 @@ export default function LessonView() {
                   lineHeight: 20,
                 }}
               >
-                {lesson.key_takeaways.en}
+                {getLocalizedText(lesson.key_takeaways)}
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Mark Complete Button */}
           {!isCompleted && (
@@ -341,7 +346,7 @@ export default function LessonView() {
                 color: theme.colors.onSurfaceVariant,
               }}
             >
-              ⏱️ {t('estimatedTime') || 'Estimated time'}: {lesson.time_estimate} {t('minutes')}
+              ⏱️ {t('estimatedTime')}: {lesson.time_estimate} {t('minutes')}
             </Text>
           </Surface>
         )}

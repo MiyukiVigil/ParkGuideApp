@@ -11,7 +11,7 @@ import courseService from '../services/courseService';
 export default function CourseCatalog() {
   const theme = useTheme();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { width } = useWindowDimensions();
   const { isSimpleMode, highContrast } = useThemeContext();
 
@@ -78,6 +78,11 @@ export default function CourseCatalog() {
   };
 
   const cardRadius = isSimpleMode || highContrast ? 16 : 24;
+  const getLocalizedText = (value, fallback = "") => {
+    if (!value) return fallback;
+    if (typeof value === "string") return value;
+    return value[i18n.language] || value.en || value.ms || value.zh || fallback;
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -133,6 +138,7 @@ export default function CourseCatalog() {
                 onPress={() => handleCoursePress(course.id)}
                 onEnroll={() => handleEnroll(course.id)}
                 t={t}
+                getLocalizedText={getLocalizedText}
               />
             ))}
           </View>
@@ -142,7 +148,7 @@ export default function CourseCatalog() {
   );
 }
 
-function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onPress, onEnroll, t }) {
+function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onPress, onEnroll, t, getLocalizedText }) {
   const [enrolling, setEnrolling] = useState(false);
   const [thumbnailError, setThumbnailError] = useState(false);
 
@@ -220,7 +226,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
           style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 4 }}
           numberOfLines={2}
         >
-          {course.title?.en || course.title || 'Untitled Course'}
+          {getLocalizedText(course.title, t('courseDetails'))}
         </Text>
 
         <Text
@@ -228,7 +234,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
           style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
           numberOfLines={2}
         >
-          {course.description?.en || 'No description'}
+          {getLocalizedText(course.description, '')}
         </Text>
 
         {/* Status Badge */}
@@ -264,7 +270,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
               </View>
             )}
             <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-              {Math.round(completionPercentage)}% {t('complete') || 'Complete'}
+              {Math.round(completionPercentage)}% {t('completed')}
             </Text>
           </>
         )}
@@ -275,7 +281,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
               variant="labelSmall"
               style={{ color: theme.colors.error, fontWeight: '600' }}
             >
-              ⚠️ {t('prerequisitesRequired') || 'Prerequisites Required'}
+              ⚠️ {t('prerequisites')}
             </Text>
           </View>
         )}
@@ -291,7 +297,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
             disabled
             compact
           >
-            ✓ {t('completed') || 'Completed'}
+            ✓ {t('completed')}
           </Button>
         ) : isEnrolled ? (
           <Button
@@ -301,7 +307,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
             disabled={enrolling}
             compact
           >
-            {t('continueCourse') || 'Continue'}
+            {t('continueCourse')}
           </Button>
         ) : (
           <>
@@ -311,7 +317,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
               style={{ flex: 1, marginRight: 8 }}
               compact
             >
-              {t('viewCourse') || 'View'}
+              {t('viewCourse')}
             </Button>
             <Button
               mode="contained"
@@ -323,7 +329,7 @@ function CourseCard({ course, theme, isSimpleMode, highContrast, cardRadius, onP
                 opacity: hasUnmetPrerequisites ? 0.5 : 1,
               }}
             >
-              {t('enrollNow') || 'Enroll'}
+              {t('enrollNow')}
             </Button>
           </>
         )}

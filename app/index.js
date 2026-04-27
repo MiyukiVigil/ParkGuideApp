@@ -168,7 +168,7 @@ export default function Login() {
 
   const handleTwoFactorLogin = async () => {
     if (!twoFactorCode.trim()) {
-      Alert.alert("Authenticator code required", "Enter the 6-digit code from your authenticator app.");
+      Alert.alert(t("error"), t("authenticatorCodeRequired"));
       return;
     }
 
@@ -183,7 +183,7 @@ export default function Login() {
       setTwoFactorRequestId("");
       await completeLogin(payload);
     } catch (err) {
-      Alert.alert("Two-factor sign in failed", getFriendlyTwoFactorError(err, "Unable to verify authenticator code."));
+      Alert.alert(t("error"), getFriendlyTwoFactorError(err, t("somethingWentWrong")));
     } finally {
       setTwoFactorSubmitting(false);
     }
@@ -195,7 +195,7 @@ export default function Login() {
       const payload = await signInWithPasskey(email);
       await completeLogin(payload);
     } catch (err) {
-      Alert.alert("Passkey sign in failed", getFriendlyPasskeyError(err, "Unable to sign in with passkey."));
+      Alert.alert(t("error"), getFriendlyPasskeyError(err, t("somethingWentWrong")));
     } finally {
       setPasskeyLoading(false);
     }
@@ -276,7 +276,7 @@ export default function Login() {
               contentStyle={styles.buttonContent}
               textColor="#E6F2EA"
             >
-              {passkeyLoading ? "Checking passkey..." : "Sign in with passkey"}
+              {passkeyLoading ? t("signingIn") : t("signInWithPasskey")}
             </Button>
           ) : null}
 
@@ -287,7 +287,7 @@ export default function Login() {
               textColor="#D6B36A"
               style={styles.applyButton}
             >
-              Apply for account
+              {t("applyForAccount")}
             </Button>
             <Button
               mode="text"
@@ -323,13 +323,13 @@ export default function Login() {
           contentContainerStyle={styles.twoFactorModal}
         >
           <Text variant="titleLarge" style={styles.twoFactorTitle}>
-            Authenticator Check
+            {t("authenticatorCheck")}
           </Text>
           <Text style={styles.twoFactorSubtitle}>
-            Enter the 6-digit code from your authenticator app to finish signing in.
+            {t("authenticatorCheckSubtitle")}
           </Text>
           <TextInput
-            label="Authenticator code"
+            label={t("authenticatorCodeLabel")}
             mode="outlined"
             keyboardType="number-pad"
             value={twoFactorCode}
@@ -346,7 +346,7 @@ export default function Login() {
                 setTwoFactorRequestId("");
               }}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               mode="contained"
@@ -354,7 +354,7 @@ export default function Login() {
               disabled={twoFactorSubmitting}
               onPress={handleTwoFactorLogin}
             >
-              Verify
+              {t("verify")}
             </Button>
           </View>
         </Modal>

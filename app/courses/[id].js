@@ -96,10 +96,10 @@ export default function CourseDetail() {
       await loadCourseDetails();
       Alert.alert(
         t('enrollmentSuccess'), 
-        'You have successfully enrolled in this course',
+        t('enrollmentSuccess'),
         [
           { 
-            text: 'OK', 
+            text: t('ok'), 
             onPress: () => {
               // Just close the alert, course details are already reloaded
               console.log(`[courseDetail] Course details reloaded after enrollment`);
@@ -110,8 +110,8 @@ export default function CourseDetail() {
     } catch (err) {
       console.error(`[courseDetail] Enrollment error:`, err);
       Alert.alert(
-        'Cannot Enroll', 
-        err.message || 'An unknown error occurred during enrollment'
+        t('error'), 
+        err.message || t('somethingWentWrong')
       );
     } finally {
       setEnrolling(false);
@@ -123,7 +123,7 @@ export default function CourseDetail() {
     if (course?.chapters && course.chapters.length > 0) {
       router.push(`/chapters/${course.chapters[0].id}`);
     } else {
-      Alert.alert(t('noChapters') || 'No Chapters', 'This course has no chapters yet.');
+      Alert.alert(t('error'), t('noCourses'));
     }
   };
 
@@ -170,7 +170,7 @@ export default function CourseDetail() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <ThemedBackground />
-      <AppHeader title={getLocalizedText(course.title) || 'Course'} showBack />
+      <AppHeader title={getLocalizedText(course.title) || t('courseDetails')} showBack />
 
       <ScrollView
         style={[styles.container, { width: containerWidth, marginLeft: containerMargin, marginRight: containerMargin }]}
@@ -265,7 +265,7 @@ export default function CourseDetail() {
                     }}
                   >
                     {getLocalizedText(prereq.title)}
-                    {prereq.is_completed ? ' (Completed)' : ' (Required)'}
+                    {prereq.is_completed ? ` (${t('completed')})` : ` (${t('required')})`}
                   </Text>
                 </View>
               ))}
@@ -281,10 +281,10 @@ export default function CourseDetail() {
               borderRadius: 8
             }}>
               <Text style={{ color: theme.colors.error, fontWeight: '600' }}>
-                ⚠️ Cannot Enroll Yet
+                ⚠️ {t('canNotEnroll')}
               </Text>
               <Text style={{ color: theme.colors.error, marginTop: 4 }}>
-                Please complete all prerequisite courses first.
+                {t('canNotEnroll')}
               </Text>
             </View>
           )}
@@ -303,7 +303,7 @@ export default function CourseDetail() {
 
           {isCompleted ? (
             <Button mode="contained" disabled style={{ marginTop: 16 }}>
-              {t('completed') || 'Completed'}
+              {t('completed')}
             </Button>
           ) : isEnrolled ? (
             <Button mode="contained" onPress={handleStartCourse} style={{ marginTop: 16 }}>
@@ -341,6 +341,7 @@ export default function CourseDetail() {
                   isEnrolled ? router.push(`/chapters/${chapter.id}`) : null
                 }
                 t={t}
+                getLocalizedText={getLocalizedText}
               />
             ))}
           </View>
@@ -359,6 +360,7 @@ function ChapterCard({
   isEnrolled,
   onPress,
   t,
+  getLocalizedText,
 }) {
   const lessonsCount = chapter.lessons?.length || 0;
   const chapterProgress = getChapterProgress(chapter);
@@ -402,7 +404,7 @@ function ChapterCard({
               fontWeight: '700',
             }}
           >
-            {chapter.title?.en}
+            {getLocalizedText(chapter.title)}
           </Text>
         </View>
       </View>

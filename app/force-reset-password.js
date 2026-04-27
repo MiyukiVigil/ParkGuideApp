@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Alert, StyleSheet } from "react-native";
 import { Button, Surface, Text, TextInput } from "react-native-paper";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import AuthScreenLayout from "../components/AuthScreenLayout";
 import { changePassword } from "../services/authService";
@@ -9,6 +10,7 @@ import { setMustChangePassword } from "../utils/tokenStorage";
 
 export default function ForceResetPasswordScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -31,7 +33,7 @@ export default function ForceResetPasswordScreen() {
         },
       });
     } catch (error) {
-      Alert.alert("Password Reset Failed", error?.detail || error?.message || "Unable to update password.");
+      Alert.alert(t("error"), error?.detail || error?.message || t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -41,14 +43,14 @@ export default function ForceResetPasswordScreen() {
     <AuthScreenLayout maxWidth={440}>
         <Surface style={styles.card} elevation={3}>
           <Text variant="headlineSmall" style={styles.title}>
-            Change Temporary Password
+            {t("changeTemporaryPassword")}
           </Text>
           <Text style={styles.subtitle}>
-            Your account was created with a temporary password. Set a new password before continuing.
+            {t("changeTemporaryPasswordSubtitle")}
           </Text>
 
           <TextInput
-            label="Temporary Password"
+            label={t("temporaryPassword")}
             mode="outlined"
             secureTextEntry
             value={currentPassword}
@@ -56,7 +58,7 @@ export default function ForceResetPasswordScreen() {
             style={styles.input}
           />
           <TextInput
-            label="New Password"
+            label={t("newPasswordLabel")}
             mode="outlined"
             secureTextEntry
             value={newPassword}
@@ -64,7 +66,7 @@ export default function ForceResetPasswordScreen() {
             style={styles.input}
           />
           <TextInput
-            label="Confirm New Password"
+            label={t("confirmNewPasswordLabel")}
             mode="outlined"
             secureTextEntry
             value={confirmPassword}
@@ -81,7 +83,7 @@ export default function ForceResetPasswordScreen() {
             buttonColor="#D6B36A"
             textColor="#0B1F17"
           >
-            Continue
+            {t("continueAction")}
           </Button>
         </Surface>
     </AuthScreenLayout>

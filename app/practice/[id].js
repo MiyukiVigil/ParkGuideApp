@@ -65,7 +65,7 @@ export default function PracticeView() {
 
     const allAnswered = practice.questions.every((q, idx) => answers[idx] !== undefined);
     if (!allAnswered) {
-      Alert.alert(t('error'), t('answerAllQuestions') || 'Please answer all questions');
+      Alert.alert(t('error'), t('answerAllQuestions'));
       return;
     }
 
@@ -166,8 +166,8 @@ export default function PracticeView() {
               }}
             >
               {isPassed
-                ? t('greatJob') || 'Great job! You passed this practice exercise.'
-                : `${t('notQuite') || 'Not quite!'} ${t('passingScore', { score: practice.passing_score })} ${t('required')}`}
+                ? t('greatJob')
+                : `${t('notQuite')} ${t('passingScore', { score: practice.passing_score })} ${t('required')}`}
             </Text>
           </Surface>
 
@@ -379,7 +379,7 @@ export default function PracticeView() {
               color: theme.colors.onSurfaceVariant,
             }}
           >
-            {t('answerTheFollowingQuestions') || 'Answer the following questions to practice what you have learned.'}
+            {t('answerTheFollowingQuestions')}
           </Text>
         </Surface>
 
@@ -487,7 +487,7 @@ function QuestionCard({
             );
           })
         ) : (
-          <Text style={{ color: '#999', fontStyle: 'italic' }}>No options available</Text>
+          <Text style={{ color: '#999', fontStyle: 'italic' }}>{t('noOptionsAvailable')}</Text>
         )}
       </View>
     </Surface>

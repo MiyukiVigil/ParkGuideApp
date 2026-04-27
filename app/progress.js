@@ -177,7 +177,7 @@ export default function MyProgress() {
             >
               {t('youAreEnrolled', {
                 count: totalEnrolled,
-              }) || `You are enrolled in ${totalEnrolled} course${totalEnrolled !== 1 ? 's' : ''}`}
+              })}
             </Text>
           </Surface>
         )}
@@ -210,7 +210,7 @@ export default function MyProgress() {
                 textAlign: 'center',
               }}
             >
-              {t('enrollInCoursesToGetStarted') || 'Enroll in courses to get started with your learning journey.'}
+              {t('enrollInCoursesToGetStarted')}
             </Text>
             <Button mode="contained" onPress={() => router.push('/courses')}>
               {t('browseCourses')}
@@ -296,7 +296,7 @@ function StatisticCard({
           marginTop: 4,
         }}
       >
-        of {total}
+        {t('ofCount', { count: total })}
       </Text>
     </Surface>
   );
@@ -344,7 +344,7 @@ function EnrollmentCard({
             }}
             numberOfLines={2}
           >
-            {enrollment.course_title?.en || 'Course'}
+            {enrollment.course_title?.en || t('courseDetails')}
           </Text>
           <Text
             variant="bodySmall"

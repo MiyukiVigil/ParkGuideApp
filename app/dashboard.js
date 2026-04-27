@@ -75,9 +75,9 @@ export default function Dashboard() {
   const loadingOverlay = useMemo(() => (
     <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
       <ActivityIndicator size="large" color={theme.colors.primary} />
-      <Text style={{ marginTop: 12, color: theme.colors.onBackground }}>Loading dashboard...</Text>
+      <Text style={{ marginTop: 12, color: theme.colors.onBackground }}>{t("loadingDashboard")}</Text>
     </View>
-  ), [theme.colors.background, theme.colors.onBackground, theme.colors.primary]);
+  ), [t, theme.colors.background, theme.colors.onBackground, theme.colors.primary]);
 
   if (loading || !initialUrl) {
     return loadingOverlay;

@@ -38,11 +38,24 @@ export default function RootLayout() {
   const systemScheme = useColorScheme();
   const [isDarkMode, setIsDarkMode] = useState(systemScheme === "dark");
   const [uiMode, setUiMode] = useState("pretty");
+  const [fontScalePreset, setFontScalePresetState] = useState("standard");
+  const [fontFamilyPreset, setFontFamilyPresetState] = useState("system");
   const [highContrast, setHighContrast] = useState(false);
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const sessionAlertShown = useRef(false);
   const router = useRouter();
+
+  const fontScale = useMemo(() => {
+    switch (fontScalePreset) {
+      case "small":
+        return 0.9;
+      case "large":
+        return 1.15;
+      default:
+        return 1;
+    }
+  }, [fontScalePreset]);
 
   const toggleTheme = async () => {
     const next = !isDarkMode;
@@ -68,6 +81,20 @@ export default function RootLayout() {
     await AsyncStorage.setItem("appAnimationsEnabled", next ? "true" : "false");
   };
 
+  const setFontScalePreset = async (preset) => {
+    const allowed = ["small", "standard", "large"];
+    const nextPreset = allowed.includes(preset) ? preset : "standard";
+    setFontScalePresetState(nextPreset);
+    await AsyncStorage.setItem("appFontScalePreset", nextPreset);
+  };
+
+  const setFontFamilyPreset = async (preset) => {
+    const allowed = ["system", "serif", "mono"];
+    const nextPreset = allowed.includes(preset) ? preset : "system";
+    setFontFamilyPresetState(nextPreset);
+    await AsyncStorage.setItem("appFontFamilyPreset", nextPreset);
+  };
+
   // Validate app configuration on startup
   useEffect(() => {
     validateConfig();
@@ -88,10 +115,12 @@ export default function RootLayout() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [savedLang, savedTheme, savedUiMode, savedHighContrast, savedAnimations] = await Promise.all([
+        const [savedLang, savedTheme, savedUiMode, savedFontScalePreset, savedFontFamilyPreset, savedHighContrast, savedAnimations] = await Promise.all([
           AsyncStorage.getItem("appLanguage"),
           AsyncStorage.getItem("appThemeMode"),
           AsyncStorage.getItem("appUiMode"),
+          AsyncStorage.getItem("appFontScalePreset"),
+          AsyncStorage.getItem("appFontFamilyPreset"),
           AsyncStorage.getItem("appHighContrast"),
           AsyncStorage.getItem("appAnimationsEnabled"),
         ]);
@@ -106,6 +135,14 @@ export default function RootLayout() {
 
         if (savedUiMode === "simple" || savedUiMode === "pretty") {
           setUiMode(savedUiMode);
+        }
+
+        if (["small", "standard", "large"].includes(savedFontScalePreset)) {
+          setFontScalePresetState(savedFontScalePreset);
+        }
+
+        if (["system", "serif", "mono"].includes(savedFontFamilyPreset)) {
+          setFontFamilyPresetState(savedFontFamilyPreset);
         }
 
         if (savedHighContrast === "true") {
@@ -212,8 +249,47 @@ export default function RootLayout() {
   }, []);
 
   const theme = useMemo(() => {
-    return isDarkMode ? darkTheme : lightTheme;
-  }, [isDarkMode]);
+    const baseTheme = isDarkMode ? darkTheme : lightTheme;
+    if (!baseTheme?.fonts) {
+      return baseTheme;
+    }
+
+    let selectedFontFamily;
+    if (fontFamilyPreset === "serif") {
+      selectedFontFamily = Platform.OS === "ios" ? "Times New Roman" : "serif";
+    } else if (fontFamilyPreset === "mono") {
+      selectedFontFamily = Platform.OS === "ios" ? "Courier" : "monospace";
+    }
+
+    const scaledFonts = Object.fromEntries(
+      Object.entries(baseTheme.fonts).map(([variant, fontDef]) => {
+        if (!fontDef || typeof fontDef !== "object") {
+          return [variant, fontDef];
+        }
+
+        return [
+          variant,
+          {
+            ...fontDef,
+            fontSize:
+              typeof fontDef.fontSize === "number"
+                ? Math.round(fontDef.fontSize * fontScale)
+                : fontDef.fontSize,
+            lineHeight:
+              typeof fontDef.lineHeight === "number"
+                ? Math.round(fontDef.lineHeight * fontScale)
+                : fontDef.lineHeight,
+            fontFamily: selectedFontFamily || fontDef.fontFamily,
+          },
+        ];
+      })
+    );
+
+    return {
+      ...baseTheme,
+      fonts: scaledFonts,
+    };
+  }, [isDarkMode, fontScale, fontFamilyPreset]);
 
   if (!isLoaded) {
     return (
@@ -231,6 +307,11 @@ export default function RootLayout() {
         uiMode,
         toggleUiMode,
         isSimpleMode: uiMode === "simple",
+        fontScale,
+        fontScalePreset,
+        setFontScalePreset,
+        fontFamilyPreset,
+        setFontFamilyPreset,
         highContrast,
         toggleHighContrast,
         animationsEnabled,

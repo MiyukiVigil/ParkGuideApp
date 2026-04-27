@@ -11,6 +11,7 @@ import {
 import { Button, Surface, Text, TextInput } from "react-native-paper";
 import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import ThemedBackground from "../components/ThemedBackground";
 import { registerAccountApplication } from "../services/authService";
@@ -25,6 +26,7 @@ const isValidBirthdate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || "
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === "web";
   const contentWidth = isWeb ? Math.min(520, width - 28) : "100%";
@@ -55,24 +57,24 @@ export default function RegisterScreen() {
       const isAllowedExtension = fileName.endsWith(".pdf") || fileName.endsWith(".doc") || fileName.endsWith(".docx");
 
       if (!isAllowedMime && !isAllowedExtension) {
-        Alert.alert("Unsupported File", "Please choose a PDF, DOC, or DOCX file for your CV.");
+        Alert.alert(t("error"), t("acceptedFormats"));
         return;
       }
 
       setCvFile(asset);
     } catch (error) {
-      Alert.alert("File Error", "Unable to select your CV right now.");
+      Alert.alert(t("error"), t("somethingWentWrong"));
     }
   };
 
   const handleRegister = async () => {
     if (!fullName.trim() || !email.trim() || !phoneNumber.trim() || !birthdate.trim() || !cvFile) {
-      Alert.alert("Missing Fields", "Please fill in your details and attach your CV.");
+      Alert.alert(t("missingFields"), t("fillAllRegistrationFields"));
       return;
     }
 
     if (!isValidBirthdate(birthdate)) {
-      Alert.alert("Invalid Birthdate", "Please use the format YYYY-MM-DD for birthdate.");
+      Alert.alert(t("error"), t("birthdateFormat"));
       return;
     }
 
@@ -87,11 +89,11 @@ export default function RegisterScreen() {
       });
 
       Alert.alert(
-        "Application Submitted",
-        "Your application has been submitted for admin review. We will contact you after your CV is reviewed.",
+        t("applicationSubmitted"),
+        t("applicationSubmittedMessage"),
         [
           {
-            text: "Back to Login",
+            text: t("backToLogin"),
             onPress: () => router.replace("/"),
           },
         ]
@@ -106,9 +108,9 @@ export default function RegisterScreen() {
         error?.response?.data?.non_field_errors?.[0] ||
         error?.response?.data?.detail ||
         error?.message ||
-        "Unable to submit your application right now.";
+        t("somethingWentWrong");
 
-      Alert.alert("Application Failed", detail);
+      Alert.alert(t("error"), detail);
     } finally {
       setLoading(false);
     }
@@ -125,23 +127,23 @@ export default function RegisterScreen() {
         <View style={[styles.container, { width: contentWidth }]}>
           <View style={styles.headerSection}>
             <Text variant="headlineMedium" style={styles.title}>
-              Park Guide Application
+              {t("parkGuideApplication")}
             </Text>
             <Text variant="bodyMedium" style={styles.subtitle}>
-              Submit your details and CV for admin review.
+              {t("parkGuideApplicationSubtitle")}
             </Text>
           </View>
 
           <Surface style={styles.formCard} elevation={2}>
             <TextInput
-              label="Full Name"
+              label={t("fullName")}
               mode="outlined"
               value={fullName}
               onChangeText={setFullName}
               style={styles.input}
             />
             <TextInput
-              label="Email"
+              label={t("email")}
               mode="outlined"
               value={email}
               onChangeText={setEmail}
@@ -150,7 +152,7 @@ export default function RegisterScreen() {
               style={styles.input}
             />
             <TextInput
-              label="Phone Number"
+              label={t("phoneNumber")}
               mode="outlined"
               value={phoneNumber}
               onChangeText={setPhoneNumber}
@@ -159,7 +161,7 @@ export default function RegisterScreen() {
               style={styles.input}
             />
             <TextInput
-              label="Birthdate"
+              label={t("birthdate")}
               mode="outlined"
               value={birthdate}
               onChangeText={setBirthdate}
@@ -173,11 +175,11 @@ export default function RegisterScreen() {
               style={styles.pickButton}
               textColor="#E6F2EA"
             >
-              {cvFile ? "Change CV" : "Attach CV"}
+              {cvFile ? t("changeCv") : t("attachCv")}
             </Button>
 
             <Text style={styles.fileHint}>
-              {cvFile ? `Selected: ${cvFile.name}` : "Accepted formats: PDF, DOC, DOCX"}
+              {cvFile ? `${t("selected")}: ${cvFile.name}` : t("acceptedFormats")}
             </Text>
 
             <Button
@@ -190,7 +192,7 @@ export default function RegisterScreen() {
               buttonColor="#D6B36A"
               textColor="#0B1F17"
             >
-              {loading ? "Submitting..." : "Submit Application"}
+              {loading ? t("signingIn") : t("submitApplication")}
             </Button>
 
             <Button
@@ -199,7 +201,7 @@ export default function RegisterScreen() {
               textColor="#D6B36A"
               style={styles.backButton}
             >
-              Back
+              {t("back")}
             </Button>
           </Surface>
         </View>

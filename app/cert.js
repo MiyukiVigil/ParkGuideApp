@@ -252,12 +252,12 @@ export default function Certification() {
   const isPendingBadge = useCallback((badge) => badge.pending || badge.status === 'pending', []);
 
   const getBadgeStatusLabel = useCallback((badge) => {
-    if (isEarnedBadge(badge)) return 'Obtained';
-    if (isPendingBadge(badge)) return 'Pending approval';
-    if (badge.eligible) return 'Ready for review';
-    if (badge.rejected || badge.status === 'rejected') return 'Retry needed';
-    return 'Locked';
-  }, [isEarnedBadge, isPendingBadge]);
+    if (isEarnedBadge(badge)) return t('obtained');
+    if (isPendingBadge(badge)) return t('pendingApproval');
+    if (badge.eligible) return t('readyForReview');
+    if (badge.rejected || badge.status === 'rejected') return t('retryNeeded');
+    return t('locked');
+  }, [isEarnedBadge, isPendingBadge, t]);
 
   const getBadgeStatusTone = useCallback((badge) => {
     if (isEarnedBadge(badge)) return { chip: theme.colors.primary, text: theme.colors.onPrimary, progress: palette.progressEarned };
@@ -309,7 +309,7 @@ export default function Certification() {
       if (statusDelta !== 0) return statusDelta;
       const pendingDelta = Number(isPendingBadge(a)) - Number(isPendingBadge(b));
       if (pendingDelta !== 0) return pendingDelta;
-      return a.name.localeCompare(b.name);
+      return (a.name || '').localeCompare(b.name || '');
     });
   }, [allBadges, isEarnedBadge, isPendingBadge]);
 
@@ -391,7 +391,7 @@ export default function Certification() {
               />
               {!earned ? (
                 <View style={[styles.lockBadgePill, { backgroundColor: palette.overlay }]}>
-                  <Text style={styles.lockBadgePillText}>{pending ? 'PENDING' : 'LOCKED'}</Text>
+                  <Text style={styles.lockBadgePillText}>{pending ? t('pending').toUpperCase() : t('locked').toUpperCase()}</Text>
                 </View>
               ) : null}
             </View>
@@ -407,7 +407,7 @@ export default function Certification() {
         </View>
       </TouchableOpacity>
     );
-  }, [badgeRotateX, badgeRotateY, badgeShiftX, badgeShiftY, badgeTiltEnabled, getBadgeImageUri, getBadgeProgressValue, getBadgeStatusTone, handleBadgePress, isEarnedBadge, isPendingBadge, palette]);
+  }, [badgeRotateX, badgeRotateY, badgeShiftX, badgeShiftY, badgeTiltEnabled, getBadgeImageUri, getBadgeProgressValue, getBadgeStatusTone, handleBadgePress, isEarnedBadge, isPendingBadge, palette, t]);
 
   return (
     <ScrollView
@@ -417,10 +417,10 @@ export default function Certification() {
     >
       <Card style={[styles.idCard, { backgroundColor: theme.colors.primary }]}> 
         <View style={styles.idContent}>
-          <Avatar.Image size={80} source={{ uri: profile?.profile_image_url || getAvatarUrl(profile?.name || profile?.email || 'Park Guide') }} />
+          <Avatar.Image size={80} source={{ uri: profile?.profile_image_url || getAvatarUrl(profile?.name || profile?.email || t('parkGuide')) }} />
           <View style={styles.idText}>
             <Text variant="titleLarge" style={{ color: theme.colors.onPrimary, fontWeight: 'bold' }}>
-              {(profile?.name || 'Park Guide').toUpperCase()}
+              {(profile?.name || t('parkGuide')).toUpperCase()}
             </Text>
             <Text variant="bodyMedium" style={{ color: theme.colors.onPrimary, marginTop: 2 }}>
               {profile?.role || t('certMedium')}
@@ -440,7 +440,7 @@ export default function Certification() {
               style={[styles.headerChip, { backgroundColor: withAlpha(theme.colors.background, 0.16) }]}
               textStyle={[styles.headerChipText, { color: theme.colors.onPrimary }]}
             >
-              {isVerifiedGuide ? t('verifiedGuide') : 'Badge Case In Progress'}
+              {isVerifiedGuide ? t('verifiedGuide') : t('badgeCaseInProgress')}
             </Chip>
           </View>
         </View>
@@ -448,21 +448,21 @@ export default function Certification() {
 
       <Card style={[styles.summaryCard, { backgroundColor: palette.summaryBackground, borderColor: palette.summaryBorder }]}> 
         <Text variant="titleMedium" style={[styles.summaryTitle, { color: theme.colors.onSurface }]}> 
-          Badge Case Summary
+          {t('badgeCaseSummary')}
         </Text>
 
         <View style={styles.summaryRow}>
-          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>Obtained: {badgeSummary.earned}</Chip>
-          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>Pending: {badgeSummary.pending}</Chip>
+          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>{t('obtainedCount', { count: badgeSummary.earned })}</Chip>
+          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>{t('pendingCount', { count: badgeSummary.pending })}</Chip>
         </View>
         <View style={styles.summaryRow}>
-          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>Ready: {badgeSummary.ready}</Chip>
-          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>Locked: {badgeSummary.locked}</Chip>
+          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>{t('readyCount', { count: badgeSummary.ready })}</Chip>
+          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>{t('lockedCount', { count: badgeSummary.locked })}</Chip>
         </View>
       </Card>
 
       <Text variant="titleMedium" style={[styles.sectionTitle, { color: palette.sectionTitle }]}> 
-        Badge Display Case
+        {t('badgeDisplayCase')}
       </Text>
 
       {loading ? (
@@ -534,14 +534,14 @@ export default function Certification() {
                     {selectedBadge.name}
                   </Text>
                   <Text style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                    {selectedBadge.course_title || 'Milestone Badge'}
+                    {selectedBadge.course_title || t('milestoneBadge')}
                   </Text>
                   <View style={styles.modalChipRow}>
                     <Chip style={[styles.modalStateChip, { backgroundColor: getBadgeStatusTone(selectedBadge).chip }]} textStyle={[styles.modalStateChipText, { color: getBadgeStatusTone(selectedBadge).text }]}>
                       {getBadgeStatusLabel(selectedBadge)}
                     </Chip>
                     <Chip style={[styles.modalTypeChip, { backgroundColor: palette.modalAccentSoft }]} textStyle={[styles.modalTypeChipText, { color: theme.colors.onSurface }]}>
-                      {selectedBadge.is_major_badge ? 'Major Badge' : 'Course Badge'}
+                      {selectedBadge.is_major_badge ? t('majorBadge') : t('courseBadge')}
                     </Chip>
                   </View>
                 </View>
@@ -549,18 +549,21 @@ export default function Certification() {
 
               <Divider style={[styles.modalDivider, { backgroundColor: palette.summaryBorder }]} />
 
-              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>Badge Details</Text>
+              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('badgeDetails')}</Text>
               <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>
-                {selectedBadge.description || 'This badge recognizes the course skills and lessons you completed.'}
+                {selectedBadge.description || t('badgeDefaultDescription')}
               </Text>
 
-              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>Progress</Text>
+              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('progress')}</Text>
               <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>
                 {isEarnedBadge(selectedBadge)
-                  ? `You have already obtained this badge after completing ${selectedBadge.completed_modules || selectedBadge.completed_badges || 0} required milestones.`
+                  ? t('badgeAlreadyObtained', { count: selectedBadge.completed_modules || selectedBadge.completed_badges || 0 })
                   : isPendingBadge(selectedBadge)
-                    ? 'You met the requirement and this badge is currently waiting for admin approval.'
-                    : `Current progress: ${selectedBadge.completed_modules || selectedBadge.completed_badges || 0} of ${selectedBadge.required_completed_modules || selectedBadge.required_badges_count || 1} requirements.`}
+                    ? t('badgeWaitingApproval')
+                    : t('badgeCurrentProgress', {
+                        completed: selectedBadge.completed_modules || selectedBadge.completed_badges || 0,
+                        required: selectedBadge.required_completed_modules || selectedBadge.required_badges_count || 1,
+                      })}
               </Text>
               <ProgressBar
                 progress={getBadgeProgressValue(selectedBadge)}
@@ -568,7 +571,7 @@ export default function Certification() {
                 style={[styles.modalProgressBar, { backgroundColor: palette.progressTrack }]}
               />
 
-              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>Skills Covered</Text>
+              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('skillsCovered')}</Text>
               <View style={styles.modalSkillWrap}>
                 {(selectedBadge.skills_awarded || []).length ? (
                   selectedBadge.skills_awarded.map((skill, index) => (
@@ -577,11 +580,11 @@ export default function Certification() {
                     </Chip>
                   ))
                 ) : (
-                  <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>No skill highlights yet.</Text>
+                  <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>{t('noSkillHighlightsYet')}</Text>
                 )}
               </View>
 
-              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>Lesson Highlights</Text>
+              <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('lessonHighlights')}</Text>
               {(selectedBadge.lesson_highlights || []).length ? (
                 <View style={styles.lessonList}>
                   {selectedBadge.lesson_highlights.map((lesson, index) => (
@@ -592,17 +595,17 @@ export default function Certification() {
                   ))}
                 </View>
               ) : (
-                <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>No lesson highlights yet.</Text>
+                <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>{t('noLessonHighlightsYet')}</Text>
               )}
 
               {selectedBadge.badge_image_source ? (
                 <TouchableOpacity onPress={handleOpenImageSource} activeOpacity={0.85}>
-                  <Text style={[styles.imageSourceLink, { color: theme.colors.primary }]}>Open image source</Text>
+                  <Text style={[styles.imageSourceLink, { color: theme.colors.primary }]}>{t('openImageSource')}</Text>
                 </TouchableOpacity>
               ) : null}
 
               <TouchableOpacity style={[styles.closeButton, { backgroundColor: theme.colors.primary }]} onPress={closeModal} activeOpacity={0.92}>
-                <Text style={[styles.closeButtonText, { color: theme.colors.onPrimary }]}>Close</Text>
+                <Text style={[styles.closeButtonText, { color: theme.colors.onPrimary }]}>{t('closeButton')}</Text>
               </TouchableOpacity>
             </ScrollView>
           ) : null}

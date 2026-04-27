@@ -132,7 +132,7 @@ export default function ChapterView() {
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <ThemedBackground />
       <AppHeader
-        title={chapter.title?.en || t('chapter')}
+        title={getLocalizedText(chapter.title) || t('chapter')}
         subtitle={t('chapter')}
         showBack
       />
@@ -161,10 +161,10 @@ export default function ChapterView() {
               marginBottom: 8,
             }}
           >
-            {chapter.title?.en}
+            {getLocalizedText(chapter.title)}
           </Text>
 
-          {chapter.description?.en && (
+          {getLocalizedText(chapter.description) ? (
             <Text
               variant="bodyMedium"
               style={{
@@ -172,9 +172,9 @@ export default function ChapterView() {
                 marginBottom: 16,
               }}
             >
-              {chapter.description.en}
+              {getLocalizedText(chapter.description)}
             </Text>
-          )}
+          ) : null}
 
           {/* Progress */}
           <View style={{ marginBottom: 16 }}>
@@ -237,6 +237,7 @@ export default function ChapterView() {
                 cardRadius={cardRadius}
                 onPress={() => router.push(`/lessons/${lesson.id}`)}
                 t={t}
+                getLocalizedText={getLocalizedText}
               />
             ))}
           </View>
@@ -299,6 +300,7 @@ function LessonCard({
   cardRadius,
   onPress,
   t,
+  getLocalizedText,
 }) {
   const isCompleted = isLessonCompleted(lesson);
 
@@ -361,7 +363,7 @@ function LessonCard({
               }}
               numberOfLines={1}
             >
-              {lesson.title?.en}
+              {getLocalizedText(lesson.title)}
             </Text>
             {isCompleted && (
               <Text
@@ -381,7 +383,7 @@ function LessonCard({
                 marginLeft: 32,
               }}
             >
-              {lesson.time_estimate} min
+              {lesson.time_estimate} {t('minutes')}
             </Text>
           )}
         </View>

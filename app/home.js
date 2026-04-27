@@ -85,7 +85,7 @@ export default function Home() {
           // Ensure course object has title 
           const courseToDisplay = nextCourse 
             ? { ...nextCourse, title: courseTitle || nextCourse.title } 
-            : { title: "No Courses" };
+            : { title: t("noCourses") };
           setCurrentCourse(courseToDisplay);
 
           // Calculate overall progress across all enrolled courses
@@ -102,7 +102,7 @@ export default function Home() {
         } catch (err) {
           console.log("Failed to load progress", err);
           // Fallback: show no progress
-          setCurrentCourse({ title: "No Courses" });
+          setCurrentCourse({ title: t("noCourses") });
           setTrainingProgress(0);
           setRemainingModules(0);
         }
@@ -170,7 +170,7 @@ export default function Home() {
   }, [trainingProgress, barAnim]);
 
   const getLocalizedTitle = (titleData) => {
-    if (!titleData) return "Untitled Course";
+    if (!titleData) return t("untitledCourse");
     if (typeof titleData === "string") return titleData;
     if (typeof titleData === "object") {
       return titleData[i18n.language] || titleData.en || titleData.course_title || JSON.stringify(titleData);
@@ -181,7 +181,7 @@ export default function Home() {
   const completedCount = completedModules.length;
   const profileImageUri = profile?.profile_image_url
     ? withCacheBust(profile.profile_image_url, profileImageVersion)
-    : getAvatarUrl(profile?.name || profile?.email || 'Park Guide');
+    : getAvatarUrl(profile?.name || profile?.email || t("parkGuide"));
 
   const barWidth = barAnim.interpolate({
     inputRange: [0, 1],
@@ -239,13 +239,13 @@ export default function Home() {
               variant="headlineSmall"
               style={[styles.nameText, { color: theme.colors.onSurface }]}
             >
-              {profile?.name || 'Park Guide'}
+              {profile?.name || t("parkGuide")}
             </Text>
             <Text
               variant="bodySmall"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              Forest guide operations dashboard
+              {t("forestGuideOperationsDashboard")}
             </Text>
           </View>
 
@@ -391,7 +391,7 @@ export default function Home() {
             {t("guideOperations")}
           </Text>
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Quick access
+            {t("quickAccess")}
           </Text>
         </View>
 
@@ -407,7 +407,7 @@ export default function Home() {
             theme={theme}
             icon="school"
             label={t("training")}
-            subtitle={`${remainingModules} remaining`}
+            subtitle={t("remainingCount", { count: remainingModules })}
             progress={trainingProgress}
             onPress={() => router.push("/courses")}
           />
@@ -435,24 +435,6 @@ export default function Home() {
             onPress={() => router.push("/monitor")}
           />
         </View>
-
-        <Surface
-          style={[
-            styles.bottomPanel,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.outlineVariant,
-            },
-          ]}
-          elevation={1}
-        >
-          <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
-            Today’s focus
-          </Text>
-          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, lineHeight: 22 }}>
-            Complete your next training module, review guide materials, and check alerts before field deployment.
-          </Text>
-        </Surface>
       </ScrollView>
     </View>
   );
@@ -483,6 +465,7 @@ function StatCard({ theme, label, value, icon }) {
 }
 
 function OperationCard({ icon, label, progress, subtitle, isLive, fullWidth, onPress, theme }) {
+  const { t } = useTranslation();
   return (
     <Surface
       style={[
@@ -515,7 +498,7 @@ function OperationCard({ icon, label, progress, subtitle, isLive, fullWidth, onP
             {isLive && (
               <View style={[styles.livePill, { backgroundColor: theme.colors.primaryContainer }]}>
                 <View style={[styles.liveDot, { backgroundColor: theme.colors.tertiary }]} />
-                <Text style={[styles.liveText, { color: theme.colors.tertiary }]}>LIVE</Text>
+                <Text style={[styles.liveText, { color: theme.colors.tertiary }]}>{t("liveLabel")}</Text>
               </View>
             )}
           </View>

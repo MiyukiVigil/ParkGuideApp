@@ -110,12 +110,12 @@ export default function Materials() {
       } catch (downloadError) {
         setViewingPdfLoading(false);
         console.error("PDF download error:", downloadError);
-        Alert.alert("Download failed", "Could not download PDF. Please try again.");
+        Alert.alert(t("downloadFailedTitle"), t("couldNotDownloadPDF"));
       }
     } catch (error) {
       setViewingPdfLoading(false);
       console.log("Error opening URL:", error);
-      Alert.alert(t("error") || "Error", "Failed to open file. Please try again.");
+      Alert.alert(t("error"), t("failedToOpenFile"));
     }
   };
 
@@ -364,7 +364,7 @@ export default function Materials() {
     }
 
     if (!remoteUrl) {
-      Alert.alert(t("downloadFailedTitle"), "No download URL available for this file.");
+      Alert.alert(t("downloadFailedTitle"), t("noDownloadUrlAvailable"));
       return;
     }
 
@@ -423,15 +423,15 @@ export default function Materials() {
 
   const handleDeleteFile = async (item) => {
     Alert.alert(
-      t("confirmDelete") || "Delete File",
-      t("confirmDeleteFile") || "Are you sure you want to delete this downloaded file?",
+      t("confirmDelete"),
+      t("confirmDeleteFile"),
       [
         {
-          text: t("cancelAction") || "Cancel",
+          text: t("cancelAction"),
           style: "cancel",
         },
         {
-          text: t("deleteAction") || "Delete",
+          text: t("deleteAction"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -448,10 +448,10 @@ export default function Materials() {
               setDownloadedFiles(updated);
               await AsyncStorage.setItem(DOWNLOAD_STORAGE_KEY, JSON.stringify(updated));
 
-              Alert.alert(t("successTitle") || "Success", t("fileDeleted") || "File deleted successfully.");
+              Alert.alert(t("successTitle"), t("fileDeleted"));
             } catch (error) {
               console.log("Delete error:", error);
-              Alert.alert(t("errorTitle") || "Error", t("deleteError") || "Failed to delete file.");
+              Alert.alert(t("errorTitle"), t("deleteError"));
             }
           },
         },
@@ -515,7 +515,7 @@ export default function Materials() {
 
               {!!downloadedFiles[item.id] && (
                 <Text style={[styles.savedLabel, { color: theme.colors.primary }]}>
-                  ✓ Saved locally
+                  ✓ {t("savedLocally")}
                 </Text>
               )}
             </View>
@@ -561,7 +561,7 @@ export default function Materials() {
 
       <View style={styles.container}>
         <Searchbar
-          placeholder="Search materials"
+          placeholder={t("searchMaterials")}
           placeholderTextColor={theme.colors.onSurfaceVariant}
           value={query}
           onChangeText={setQuery}
@@ -635,7 +635,7 @@ export default function Materials() {
                 fontSize: 18,
               }}
             >
-              No materials found
+                {t("noMaterialsFound")}
             </Text>
             <Text
               style={{
@@ -645,7 +645,7 @@ export default function Materials() {
                 lineHeight: 22,
               }}
             >
-              Try another keyword or switch categories to view available learning resources.
+              {t("noMaterialsFoundDesc")}
             </Text>
           </Surface>
         ) : (
@@ -671,7 +671,7 @@ export default function Materials() {
         <View style={[styles.loadingOverlay, { backgroundColor: theme.colors.background }]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={{ marginTop: 16, color: theme.colors.onBackground }}>
-            Loading PDF...
+            {t("loadingPdf")}
           </Text>
         </View>
       </Modal>
