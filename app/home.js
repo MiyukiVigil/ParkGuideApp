@@ -233,7 +233,7 @@ export default function Home() {
 
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={[styles.brandTop, { color: theme.colors.primary }]}>
-              SARAWAK FORESTRY
+              {t("sarawakForestry")}
             </Text>
             <Text
               variant="headlineSmall"

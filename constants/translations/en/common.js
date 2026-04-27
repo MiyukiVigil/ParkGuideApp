@@ -1,4 +1,5 @@
 // Common UI strings, alerts, and error messages
+
 export default {
     // Alert titles
     missingFields: "Missing Fields",
@@ -272,3 +273,4 @@ export default {
     securitySetupGenerateAuthenticatorSecret: "Generate Setup QR",
     securitySetupContinueToApp: "Continue to App",
 }
+

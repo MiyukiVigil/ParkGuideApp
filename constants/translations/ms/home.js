@@ -1,7 +1,7 @@
-// ChatGPT is used for translation, please double check for me tq - Ivan
+// all checked
 
 export default {
-    inProgress: "Sedang Berlangsung",
+    inProgress: "Sedang Berjalan",
     courseCompletion: "Kemajuan Kursus",
     guideOperations: "Operasi Pemandu",
     quickAccess: "Akses pantas",
@@ -18,6 +18,8 @@ export default {
     remainingCount: "{{count}} berbaki",
     tourMonitor: "Pemantauan Lawatan",
     monitorDesc: "Aliran IoT Aktif",
+    badges: "Lencana",
+    badgesEarned: "Diperoleh",
     materials: "Bahan Pembelajaran",
     training: "Latihan",
     remainingDesc: "Modul Tersisa",
@@ -30,4 +32,9 @@ export default {
     errorLoading: "Ralat memuatkan data",
     tryAgain: "Cuba Lagi",
     noCourses: "Tiada Kursus Tersedia",
+    quickAccess: "Akses pantas",
+    todaysFocus: "Fokus hari ini",
+    todaysFocusDesc: "Selesaikan modul latihan seterusnya, semak bahan latihan, dan periksa amaran sebelum penempatan lapangan.",
+    sarawakForestry: "PERHUTANAN SARAWAK",
+    forestGuideOpsDashboard: "Papan pemuka operasi pemandu hutan",
 };

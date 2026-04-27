@@ -1,26 +1,25 @@
-// ChatGPT is used for translation, please double check for me tq - Ivan
-// Rentetan UI biasa, maklum balas, dan mesej ralat
+// all checked 
 
 export default {
     // Tajuk maklum balas
-    missingFields: "Medan Yang Hilang",
+    missingFields: "Maklumat Tidak Lengkap",
     loginFailed: "Log Masuk Gagal",
     sessionExpired: "Sesi Telah Tamat",
-    unavailable: "Tidak Tersedia",
+    unavailable: "Tiada Maklumat",
     authRequired: "Pengesahan Diperlukan",
     downloadFailed: "Muat Turun Gagal",
     error: "Ralat",
     logout: "Log Keluar Selamat",
-    logoutConfirm: "Adakah anda pasti mahu keluar? Semua data tempatan akan dipadamkan.",
+    logoutConfirm: "Adakah anda pasti mahu log keluar? Semua data akan dipadamkan.",
     
     // Mesej biasa
     pleaseEnterEmailPassword: "Sila masukkan emel dan kata laluan anda.",
-    somethingWentWrong: "Ada yang salah. Cuba lagi.",
+    somethingWentWrong: "Maklumat tidak lengkap. Sila cuba lagi.",
     pleaseLogInAgain: "Sila log masuk semula.",
     thisFileNotAvailable: "Fail ini tidak tersedia pada masa ini.",
     couldNotDownloadPDF: "Tidak dapat memuat turun PDF. Sila cuba lagi.",
     failedToOpenFile: "Gagal membuka fail. Sila cuba lagi.",
-    failedToSignOut: "Gagal keluar.",
+    failedToSignOut: "Gagal log keluar.",
     sessionHasExpired: "Sesi anda telah tamat. Sila log masuk semula.",
     
     // Label butang
@@ -33,19 +32,19 @@ export default {
     
     // Keadaan kosong
     allCaughtUp: "Semua selesai",
-    noNotificationsView: "Tiada notifikasi dalam paparan ini pada masa ini.",
+    noNotificationsView: "Tiada notifikasi dalam paparan pada masa ini.",
     noQuizFound: "Tiada Kuiz Ditemui",
     
     // Label tetapan
-    demoLoginEnabled: "Log masuk demo didayakan untuk pratonton hadapan",
+    demoLoginEnabled: "Log masuk diaktifkan untuk pengguna sebagai demo.",
     protectedSession: "Sesi dilindungi • Akses disahkan",
     appVersion: "v1.0.0 - Perbadanan Perhutanan Sarawak",
     
     // Bahagian notifikasi
     notificationCentre: "Pusat Notifikasi",
-    reviewAlerts: "Semak maklum balas operasi dan kemas kini terbaru untuk tugas pemandu hutan.",
-    markAllRead: "Tandakan semua sebagai dibaca",
-    clearRead: "Kosongkan dibaca",
+    reviewAlerts: "Semak semula operasi maklum balas dan kemas kini untuk tugas pemandu taman.",
+    markAllRead: "Tandakan maklumat dibaca",
+    clearRead: "Kosongkan maklumat dibaca",
     
     // Pilihan penapis
     all: "Semua",
@@ -63,21 +62,21 @@ export default {
     // Bahagian penampilan
     appearance: "Penampilan",
     themeMode: "Mod Tema",
-    darkMode: "Mod gelap",
-    lightMode: "Mod cahaya",
-    interfaceMode: "Mod Antara Muka",
+    darkMode: "Mod Gelap",
+    lightMode: "Mod Cahaya",
+    interfaceMode: "Mod Paparan",
     basic: "Asas",
     pro: "Pro",
     highContrast: "Kontras Tinggi",
-    highContrastOn: "Kontras tinggi hidup",
-    highContrastOff: "Kontras tinggi mati",
+    highContrastOn: "Kontras tinggi dihidupkan",
+    highContrastOff: "Kontras tinggi dimatikan",
     backgroundAnimations: "Animasi Latar Belakang",
-    animationsEnabled: "Animasi didayakan",
-    animationsDisabled: "Animasi dilumpuhkan",
+    animationsEnabled: "Animasi diaktifkan",
+    animationsDisabled: "Animasi dinyahaktifkan",
     
     // Pilihan saiz fon
     small: "Kecil",
-    standard: "Standard",
+    standard: "Sederhana",
     large: "Besar",
     fontStyle: "Gaya Fon",
     systemFont: "Sistem",
@@ -86,23 +85,23 @@ export default {
     
     // Bahagian latihan
     trainingOverview: "Gambaran Keseluruhan Latihan",
-    learnFlexibly: "Belajar dengan fleksibel, jejak kemajuan, dan buka kemahiran pemandu baharu.",
+    learnFlexibly: "Belajar dengan fleksibel, jejak kemajuan latihan, dan kuasai kemahiran pemandu baharu.",
     completedModules: "Modul yang telah selesai",
     overallProgress: "Kemajuan keseluruhan",
-    modules: "modul",
-    interactiveLessons: "Pelajaran interaktif, penilaian, dan penjejakan penyempurnaan.",
+    modules: "Modul",
+    interactiveLessons: "Pelajaran interaktif, penilaian, dan penjejakan kursus sehingga selesai.",
     courseSummary: "Ringkasan Kursus",
-    completeModulesInOrder: "Lengkapkan modul mengikut urutan untuk membuka pelajaran seterusnya dan simpan latihan pemandu anda terkini.",
-    tapToStartMedia: "Ketik untuk memulakan media modul",
+    completeModulesInOrder: "Lengkapkan modul mengikut urutan untuk membuka pelajaran seterusnya dan simpan latihan anda yang terkini.",
+    tapToStartMedia: "Ketik untuk memulakan modul",
     
     // Bahagian rumah
-    continueYourPath: "Teruskan laluan pembelajaran panduan eko semasa anda dan simpan kemajuan pensijilan anda di landasan yang betul.",
-    modulesRemaining: "modul baki",
+    continueYourPath: "Teruskan pembelajaran panduan eko semasa anda dan pastikan kemajuan pensijilan Pemandu Taman anda lancar.",
+    modulesRemaining: "Modul Berbaki",
     completed: "Selesai",
     remaining: "Baki",
     
     // Ralat pengesahan (Kata Laluan)
-    fillAllPasswordFields: "Sila isikan semua medan kata laluan.",
+    fillAllPasswordFields: "Sila isikan semua kata laluan.",
     passwordMustBe8: "Kata laluan baharu mestilah sekurang-kurangnya 8 aksara.",
     passwordsDoNotMatch: "Kata laluan baharu dan pengesahan kata laluan tidak sepadan.",
     currentPasswordIncorrect: "Kata laluan semasa anda tidak betul.",
@@ -122,7 +121,7 @@ export default {
     
     // Tetapan Akaun
     accountSettings: "Tetapan Akaun",
-    profileAndSecurity: "Profil dan keamanan",
+    profileAndSecurity: "Profil dan Keamanan",
     failedToLoadAccountInfo: "Gagal memuatkan maklumat akaun.",
     invalidName: "Nama Tidak Sah",
     pleaseEnterValidName: "Sila masukkan nama yang sah.",
@@ -143,27 +142,27 @@ export default {
     
     // Latihan
     failedToSaveProgress: "Gagal menyimpan kemajuan.",
-    forestLearningHub: "Hab pembelajaran hutan",
-    courseModules: "Modul kursus",
+    forestLearningHub: "Pusat Pembelajaran Hutan",
+    courseModules: "Modul Kursus",
     
     // Papan Pemuka
     adminDashboard: "Papan Pemuka Pentadbir",
-    parkGuideWebApp: "Aplikasi web ParkGuide",
+    parkGuideWebApp: "Aplikasi laman web Pemandu Taman",
     
     // Bahagian lain
     tourMonitor: "Monitor Lawatan",
-    liveFieldMonitor: "Monitor lapangan aktif",
+    liveFieldMonitor: "Monitor Lapangan Aktif",
     forestKnowledgeResources: "Sumber pengetahuan hutan",
     forestResources: "Sumber hutan",
     verifiedRecords: "Rekod yang disahkan",
     preferences: "Pilihan",
-    liveForestMonitor: "Monitor hutan aktif",
+    liveForestMonitor: "Monitor Hutan Aktif",
     
     // Bahagian Lencana/Sijil
     noCompletedModulesYet: "Tiada modul yang sedia disiapkan",
     finishTrainingModulesUnlockBadges: "Selesaikan modul latihan untuk membuka lencana.",
     allActiveBadgesEarned: "Semua lencana aktif diperoleh",
-    greatWorkUnlockedEveryActiveBadge: "Kerja bagus — anda telah membuka setiap lencana aktif.",
+    greatWorkUnlockedEveryActiveBadge: "Kerja bagus !! Anda telah membuka setiap lencana aktif.",
     noBadgesEarnedYet: "Tiada lencana yang diperoleh lagi",
     completeMoreModulesEarnBadges: "Lengkapkan lebih banyak modul untuk mendapatkan lencana.",
     

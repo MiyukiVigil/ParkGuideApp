@@ -577,13 +577,17 @@ export default function Materials() {
         />
 
         <View style={styles.chipRow}>
-          {["All", "Guide", "Policy"].map((cat) => {
-            const selected = activeCategory === cat;
+          {[
+            { key: "All", label: t("categoryAll") },
+            { key: "Guide", label: t("categoryGuide") },
+            { key: "Policy", label: t("categoryPolicy") },
+          ].map(({ key, label }) => {
+            const selected = activeCategory === key;
             return (
               <Chip
-                key={cat}
+                key={key}
                 selected={selected}
-                onPress={() => setActiveCategory(cat)}
+                onPress={() => setActiveCategory(key)}
                 style={{
                   backgroundColor: selected
                     ? theme.colors.primary
@@ -596,7 +600,7 @@ export default function Materials() {
                   fontWeight: "700",
                 }}
               >
-                {cat}
+                {label}
               </Chip>
             );
           })}

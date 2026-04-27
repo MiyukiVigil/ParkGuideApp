@@ -66,9 +66,9 @@ export default function CourseCatalog() {
       console.error('Error enrolling:', err);
       // Error is now a user-friendly message from the backend
       Alert.alert(
-        'Cannot Enroll',
+        t('cannotEnroll'),
         err.message,
-        [{ text: 'OK' }]
+        [{ text: t('ok') }]
       );
     }
   };

@@ -7,7 +7,8 @@ import {
   Animated,
   Alert,
 } from "react-native";
-import { TextInput, Button, Text, Surface, Portal, Modal } from "react-native-paper";
+import { TextInput, Button, Text, Surface, Portal, Modal, Menu } from "react-native-paper";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import AuthScreenLayout from "../components/AuthScreenLayout";
@@ -22,7 +23,7 @@ import { saveProfileSnapshotFromAuthPayload } from "../services/profileService";
 
 export default function Login() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,6 +34,21 @@ export default function Login() {
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [twoFactorSubmitting, setTwoFactorSubmitting] = useState(false);
   const [twoFactorRequestId, setTwoFactorRequestId] = useState("");
+  const [langMenuVisible, setLangMenuVisible] = useState(false);
+
+  const getLangLabel = () => {
+    switch (i18n.language) {
+      case "ms": return "BM";
+      case "zh": return "中文";
+      default: return "EN";
+    }
+  };
+
+  const updateLanguage = async (lang) => {
+    await i18n.changeLanguage(lang);
+    await AsyncStorage.setItem("appLanguage", lang);
+    setLangMenuVisible(false);
+  };
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const liftAnim = useRef(new Animated.Value(18)).current;
@@ -212,6 +228,29 @@ export default function Login() {
           },
         ]}
       >
+        <View style={styles.langRow}>
+          <Menu
+            visible={langMenuVisible}
+            onDismiss={() => setLangMenuVisible(false)}
+            anchor={
+              <Button
+                icon="translate"
+                mode="outlined"
+                onPress={() => setLangMenuVisible(true)}
+                textColor="#D6B36A"
+                style={styles.langButton}
+                compact
+              >
+                {getLangLabel()}
+              </Button>
+            }
+          >
+            <Menu.Item onPress={() => updateLanguage("en")} title={t("english")} />
+            <Menu.Item onPress={() => updateLanguage("ms")} title={t("malay")} />
+            <Menu.Item onPress={() => updateLanguage("zh")} title={t("chinese")} />
+          </Menu>
+        </View>
+
         <View style={styles.headerSection}>
           <Surface style={styles.logoSurface} elevation={3}>
             <Image source={require("../assets/icon.png")} style={styles.logo} />
@@ -458,5 +497,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
     marginTop: 6,
+  },
+  langRow: {
+    alignItems: "flex-end",
+    marginBottom: 12,
+  },
+  langButton: {
+    borderColor: "rgba(214,179,106,0.4)",
+    borderRadius: 20,
   },
 });

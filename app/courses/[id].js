@@ -96,14 +96,12 @@ export default function CourseDetail() {
       await loadCourseDetails();
       Alert.alert(
         t('enrollmentSuccess'), 
-        t('enrollmentSuccess'),
         [
           { 
             text: t('ok'), 
             onPress: () => {
-              // Just close the alert, course details are already reloaded
               console.log(`[courseDetail] Course details reloaded after enrollment`);
-            } 
+            }
           },
         ]
       );

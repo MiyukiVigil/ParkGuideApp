@@ -21,5 +21,7 @@ export default {
     materialExpired: "Bahan tidak lagi tersedia",
     offlineMode: "Mod Luar Talian",
     availableOffline: "Tersedia Luar Talian",
-    onlineRequired: "Sambungan internet diperlukan"
+    onlineRequired: "Sambungan internet diperlukan",
+    noMaterialsFound: "Tiada bahan dijumpai",
+    noMaterialsFoundDesc: "Sila tukar kategori untuk melihat sumber pembelajaran yang tersedia.",
 };
