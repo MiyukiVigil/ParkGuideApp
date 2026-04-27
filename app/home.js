@@ -420,6 +420,13 @@ export default function Home() {
           />
           <OperationCard
             theme={theme}
+            icon="map-marker-radius"
+            label={t("map")}
+            subtitle={t("mapDesc")}
+            onPress={() => router.push("/map")}
+          />
+          <OperationCard
+            theme={theme}
             icon="cog"
             label={t("settings")}
             subtitle={t("preferences")}
