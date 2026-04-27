@@ -95,23 +95,22 @@ export default function CourseDetail() {
       // Reload immediately after API success
       await loadCourseDetails();
       Alert.alert(
-        t('enrollmentSuccess'), 
-        'You have successfully enrolled in this course',
+        t('enrollmentSuccess'),
+        t('enrollmentSuccessMessage'),
         [
-          { 
-            text: 'OK', 
+          {
+            text: t('ok'),
             onPress: () => {
-              // Just close the alert, course details are already reloaded
               console.log(`[courseDetail] Course details reloaded after enrollment`);
-            } 
+            }
           },
         ]
       );
     } catch (err) {
       console.error(`[courseDetail] Enrollment error:`, err);
       Alert.alert(
-        'Cannot Enroll', 
-        err.message || 'An unknown error occurred during enrollment'
+        t('cannotEnroll'),
+        err.message || t('unknownEnrollmentError')
       );
     } finally {
       setEnrolling(false);
@@ -123,7 +122,7 @@ export default function CourseDetail() {
     if (course?.chapters && course.chapters.length > 0) {
       router.push(`/chapters/${course.chapters[0].id}`);
     } else {
-      Alert.alert(t('noChapters') || 'No Chapters', 'This course has no chapters yet.');
+      Alert.alert(t('noChapters'), t('noChaptersMessage'));
     }
   };
 
@@ -265,7 +264,7 @@ export default function CourseDetail() {
                     }}
                   >
                     {getLocalizedText(prereq.title)}
-                    {prereq.is_completed ? ' (Completed)' : ' (Required)'}
+                    {prereq.is_completed ? ` ${t('prerequisiteCompleted')}` : ` ${t('prerequisiteRequired')}`}
                   </Text>
                 </View>
               ))}
@@ -281,10 +280,10 @@ export default function CourseDetail() {
               borderRadius: 8
             }}>
               <Text style={{ color: theme.colors.error, fontWeight: '600' }}>
-                ⚠️ Cannot Enroll Yet
+                ⚠️ {t('cannotEnrollYet')}
               </Text>
               <Text style={{ color: theme.colors.error, marginTop: 4 }}>
-                Please complete all prerequisite courses first.
+                {t('completePrerequisitesFirst')}
               </Text>
             </View>
           )}

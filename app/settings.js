@@ -208,7 +208,7 @@ export default function Settings() {
 
   const handlePasskeySubmit = async () => {
     if (!passkeyPassword.trim()) {
-      Alert.alert("Password required", "Enter your password to continue.");
+      Alert.alert(t("passwordRequired"), t("enterPasswordToContinue"));
       return;
     }
 
@@ -216,13 +216,13 @@ export default function Settings() {
       setPasskeySubmitting(true);
       if (passkeyAction === "disable") {
         await disablePasskeys(passkeyPassword);
-        Alert.alert("Passkey disabled", "Passkey sign in has been turned off.");
+        Alert.alert(t("passkeyDisabledTitle"), t("passkeySignInTurnedOff"));
       } else {
         await registerPasskey({
           currentPassword: passkeyPassword,
           label: passkeyLabel.trim(),
         });
-        Alert.alert("Passkey saved", "You can now use your passkey to sign in.");
+        Alert.alert(t("passkeySavedTitle"), t("canNowUsePasskey"));
       }
 
       setPasskeyModalVisible(false);
@@ -231,10 +231,10 @@ export default function Settings() {
       await loadPasskeyStatus();
     } catch (error) {
       Alert.alert(
-        passkeyAction === "disable" ? "Could not disable passkey" : "Could not save passkey",
+        passkeyAction === "disable" ? t("couldNotDisablePasskey") : t("couldNotSavePasskey"),
         getFriendlyPasskeyError(
           error,
-          passkeyAction === "disable" ? "Unable to disable passkey." : "Unable to create passkey."
+          passkeyAction === "disable" ? t("unableToDisablePasskey") : t("unableToCreatePasskey")
         )
       );
     } finally {
@@ -244,7 +244,7 @@ export default function Settings() {
 
   const handleTwoFactorSubmit = async () => {
     if (!twoFactorPassword.trim()) {
-      Alert.alert("Password required", "Enter your password to continue.");
+      Alert.alert(t("passwordRequired"), t("enterPasswordToContinue"));
       return;
     }
 
@@ -252,24 +252,24 @@ export default function Settings() {
       setTwoFactorSubmitting(true);
       if (twoFactorAction === "disable") {
         if (!twoFactorCode.trim()) {
-          Alert.alert("Authenticator code required", "Enter the 6-digit code from your authenticator app.");
+          Alert.alert(t("authenticatorCodeRequired"), t("enter6DigitCode"));
           return;
         }
         await disableTwoFactor({
           currentPassword: twoFactorPassword,
           code: twoFactorCode.trim(),
         });
-        Alert.alert("Authenticator disabled", "Authenticator 2FA has been turned off.");
+        Alert.alert(t("authenticatorDisabledTitle"), t("authenticator2FADisabled"));
       } else if (!twoFactorSetupData) {
         const setupPayload = await setupTwoFactor(twoFactorPassword);
         setTwoFactorSetupData(setupPayload);
       } else {
         if (!twoFactorCode.trim()) {
-          Alert.alert("Authenticator code required", "Enter the 6-digit code from your authenticator app.");
+          Alert.alert(t("authenticatorCodeRequired"), t("enter6DigitCode"));
           return;
         }
         await confirmTwoFactor(twoFactorCode.trim());
-        Alert.alert("Authenticator enabled", "You can now sign in with password plus your authenticator code.");
+        Alert.alert(t("authenticatorEnabledTitle"), t("canNowSignInWithAuthenticator"));
       }
 
       if (twoFactorAction === "disable" || twoFactorSetupData) {
@@ -281,12 +281,12 @@ export default function Settings() {
       await loadTwoFactorStatus();
     } catch (error) {
       Alert.alert(
-        twoFactorAction === "disable" ? "Could not disable authenticator" : "Could not update authenticator",
+        twoFactorAction === "disable" ? t("couldNotDisableAuthenticator") : t("couldNotUpdateAuthenticator"),
         getFriendlyTwoFactorError(
           error,
           twoFactorAction === "disable"
-            ? "Unable to disable authenticator 2FA."
-            : "Unable to finish authenticator setup."
+            ? t("unableToDisable2FA")
+            : t("unableToFinishAuthenticatorSetup")
         )
       );
     } finally {
@@ -548,19 +548,19 @@ export default function Settings() {
               },
             ]}
           >
-            Security
+            {t("security")}
           </Text>
 
           <List.Item
-            title="Passkey sign in"
+            title={t("passkeySignIn")}
             description={
               loadingPasskeyStatus
-                ? "Checking passkey status..."
+                ? t("checkingPasskeyStatus")
                 : passkeyStatus.enabled
-                  ? `${passkeyStatus.count} passkey saved`
+                  ? `${passkeyStatus.count} ${t("passkeySaved")}`
                   : passkeyStatus.available
-                    ? "Add a passkey for faster sign in"
-                    : "Passkeys are not supported on this device"
+                    ? t("addPasskeyDesc")
+                    : t("passkeysNotSupported")
             }
             left={(props) => (
               <List.Icon {...props} icon="key-chain-variant" color={theme.colors.tertiary} />
@@ -579,7 +579,7 @@ export default function Settings() {
               onPress={() => openPasskeyModal("create")}
               disabled={!passkeyStatus.available || passkeySubmitting}
             >
-              {passkeyStatus.enabled ? "Add another passkey" : "Create passkey"}
+              {passkeyStatus.enabled ? t("addAnotherPasskey") : t("createPasskey")}
             </Button>
             <Button
               mode="outlined"
@@ -587,18 +587,18 @@ export default function Settings() {
               disabled={!passkeyStatus.enabled || passkeySubmitting}
               textColor={theme.colors.error}
             >
-              Disable
+              {t("disable")}
             </Button>
           </View>
 
           <List.Item
-            title="Authenticator 2FA"
+            title={t("authenticator2FA")}
             description={
               loadingTwoFactorStatus
-                ? "Checking authenticator status..."
+                ? t("checkingAuthenticatorStatus")
                 : twoFactorStatus.enabled
-                  ? "Authenticator protection is enabled"
-                  : "Use an authenticator app for password sign in"
+                  ? t("authenticatorProtectionEnabled")
+                  : t("useAuthenticatorApp")
             }
             left={(props) => (
               <List.Icon {...props} icon="shield-key-outline" color={theme.colors.tertiary} />
@@ -617,7 +617,7 @@ export default function Settings() {
               onPress={() => openTwoFactorModal("create")}
               disabled={twoFactorSubmitting}
             >
-              {twoFactorStatus.enabled ? "Reset authenticator" : "Set up authenticator"}
+              {twoFactorStatus.enabled ? t("resetAuthenticator") : t("setUpAuthenticator")}
             </Button>
             <Button
               mode="outlined"
@@ -625,7 +625,7 @@ export default function Settings() {
               disabled={!twoFactorStatus.enabled || twoFactorSubmitting}
               textColor={theme.colors.error}
             >
-              Disable
+              {t("disable")}
             </Button>
           </View>
         </Surface>
@@ -643,7 +643,7 @@ export default function Settings() {
           contentStyle={{ height: isSimpleMode || highContrast ? 56 : 48 }}
           onPress={handleSecureLogout}
         >
-          Secure Logout
+          {t("logout")}
         </Button>
       </ScrollView>
 
@@ -657,17 +657,17 @@ export default function Settings() {
           ]}
         >
           <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: "900", marginBottom: 8 }}>
-            {passkeyAction === "disable" ? "Disable passkey" : "Create passkey"}
+            {passkeyAction === "disable" ? t("disablePasskey") : t("createPasskey")}
           </Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, marginBottom: 14 }}>
             {passkeyAction === "disable"
-              ? "Enter your password to turn off passkey sign in."
-              : "Enter your password before saving a passkey on this device."}
+              ? t("enterPasswordDisablePasskey")
+              : t("enterPasswordCreatePasskey")}
           </Text>
 
           {passkeyAction === "create" ? (
             <TextInput
-              label="Passkey label (optional)"
+              label={t("passkeyLabelOptional")}
               mode="outlined"
               value={passkeyLabel}
               onChangeText={setPasskeyLabel}
@@ -676,7 +676,7 @@ export default function Settings() {
           ) : null}
 
           <TextInput
-            label="Current Password"
+            label={t("currentPassword")}
             mode="outlined"
             secureTextEntry
             value={passkeyPassword}
@@ -686,10 +686,10 @@ export default function Settings() {
 
           <View style={styles.modalActionRow}>
             <Button mode="outlined" onPress={closePasskeyModal} disabled={passkeySubmitting}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button mode="contained" onPress={handlePasskeySubmit} loading={passkeySubmitting} disabled={passkeySubmitting}>
-              {passkeyAction === "disable" ? "Disable" : "Continue"}
+              {passkeyAction === "disable" ? t("disable") : t("continueAction")}
             </Button>
           </View>
         </Modal>
@@ -703,18 +703,18 @@ export default function Settings() {
           ]}
         >
           <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: "900", marginBottom: 8 }}>
-            {twoFactorAction === "disable" ? "Disable authenticator" : "Set up authenticator"}
+            {twoFactorAction === "disable" ? t("disableAuthenticator") : t("setUpAuthenticator")}
           </Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, marginBottom: 14 }}>
             {twoFactorAction === "disable"
-              ? "Enter your password and current authenticator code to turn off 2FA."
+              ? t("enterPasswordDisable2FA")
               : twoFactorSetupData
-                ? "Scan the QR code or copy the secret into your authenticator app, then enter the 6-digit code to confirm."
-                : "Enter your password to generate the authenticator setup secret."}
+                ? t("scanQrOrCopySecret")
+                : t("enterPasswordGenerateSecret")}
           </Text>
 
           <TextInput
-            label="Current Password"
+            label={t("currentPassword")}
             mode="outlined"
             secureTextEntry
             value={twoFactorPassword}
@@ -729,7 +729,7 @@ export default function Settings() {
                 style={styles.twoFactorQr}
               />
               <Text style={{ color: theme.colors.onSurface, fontWeight: "700", marginBottom: 6 }}>
-                Secret key
+                {t("secretKey")}
               </Text>
               <Text selectable style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}>
                 {twoFactorSetupData.secret}
@@ -739,7 +739,7 @@ export default function Settings() {
 
           {(twoFactorAction === "disable" || twoFactorSetupData) ? (
             <TextInput
-              label="Authenticator code"
+              label={t("authenticatorCode")}
               mode="outlined"
               keyboardType="number-pad"
               value={twoFactorCode}
@@ -750,14 +750,14 @@ export default function Settings() {
 
           <View style={styles.modalActionRow}>
             <Button mode="outlined" onPress={closeTwoFactorModal} disabled={twoFactorSubmitting}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button mode="contained" onPress={handleTwoFactorSubmit} loading={twoFactorSubmitting} disabled={twoFactorSubmitting}>
               {twoFactorAction === "disable"
-                ? "Disable"
+                ? t("disable")
                 : twoFactorSetupData
-                  ? "Verify & Enable"
-                  : "Generate Setup"}
+                  ? t("verifyAndEnable")
+                  : t("generateSetup")}
             </Button>
           </View>
         </Modal>

@@ -24,9 +24,9 @@ export default function Monitor() {
             },
           ]}
         >
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>Monitor preview</Text>
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>{t("monitorPreview")}</Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
-            Live camera and anomaly detection UI goes here.
+            {t("monitorPreviewDesc")}
           </Text>
         </Surface>
       </View>

@@ -21,5 +21,7 @@ export default {
     materialExpired: "资料已不可用",
     offlineMode: "离线模式",
     availableOffline: "可离线使用",
-    onlineRequired: "需要互联网连接"
+    onlineRequired: "需要互联网连接",
+    noMaterialsFound: "未找到相关资料",
+    noMaterialsFoundDesc: "请尝试其他关键词或切换类别，以查看可用的学习资源。",
 };

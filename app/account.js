@@ -123,12 +123,12 @@ export default function AccountScreen() {
       const fileType = String(asset.mimeType || asset.type || '').toLowerCase();
 
       if (fileType && !fileType.startsWith('image/')) {
-        Alert.alert('Unsupported file', 'Please choose an image file for your profile photo.');
+        Alert.alert(t('unsupportedFile'), t('pleaseChooseImageFile'));
         return;
       }
 
       if (fileSize > 5 * 1024 * 1024) {
-        Alert.alert('Image too large', 'Please choose an image smaller than 5 MB.');
+        Alert.alert(t('imageTooLarge'), t('pleaseChooseSmallerImage'));
         return;
       }
 
@@ -141,12 +141,12 @@ export default function AccountScreen() {
         ...uploadedProfile,
       }));
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Profile photo updated', 'Your new profile photo has been saved to your account.');
+      Alert.alert(t('profilePhotoUpdated'), t('profilePhotoSaved'));
     } catch (error) {
       console.log('Profile image upload error:', error?.response?.data || error?.message || error);
       const detail = error?.response?.data?.profile_image?.[0] || error?.response?.data?.detail;
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Upload failed', detail || 'We could not upload your profile photo right now.');
+      Alert.alert(t('uploadFailed'), detail || t('couldNotUploadPhoto'));
     } finally {
       setIsUploadingImage(false);
     }
@@ -167,12 +167,12 @@ export default function AccountScreen() {
 
   const handleSignOut = async () => {
     Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
+      t("signOut"),
+      t("logoutConfirm"),
       [
-        { text: "Cancel", onPress: () => {}, style: "cancel" },
+        { text: t("cancel"), onPress: () => {}, style: "cancel" },
         {
-          text: "Sign Out",
+          text: t("signOut"),
           onPress: async () => {
             try {
               await unregisterPushNotifications();
@@ -181,7 +181,7 @@ export default function AccountScreen() {
               await AsyncStorage.removeItem("userProfile");
               router.replace("/");
             } catch (error) {
-              Alert.alert("Error", "Failed to sign out.");
+              Alert.alert(t("error"), t("failedToSignOut"));
             }
           },
           style: "destructive",
@@ -202,7 +202,7 @@ export default function AccountScreen() {
 
       resetPasswordForm();
       setPasswordModalVisible(false);
-      Alert.alert("Success", "Your password has been changed.");
+      Alert.alert(t("success"), t("yourPasswordHasBeenChanged"));
     } catch (error) {
       let errorMessage = t("error");
 
@@ -270,7 +270,7 @@ export default function AccountScreen() {
               disabled={isUploadingImage}
               style={styles.uploadButton}
             >
-              {isUploadingImage ? "Uploading..." : "Choose Photo"}
+              {isUploadingImage ? t("uploadingPhoto") : t("choosePhoto")}
             </Button>
           </View>
 
@@ -300,7 +300,7 @@ export default function AccountScreen() {
           {isEditing ? (
             <View style={styles.formWrap}>
               <TextInput
-                label="Full Name"
+                label={t("fullName")}
                 mode="outlined"
                 value={draftProfile.name}
                 onChangeText={(text) => setDraftProfile((prev) => ({ ...prev, name: text }))}
@@ -308,7 +308,7 @@ export default function AccountScreen() {
               />
 
               <TextInput
-                label="Email"
+                label={t("email")}
                 mode="outlined"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -318,7 +318,7 @@ export default function AccountScreen() {
               />
 
               <TextInput
-                label="Phone"
+                label={t("phone")}
                 mode="outlined"
                 keyboardType="phone-pad"
                 value={draftProfile.phone}
@@ -328,7 +328,7 @@ export default function AccountScreen() {
 
               <View style={styles.actionRow}>
                 <Button mode="outlined" onPress={handleCancelEdit} style={styles.flexButton}>
-                  Cancel
+                  {t("cancel")}
                 </Button>
                 <Button
                   mode="contained"
@@ -337,7 +337,7 @@ export default function AccountScreen() {
                   loading={isSavingProfile}
                   disabled={isSavingProfile}
                 >
-                  Save
+                  {t("save")}
                 </Button>
               </View>
             </View>
@@ -368,7 +368,7 @@ export default function AccountScreen() {
 
               <View style={styles.actionGroup}>
                 <Button mode="contained" onPress={() => setIsEditing(true)}>
-                  Edit Profile
+                  {t("editProfile")}
                 </Button>
               </View>
             </>
@@ -381,7 +381,7 @@ export default function AccountScreen() {
           textColor={theme.colors.error}
           onPress={handleSignOut}
         >
-          Sign Out
+          {t("signOut")}
         </Button>
       </View>
 
@@ -398,11 +398,11 @@ export default function AccountScreen() {
           ]}
         >
           <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: "900", marginBottom: 16 }}>
-            Change Password
+            {t("changePassword")}
           </Text>
 
           <TextInput
-            label="Current Password"
+            label={t("currentPassword")}
             mode="outlined"
             secureTextEntry
             value={currentPassword}
@@ -411,7 +411,7 @@ export default function AccountScreen() {
           />
 
           <TextInput
-            label="New Password"
+            label={t("newPassword")}
             mode="outlined"
             secureTextEntry
             value={newPassword}
@@ -420,7 +420,7 @@ export default function AccountScreen() {
           />
 
           <TextInput
-            label="Confirm New Password"
+            label={t("confirmNewPassword")}
             mode="outlined"
             secureTextEntry
             value={confirmPassword}
@@ -438,7 +438,7 @@ export default function AccountScreen() {
               style={styles.flexButton}
               disabled={isChangingPassword}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               mode="contained"
@@ -447,7 +447,7 @@ export default function AccountScreen() {
               loading={isChangingPassword}
               disabled={isChangingPassword}
             >
-              Update
+              {t("update")}
             </Button>
           </View>
         </Modal>

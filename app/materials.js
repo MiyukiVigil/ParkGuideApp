@@ -561,7 +561,7 @@ export default function Materials() {
 
       <View style={styles.container}>
         <Searchbar
-          placeholder="Search materials"
+          placeholder={t("searchMaterials")}
           placeholderTextColor={theme.colors.onSurfaceVariant}
           value={query}
           onChangeText={setQuery}
@@ -577,13 +577,17 @@ export default function Materials() {
         />
 
         <View style={styles.chipRow}>
-          {["All", "Guide", "Policy"].map((cat) => {
-            const selected = activeCategory === cat;
+          {[
+            { key: "All", label: t("categoryAll") },
+            { key: "Guide", label: t("categoryGuide") },
+            { key: "Policy", label: t("categoryPolicy") },
+          ].map(({ key, label }) => {
+            const selected = activeCategory === key;
             return (
               <Chip
-                key={cat}
+                key={key}
                 selected={selected}
-                onPress={() => setActiveCategory(cat)}
+                onPress={() => setActiveCategory(key)}
                 style={{
                   backgroundColor: selected
                     ? theme.colors.primary
@@ -596,7 +600,7 @@ export default function Materials() {
                   fontWeight: "700",
                 }}
               >
-                {cat}
+                {label}
               </Chip>
             );
           })}
@@ -635,7 +639,7 @@ export default function Materials() {
                 fontSize: 18,
               }}
             >
-              No materials found
+              {t("noMaterialsFound")}
             </Text>
             <Text
               style={{
@@ -645,7 +649,7 @@ export default function Materials() {
                 lineHeight: 22,
               }}
             >
-              Try another keyword or switch categories to view available learning resources.
+              {t("noMaterialsFoundDesc")}
             </Text>
           </Surface>
         ) : (

@@ -4,7 +4,7 @@ export default {
     closeButton: "Tutup",
     noNotifications: "Tiada notifikasi",
     markAsRead: "Tandakan sebagai dibaca",
-    markAllAsRead: "Tandakan semua sebagai dibaca",
+    markAllAsRead: "Tandakan semua dibaca",
     deleteNotification: "Padam notifikasi",
     notificationTitle: "Notifikasi",
     new: "Baharu",

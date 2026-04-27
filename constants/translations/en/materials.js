@@ -21,5 +21,7 @@ export default {
     materialExpired: "Material is no longer available",
     offlineMode: "Offline Mode",
     availableOffline: "Available Offline",
-    onlineRequired: "Internet connection required"
+    onlineRequired: "Internet connection required",
+    noMaterialsFound: "No materials found",
+    noMaterialsFoundDesc: "Try another keyword or switch categories to view available learning resources.",
 }
