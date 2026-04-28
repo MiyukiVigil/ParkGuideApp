@@ -18,6 +18,7 @@ import ReactNativeBlobUtil from "react-native-blob-util";
 import api, { ensureFreshSession } from "../utils/api";
 import { getAccessToken } from "../utils/tokenStorage";
 import AppHeader from "../components/AppHeader";
+import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 
 const DOWNLOAD_STORAGE_KEY = "downloadedSecureMaterialsV2";
 
@@ -208,6 +209,20 @@ export default function Materials() {
       return matchesQuery && matchesCategory;
     });
   }, [query, activeCategory, studyMaterials]);
+
+  useScreenSpeech(
+    loadingMaterials
+      ? 'Materials are loading.'
+      : [
+          'Materials',
+          activeCategory !== 'All' ? `Category: ${activeCategory}` : '',
+          query ? `Search: ${query}` : '',
+          ...filtered.map((item, index) => `${index + 1}. ${item.title}. ${item.sub}`),
+        ]
+          .filter(Boolean)
+          .join('. '),
+    { priority: 100 }
+  );
 
   const getAppDownloadPath = (item) => {
     const ext = ".pdf";

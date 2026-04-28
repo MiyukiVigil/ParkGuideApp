@@ -13,6 +13,8 @@ import { ensureFreshSession } from "../utils/api";
 import { getRefreshToken } from "../utils/tokenStorage";
 import * as NotificationService from "../services/notificationService";
 import { ThemeContext } from "../contexts/ThemeContext";
+import { ScreenSpeechProvider } from "../contexts/ScreenSpeechContext";
+import TTSFloatingButton from "../components/TTSFloatingButton";
 import { validateConfig } from "../constants/config";
 
 // Setup Translations
@@ -318,9 +320,12 @@ export default function RootLayout() {
         toggleAnimations,
       }}
     >
-      <PaperProvider theme={theme}>
-        <Stack screenOptions={{ headerShown: false }} />
-      </PaperProvider>
+      <ScreenSpeechProvider>
+        <PaperProvider theme={theme}>
+          <Stack screenOptions={{ headerShown: false }} />
+          <TTSFloatingButton />
+        </PaperProvider>
+      </ScreenSpeechProvider>
     </ThemeContext.Provider>
   );
 }

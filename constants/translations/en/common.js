@@ -117,7 +117,7 @@ export default {
     // Accessibility section
     accessibility: "Accessibility",
     textToSpeech: "Text-to-Speech (TTS)",
-    readTrainingModulesAloud: "Read training modules aloud",
+    readTrainingModulesAloud: "Read the current screen aloud",
     
     // Account settings
     accountSettings: "Account Settings",

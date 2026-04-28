@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import CONFIG from '../constants/config';
 import { clearAuthTokens, getAccessToken } from '../utils/tokenStorage';
 import { unregisterPushNotifications } from '../services/notificationService';
+import { useScreenSpeech } from '../contexts/ScreenSpeechContext';
 
 // Dashboard URLs from configuration
 const DASHBOARD_BASE_URL = CONFIG.DASHBOARD_BASE_URL;
@@ -78,6 +79,15 @@ export default function Dashboard() {
       <Text style={{ marginTop: 12, color: theme.colors.onBackground }}>{t("loadingDashboard")}</Text>
     </View>
   ), [t, theme.colors.background, theme.colors.onBackground, theme.colors.primary]);
+
+  useScreenSpeech(
+    [
+      t("adminDashboard"),
+      t("parkGuideWebApp"),
+      initialUrl ? "The web dashboard is ready." : "Loading the dashboard.",
+    ].join(" "),
+    { priority: 100 }
+  );
 
   if (loading || !initialUrl) {
     return loadingOverlay;

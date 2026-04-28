@@ -5,7 +5,7 @@ export default {
     langSwitch: "Language",
     accessSet: "Accessibility",
     ttsSwitch: "Text-to-Speech (TTS)",
-    ttsSwitchDesc: "Read training modules aloud",
+    ttsSwitchDesc: "Read the current screen aloud",
     fontSet: "Font Size",
     fontDesc: "Standard",
     logoutButton: "Secure Logout",

@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
+import { useScreenSpeech } from '../../contexts/ScreenSpeechContext';
 import courseService from '../../services/courseService';
 
 const isLessonCompleted = (lesson) => Boolean(
@@ -60,6 +61,31 @@ export default function ChapterView() {
   const containerMargin = width > 1200 ? 'auto' : 0;
 
   const cardRadius = isSimpleMode || highContrast ? 16 : 24;
+
+  const lessons = chapter?.lessons || [];
+  const chapterProgress = chapter ? getChapterProgress(chapter) : { totalLessons: 0, completedLessons: 0, progressPercentage: 0 };
+  const progress = chapterProgress.progressPercentage || 0;
+
+  const speechText = loading
+    ? [t('chapter'), t('loadingCourses')].join('. ')
+    : !chapter
+      ? [t('chapter'), t('errorLoadingCourse')].join('. ')
+      : [
+          getLocalizedText(chapter.title) || t('chapter'),
+          getLocalizedText(chapter.description),
+          `${t('chapterProgress')}: ${Math.round(progress)}%`,
+          t('lessonsCompleted', {
+            completed: chapterProgress.completedLessons,
+            total: chapterProgress.totalLessons,
+          }),
+          ...lessons.map((lesson, index) => `${t('lesson')} ${index + 1}. ${getLocalizedText(lesson.title)}`),
+          ...(chapter.practice_exercises || []).length > 0 ? [t('practiceExercise')] : [],
+          ...(chapter.quizzes || []).length > 0 ? [t('quiz')] : [],
+        ]
+          .filter(Boolean)
+          .join('. ');
+
+  useScreenSpeech(speechText, { priority: 100 });
 
   useEffect(() => {
     loadChapter();
@@ -123,10 +149,6 @@ export default function ChapterView() {
       </View>
     );
   }
-
-  const lessons = chapter.lessons || [];
-  const chapterProgress = getChapterProgress(chapter);
-  const progress = chapterProgress.progressPercentage || 0;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>

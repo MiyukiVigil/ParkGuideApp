@@ -41,6 +41,8 @@ import {
   getTwoFactorStatus,
   setupTwoFactor,
 } from "../services/twoFactorService";
+import { useScreenSpeechContext } from "../contexts/ScreenSpeechContext";
+import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 
 export default function Settings() {
   const theme = useTheme();
@@ -63,11 +65,11 @@ export default function Settings() {
     animationsEnabled,
     toggleAnimations,
   } = useThemeContext();
+  const { ttsEnabled, setTtsEnabled } = useScreenSpeechContext();
 
   const [langMenuVisible, setLangMenuVisible] = useState(false);
   const [fontMenuVisible, setFontMenuVisible] = useState(false);
   const [fontFamilyMenuVisible, setFontFamilyMenuVisible] = useState(false);
-  const [isTTS, setIsTTS] = useState(false);
   const [passkeyStatus, setPasskeyStatus] = useState({
     available: isPasskeySupported(),
     enabled: false,
@@ -144,6 +146,23 @@ export default function Settings() {
   const listDescriptionFontSize = scaleSize(isSimpleMode || highContrast ? 15 : 13);
   const fontLabel = t(fontScalePreset || "standard");
   const fontFamilyLabel = t(fontFamilyPreset === "serif" ? "serifFont" : fontFamilyPreset === "mono" ? "monoFont" : "systemFont");
+
+  const ttsStateLabel = ttsEnabled ? t("enabled") : t("disabled");
+  const speechText = [
+    t("setHeader"),
+    t("preferencesAndDisplay"),
+    t("appearance"),
+    `${t("themeMode")}: ${isDarkMode ? t("darkMode") : t("lightMode")}`,
+    `${t("backgroundAnimations")}: ${animationsEnabled ? t("animationsEnabled") : t("animationsDisabled")}`,
+    `${t("langSwitch")}: ${getLangLabel()}`,
+    `${t("fontSet")}: ${fontLabel}`,
+    `${t("fontStyle")}: ${fontFamilyLabel}`,
+    t("accessibility"),
+    `${t("textToSpeech")}: ${ttsStateLabel}`,
+    t("security"),
+  ].join('. ');
+
+  useScreenSpeech(speechText, { priority: 100 });
 
   useEffect(() => {
     loadPasskeyStatus();
@@ -532,7 +551,7 @@ export default function Settings() {
             left={(props) => (
               <List.Icon {...props} icon="volume-high" color={theme.colors.tertiary} />
             )}
-            right={() => <Switch value={isTTS} onValueChange={() => setIsTTS(!isTTS)} />}
+            right={() => <Switch value={ttsEnabled} onValueChange={setTtsEnabled} />}
             titleStyle={{ color: theme.colors.onSurface, fontWeight: "700", fontSize: listTitleFontSize }}
             descriptionStyle={{ color: theme.colors.onSurfaceVariant, fontSize: listDescriptionFontSize }}
             style={{ minHeight: isSimpleMode || highContrast ? 72 : undefined }}

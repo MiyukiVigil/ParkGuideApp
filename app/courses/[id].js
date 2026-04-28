@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
+import { useScreenSpeech } from '../../contexts/ScreenSpeechContext';
 import courseService from '../../services/courseService';
 
 const isLessonCompleted = (lesson) => Boolean(
@@ -138,6 +139,33 @@ export default function CourseDetail() {
   const allPrerequisitesMet = prerequisites.length === 0 || prerequisites.every(p => p.is_completed);
   const canEnroll = !isEnrolled && allPrerequisitesMet;
 
+  const chapterText = (course?.chapters || []).flatMap((chapter, index) => {
+    const chapterTitle = getLocalizedText(chapter.title) || `${t('chapter')} ${index + 1}`;
+    const lessonTitles = (chapter.lessons || []).map((lesson, lessonIndex) => {
+      const lessonTitle = getLocalizedText(lesson.title) || `${t('lesson')} ${lessonIndex + 1}`;
+      return `Lesson ${lessonIndex + 1}: ${lessonTitle}`;
+    });
+
+    return [`Chapter ${index + 1}: ${chapterTitle}`, ...lessonTitles];
+  });
+
+  const speechText = loading
+    ? [t('courseDetails'), t('loadingCourses')].join('. ')
+    : !course
+      ? [t('courseDetails'), t('errorLoadingCourse')].join('. ')
+      : [
+          getLocalizedText(course.title) || t('courseDetails'),
+          getLocalizedText(course.description),
+          enrollmentStatus ? `${t('status')}: ${enrollmentStatus}` : '',
+          ...(prerequisites.length > 0
+            ? [t('prerequisites'), ...prerequisites.map((item, index) => `${index + 1}. ${getLocalizedText(item.title || item.name || item.course_title || '')}`)]
+            : []),
+          ...chapterText,
+        ]
+          .filter(Boolean)
+          .join('. ');
+
+  useScreenSpeech(speechText, { priority: 100 });
   if (loading) {
     return (
       <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>

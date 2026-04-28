@@ -117,7 +117,7 @@ export default {
     // 辅助功能 (Accessibility)
     accessibility: "辅助功能",
     textToSpeech: "文字转语音 (TTS)",
-    readTrainingModulesAloud: "语音朗读培训模块",
+    readTrainingModulesAloud: "朗读当前屏幕内容",
     
     // 帐户设置
     accountSettings: "帐户设置",

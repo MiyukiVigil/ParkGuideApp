@@ -117,7 +117,7 @@ export default {
     // Bahagian Kebolehaksesan
     accessibility: "Kebolehaksesan",
     textToSpeech: "Teks ke Pertuturan (TTS)",
-    readTrainingModulesAloud: "Baca modul latihan dengan kuat",
+    readTrainingModulesAloud: "Baca skrin semasa dengan kuat",
     
     // Tetapan Akaun
     accountSettings: "Tetapan Akaun",

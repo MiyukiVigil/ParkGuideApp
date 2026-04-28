@@ -28,7 +28,7 @@ module.exports = {
     name: "ParkGuideApp",
     slug: "parkguideapp",
     scheme: "parkguideapp",
-    version: "1.3.0",
+    version: "1.3.1",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",

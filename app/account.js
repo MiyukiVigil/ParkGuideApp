@@ -25,6 +25,7 @@ import { clearAuthTokens } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
 import { unregisterPushNotifications } from "../services/notificationService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 
 export default function AccountScreen() {
   const { t } = useTranslation();
@@ -50,6 +51,22 @@ export default function AccountScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [signOutDialogVisible, setSignOutDialogVisible] = useState(false);
+
+  useScreenSpeech(
+    profile
+      ? [
+          'Account settings',
+          'Profile and security',
+          profile.name ? `Name: ${profile.name}` : '',
+          profile.email ? `Email: ${profile.email}` : '',
+          profile.phone ? `Phone: ${profile.phone}` : '',
+          profile.role ? `Role: ${profile.role}` : '',
+        ]
+          .filter(Boolean)
+          .join('. ')
+      : 'Account settings. Profile and security.',
+    { priority: 100 }
+  );
 
   useEffect(() => {
     initialize();

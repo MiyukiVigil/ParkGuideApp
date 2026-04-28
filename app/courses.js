@@ -6,6 +6,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../components/AppHeader';
 import ThemedBackground from '../components/ThemedBackground';
 import { useThemeContext } from '../contexts/ThemeContext';
+import { useScreenSpeech } from '../contexts/ScreenSpeechContext';
 import courseService from '../services/courseService';
 
 export default function CourseCatalog() {
@@ -83,6 +84,21 @@ export default function CourseCatalog() {
     if (typeof value === "string") return value;
     return value[i18n.language] || value.en || value.ms || value.zh || fallback;
   };
+
+  const speechText = [
+    t('browseCourses'),
+    error || '',
+    loading && !refreshing ? t('loadingCourses') : '',
+    !loading && courses.length === 0 ? t('noCourses') : '',
+    ...courses.flatMap((course, index) => [
+      `${index + 1}. ${getLocalizedText(course.title, t('courseDetails'))}`,
+      getLocalizedText(course.description, ''),
+    ]),
+  ]
+    .filter(Boolean)
+    .join('. ');
+
+  useScreenSpeech(speechText, { priority: 100 });
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>

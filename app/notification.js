@@ -19,6 +19,7 @@ import { useFocusEffect } from "expo-router";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
 import * as NotificationService from "../services/notificationService";
+import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 
 export default function Notifications() {
   const theme = useTheme();
@@ -94,6 +95,25 @@ export default function Notifications() {
   }, [notifications, filter]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  useScreenSpeech(
+    loading
+      ? `${t("notiHeadline")}. ${t("loadingNotifications")}`
+      : [
+          t("notiHeadline"),
+          `${unreadCount} ${t("unread")}`,
+          t("notificationCentre"),
+          t("reviewAlerts"),
+          filteredNotifications.length === 0 ? t("allCaughtUp") : '',
+          ...filteredNotifications.map((item, index) => {
+            const typeLabel = item.type === "alerts" ? t("alert") : t("update");
+            return `${index + 1}. ${typeLabel}. ${item.title}. ${item.description}`;
+          }),
+        ]
+          .filter(Boolean)
+          .join('. '),
+    { priority: 100 }
+  );
 
   const openModal = async (item) => {
     setSelected({ ...item, isRead: true });

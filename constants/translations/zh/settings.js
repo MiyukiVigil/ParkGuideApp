@@ -7,7 +7,7 @@ export default {
     langSwitch: "语言",
     accessSet: "辅助功能",
     ttsSwitch: "文字转语音 (TTS)",
-    ttsSwitchDesc: "朗读训练模块内容",
+    ttsSwitchDesc: "朗读当前屏幕内容",
     fontSet: "字体大小",
     fontDesc: "标准",
     logoutButton: "安全登出",

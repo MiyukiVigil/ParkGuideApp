@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
+import { useScreenSpeech } from '../../contexts/ScreenSpeechContext';
 import courseService from '../../services/courseService';
 
 export default function LessonView() {
@@ -30,6 +31,24 @@ export default function LessonView() {
     if (typeof textData === "string") return textData;
     return textData[i18n.language] || textData.en || textData.ms || textData.zh || "";
   };
+
+  const isCompleted = lesson?.is_completed || (lesson?.progress?.completed) || false;
+
+  const speechText = loading
+    ? [t('lesson'), t('loadingLessons')].join('. ')
+    : !lesson
+      ? [t('lesson'), t('errorLoadingCourse')].join('. ')
+      : [
+          getLocalizedText(lesson.title) || t('lesson'),
+          getLocalizedText(lesson.content_text),
+          isCompleted ? t('lessonCompleted') : '',
+          (lesson.content_images || []).length > 0 ? t('images') : '',
+          (lesson.content_videos || lesson.videos || []).length > 0 ? t('videos') : '',
+        ]
+          .filter(Boolean)
+          .join('. ');
+
+  useScreenSpeech(speechText, { priority: 100 });
 
   useEffect(() => {
     loadLesson();
@@ -121,8 +140,6 @@ export default function LessonView() {
       </View>
     );
   }
-
-  const isCompleted = lesson?.is_completed || (lesson?.progress?.completed) || false;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>

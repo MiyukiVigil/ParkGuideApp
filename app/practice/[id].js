@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
+import { useScreenSpeech } from '../../contexts/ScreenSpeechContext';
 import courseService from '../../services/courseService';
 
 export default function PracticeView() {
@@ -36,6 +37,36 @@ export default function PracticeView() {
     }
     return String(textData);
   };
+
+  const questions = practice?.questions || [];
+  const isPassed = result && result.score >= (practice?.passing_score || 70);
+
+  const speechText = loading
+    ? [t('practiceExercise'), t('loadingCourses')].join('. ')
+    : !practice
+      ? [t('practiceExercise'), t('errorLoadingCourse')].join('. ')
+      : result
+        ? [
+            t('practiceResult'),
+            isPassed ? t('passed') : t('failed'),
+            `${Math.round(result.score)}%`,
+            ...questions.map((question, index) => `${t('question')} ${index + 1}. ${getLocalizedText(question.question_text)}`),
+          ]
+            .filter(Boolean)
+            .join('. ')
+        : [
+            t('practiceExercise'),
+            ...questions.map((question, index) => {
+              const optionTexts = Array.isArray(question.options)
+                ? question.options.map((option) => (typeof option === 'string' ? option : option?.text || option?.label || '')).filter(Boolean)
+                : [];
+              return [`${t('question')} ${index + 1}`, getLocalizedText(question.question_text), ...optionTexts].filter(Boolean).join('. ');
+            }),
+          ]
+            .filter(Boolean)
+            .join('. ');
+
+  useScreenSpeech(speechText, { priority: 100 });
 
   useEffect(() => {
     loadPractice();
@@ -107,9 +138,6 @@ export default function PracticeView() {
       </View>
     );
   }
-
-  const questions = practice.questions || [];
-  const isPassed = result && result.score >= (practice.passing_score || 70);
 
   // Show results
   if (result) {

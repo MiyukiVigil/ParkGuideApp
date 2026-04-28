@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
+import { useScreenSpeech } from '../../contexts/ScreenSpeechContext';
 import courseService from '../../services/courseService';
 
 const getLocalizedText = (textData, language = 'en') => {
@@ -13,6 +14,53 @@ const getLocalizedText = (textData, language = 'en') => {
   if (typeof textData === 'string') return textData;
   return textData[language] || textData.en || '';
 };
+
+const getLocalizedOptionText = (optionData, language = 'en') => {
+  if (!optionData) return '';
+
+  if (typeof optionData === 'string') {
+    return optionData;
+  }
+
+  if (Array.isArray(optionData)) {
+    return optionData.map((item) => getLocalizedOptionText(item, language)).filter(Boolean).join(' ');
+  }
+
+  if (typeof optionData === 'object') {
+    const directText =
+      getLocalizedText(optionData.text, language) ||
+      getLocalizedText(optionData.option_text, language) ||
+      getLocalizedText(optionData.label, language) ||
+      getLocalizedText(optionData.value, language) ||
+      getLocalizedText(optionData.title, language) ||
+      getLocalizedText(optionData.name, language);
+
+    if (directText) {
+      return directText;
+    }
+
+    if (typeof optionData[language] === 'string') {
+      return optionData[language];
+    }
+
+    if (typeof optionData.en === 'string') {
+      return optionData.en;
+    }
+
+    const firstString = Object.values(optionData).find((value) => typeof value === 'string');
+    if (firstString) {
+      return firstString;
+    }
+  }
+
+  return '';
+};
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 export default function QuizView() {
   const theme = useTheme();
@@ -35,6 +83,38 @@ export default function QuizView() {
   const containerMargin = width > 1200 ? 'auto' : 0;
 
   const cardRadius = isSimpleMode || highContrast ? 16 : 24;
+
+  const questions = quiz?.questions || [];
+  const isPassed = result && result.score >= (quiz?.passing_score || 70);
+
+  const speechText = loading
+    ? [t('quiz'), t('loadingCourses')].join('. ')
+    : !quiz
+      ? [t('quiz'), t('errorLoadingCourse')].join('. ')
+      : result
+        ? [
+            t('quizResult'),
+            isPassed ? t('quizPassed', { score: Math.round(result.score) }) : t('quizFailed', { score: Math.round(result.score), passing: quiz.passing_score || 70 }),
+            `${Math.round(result.score)}%`,
+            ...questions.map((question, index) => `${t('question')} ${index + 1}. ${getLocalizedText(question.question_text, i18n.language)}`),
+          ]
+            .filter(Boolean)
+            .join('. ')
+        : [
+            t('quiz'),
+            quizStarted && timeRemaining !== null ? `${t('timeRemaining')} ${formatTime(timeRemaining)}` : '',
+            ...questions.map((question, index) => {
+              const questionText = getLocalizedText(question.question_text, i18n.language);
+              const optionTexts = Array.isArray(question.options)
+                ? question.options.map((option) => getLocalizedOptionText(option, i18n.language)).filter(Boolean)
+                : [];
+              return [`${t('question')} ${index + 1}`, questionText, ...optionTexts].filter(Boolean).join('. ');
+            }),
+          ]
+            .filter(Boolean)
+            .join('. ');
+
+  useScreenSpeech(speechText, { priority: 100 });
 
   useEffect(() => {
     loadQuiz();
@@ -105,12 +185,6 @@ export default function QuizView() {
     }
   };
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   if (loading) {
     return (
       <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -137,9 +211,6 @@ export default function QuizView() {
       </View>
     );
   }
-
-  const questions = quiz.questions || [];
-  const isPassed = result && result.score >= (quiz.passing_score || 70);
 
   // Show results
   if (result) {
@@ -307,7 +378,7 @@ export default function QuizView() {
                         fontWeight: '600',
                       }}
                     >
-                      {getLocalizedText(question.options[userAnswer]?.text, i18n.language)}
+                      {getLocalizedOptionText(question.options[userAnswer], i18n.language)}
                     </Text>
                   </View>
 
@@ -336,7 +407,7 @@ export default function QuizView() {
                           fontWeight: '600',
                         }}
                       >
-                        {getLocalizedText(question.options[correctAnswerIndex]?.text, i18n.language)}
+                        {getLocalizedOptionText(question.options[correctAnswerIndex], i18n.language)}
                       </Text>
                     </View>
                   )}

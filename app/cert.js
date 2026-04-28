@@ -28,6 +28,7 @@ import * as Haptics from 'expo-haptics';
 import badgeService from '../services/badgeService';
 import { getAvatarUrl } from '../constants/config';
 import { getProfile } from '../services/profileService';
+import { useScreenSpeech } from '../contexts/ScreenSpeechContext';
 
 const BADGE_IMAGE_PLACEHOLDER = 'https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=900&q=80';
 const TILT_LIMIT = 0.18;
@@ -258,6 +259,22 @@ export default function Certification() {
     if (badge.rejected || badge.status === 'rejected') return t('retryNeeded');
     return t('locked');
   }, [isEarnedBadge, isPendingBadge, t]);
+
+  const speechText = useMemo(() => {
+    if (loading) {
+      return 'Certificates are loading.';
+    }
+
+    return [
+      'Certificates',
+      profile?.name ? `Profile: ${profile.name}` : '',
+      ...allBadges.map((badge, index) => `${index + 1}. ${badge.title || badge.name || 'Badge'} - ${getBadgeStatusLabel(badge)}`),
+    ]
+      .filter(Boolean)
+      .join('. ');
+  }, [allBadges, getBadgeStatusLabel, loading, profile?.name]);
+
+  useScreenSpeech(speechText, { priority: 100 });
 
   const getBadgeStatusTone = useCallback((badge) => {
     if (isEarnedBadge(badge)) return { chip: theme.colors.primary, text: theme.colors.onPrimary, progress: palette.progressEarned };

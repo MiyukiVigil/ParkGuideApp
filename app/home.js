@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import ThemedBackground from "../components/ThemedBackground";
 import AnimatedHeaderBackground from "../components/AnimatedHeaderBackground";
 import { useThemeContext } from "../contexts/ThemeContext";
+import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 import CONFIG, { getAvatarUrl } from "../constants/config";
 import * as NotificationService from "../services/notificationService";
 import courseService from "../services/courseService";
@@ -16,6 +17,23 @@ const withCacheBust = (url, version) => {
   if (!url) return url;
   const separator = url.includes("?") ? "&" : "?";
   return `${url}${separator}v=${version}`;
+};
+
+const parseLocalizedValue = (value) => {
+  if (!value || typeof value !== "string") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    try {
+      const normalized = value.replace(/'/g, '"');
+      return JSON.parse(normalized);
+    } catch {
+      return value;
+    }
+  }
 };
 
 export default function Home() {
@@ -66,21 +84,7 @@ export default function Home() {
           const nextCourse = incompleteCourse || enrollments[0];
           
           // Parse course_title if it's a JSON string (handle both JSON and Python dict strings)
-          let courseTitle = nextCourse?.course_title;
-          if (typeof courseTitle === 'string') {
-            try {
-              // Try parsing as JSON first
-              courseTitle = JSON.parse(courseTitle);
-            } catch (e) {
-              try {
-                // If that fails, try converting Python dict string to JSON (replace single quotes with double quotes)
-                const jsonStr = courseTitle.replace(/'/g, '"');
-                courseTitle = JSON.parse(jsonStr);
-              } catch (e2) {
-                // If parsing fails, keep it as is
-              }
-            }
-          }
+          const courseTitle = parseLocalizedValue(nextCourse?.course_title || nextCourse?.title);
           
           // Ensure course object has title 
           const courseToDisplay = nextCourse 
@@ -171,7 +175,14 @@ export default function Home() {
 
   const getLocalizedTitle = (titleData) => {
     if (!titleData) return t("untitledCourse");
-    if (typeof titleData === "string") return titleData;
+    if (typeof titleData === "string") {
+      const parsed = parseLocalizedValue(titleData);
+      if (parsed && typeof parsed === "object") {
+        return parsed[i18n.language] || parsed.en || parsed.ms || parsed.zh || t("untitledCourse");
+      }
+
+      return titleData;
+    }
     if (typeof titleData === "object") {
       return titleData[i18n.language] || titleData.en || titleData.course_title || JSON.stringify(titleData);
     }
@@ -187,6 +198,16 @@ export default function Home() {
     inputRange: [0, 1],
     outputRange: ["0%", "100%"],
   });
+
+  useScreenSpeech(
+    [
+      t("todaysFocus"),
+      currentCourse?.title ? `${t('training')}: ${getLocalizedTitle(currentCourse.title)}` : t('noCourses'),
+      remainingModules > 0 ? `${t('remainingCount', { count: remainingModules })} ${t('modules')}` : t('allCaughtUp'),
+      unreadCount > 0 ? `${unreadCount} ${t('unread')} ${t('notiHeadline')}` : t('noNotificationsView'),
+    ].join(" "),
+    { priority: 100 }
+  );
 
   return (
     <View style={styles.screen}>
