@@ -253,7 +253,7 @@ export default function Login() {
 
         <View style={styles.headerSection}>
           <Surface style={styles.logoSurface} elevation={3}>
-            <Image source={require("../assets/icon.png")} style={styles.logo} />
+            <Image source={require("../assets/old_icon.png")} style={styles.logo} />
           </Surface>
 
           <Text variant="headlineMedium" style={styles.title}>
