@@ -21,8 +21,7 @@
     }
   },
   "ios": {
-    "bundleIdentifier": "com.miyukivigil.parkguideapp",
-    "supportsTabletMode": true
+    "bundleIdentifier": "com.miyukivigil.parkguideapp"
   },
   "extra": {
     "eas": {

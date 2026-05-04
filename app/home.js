@@ -461,6 +461,13 @@ export default function Home() {
           />
           <OperationCard
             theme={theme}
+            icon="cube-scan"
+            label={t("arTraining")}
+            subtitle={t("immersiveTraining")}
+            onPress={() => router.push("/ar-training")}
+          />
+          <OperationCard
+            theme={theme}
             icon="certificate"
             label={t("badges")}
             subtitle={t("badgesEarned")}
