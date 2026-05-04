@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 
 /**
  * Environment Configuration Module
@@ -36,13 +37,30 @@ const normalizeUrl = (url) => {
   return `https://${trimmed}`;
 };
 
+const getExpoHost = () => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.manifest2?.extra?.expoGo?.debuggerHost ||
+    Constants.manifest?.debuggerHost ||
+    "";
+
+  return hostUri ? hostUri.split(":")[0] : "";
+};
+
 // Determine API URL based on platform
 const getApiBaseUrl = () => {
   const configuredUrl = getConfigValue("apiBaseUrl", "API_BASE_URL", "");
   if (configuredUrl) return normalizeUrl(configuredUrl);
 
-  // Default to localhost for web and iOS
-  // Only use 10.0.2.2 for Android emulator if explicitly needed
+  const expoHost = getExpoHost();
+  if (expoHost && !["localhost", "127.0.0.1"].includes(expoHost)) {
+    return `http://${expoHost}:8000/api`;
+  }
+
+  if (Platform.OS === "android") {
+    return "http://10.0.2.2:8000/api";
+  }
+
   return "http://localhost:8000/api";
 };
 
