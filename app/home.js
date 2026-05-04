@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text, Avatar, Surface, TouchableRipple, IconButton, Chip, useTheme } from "react-native-paper";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -12,6 +13,7 @@ import CONFIG, { getAvatarUrl } from "../constants/config";
 import * as NotificationService from "../services/notificationService";
 import courseService from "../services/courseService";
 import { getProfile } from "../services/profileService";
+import * as MonitorService from "../services/monitorService";
 
 const withCacheBust = (url, version) => {
   if (!url) return url;
@@ -41,6 +43,7 @@ export default function Home() {
   const theme = useTheme();
   const themeContext = useThemeContext();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
 
   const [trainingProgress, setTrainingProgress] = useState(0);
@@ -50,6 +53,7 @@ export default function Home() {
   const [currentCourse, setCurrentCourse] = useState(null);
   const [profile, setProfile] = useState(null);
   const [profileImageVersion, setProfileImageVersion] = useState(Date.now());
+  const [monitorStatus, setMonitorStatus] = useState(MonitorService.DEFAULT_MONITOR_STATUS);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const heroScale = useRef(new Animated.Value(0.98)).current;
@@ -133,7 +137,6 @@ export default function Home() {
           console.log("Failed to load unread count", err);
         }
       };
-
       loadUnreadCount();
 
       // Listen for real-time notification updates
@@ -144,6 +147,30 @@ export default function Home() {
 
       return () => {
         if (unsubscribe) unsubscribe();
+      };
+    }, [])
+  );
+
+  // Fetch tour monitor / camera module status
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const loadMonitorStatus = async () => {
+        const status = await MonitorService.getMonitorStatus();
+
+        if (isActive) {
+          setMonitorStatus(status);
+        }
+      };
+
+      loadMonitorStatus();
+
+      const timer = setInterval(loadMonitorStatus, 15000);
+
+      return () => {
+        isActive = false;
+        clearInterval(timer);
       };
     }, [])
   );
@@ -310,7 +337,7 @@ export default function Home() {
         ]}
         contentContainerStyle={{
           paddingTop: 8,
-          paddingBottom: 40,
+          paddingBottom: Math.max(insets.bottom + 24, 44),
           flexGrow: 1,
         }}  
         showsVerticalScrollIndicator={false}
@@ -448,19 +475,20 @@ export default function Home() {
           />
           <OperationCard
             theme={theme}
+            icon="video-check"
+            label={t("tourMonitor")}
+            subtitle={
+              monitorStatus.isLive? t("liveForestMonitor") : t("monitorOffline", { defaultValue: "Camera offline" })
+            }
+            status={monitorStatus.state}
+            onPress={() => router.push("/monitor")}
+          />
+          <OperationCard
+            theme={theme}
             icon="cog"
             label={t("settings")}
             subtitle={t("preferences")}
             onPress={() => router.push("/settings")}
-          />
-          <OperationCard
-            theme={theme}
-            icon="video-check"
-            label={t("tourMonitor")}
-            subtitle={t("liveForestMonitor")}
-            isLive
-            fullWidth
-            onPress={() => router.push("/monitor")}
           />
         </View>
       </ScrollView>
@@ -492,15 +520,16 @@ function StatCard({ theme, label, value, icon }) {
   );
 }
 
-function OperationCard({ icon, label, progress, subtitle, isLive, fullWidth, onPress, theme }) {
+function OperationCard({ icon, label, progress, subtitle, isLive, status, onPress, theme }) {
   const { t } = useTranslation();
+  const statusPill = getOperationStatusConfig(status, isLive, theme, t);
   return (
     <Surface
       style={[
         styles.opCard,
         {
-          width: fullWidth ? "100%" : "48%",
-          height: fullWidth ? 148 : 178,
+          width: "48%",
+          height: 178,
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.outlineVariant,
         },
@@ -523,10 +552,12 @@ function OperationCard({ icon, label, progress, subtitle, isLive, fullWidth, onP
               color={theme.colors.tertiary}
               style={{ backgroundColor: theme.colors.primaryContainer }}
             />
-            {isLive && (
-              <View style={[styles.livePill, { backgroundColor: theme.colors.primaryContainer }]}>
-                <View style={[styles.liveDot, { backgroundColor: theme.colors.tertiary }]} />
-                <Text style={[styles.liveText, { color: theme.colors.tertiary }]}>{t("liveLabel")}</Text>
+            {statusPill && (
+              <View style={[styles.livePill, { backgroundColor: statusPill.backgroundColor }]}>
+                <View style={[styles.liveDot, { backgroundColor: statusPill.dotColor }]} />
+                <Text style={[styles.liveText, { color: statusPill.textColor }]}>
+                  {statusPill.label}
+                </Text>
               </View>
             )}
           </View>
@@ -557,6 +588,42 @@ function OperationCard({ icon, label, progress, subtitle, isLive, fullWidth, onP
       </TouchableRipple>
     </Surface>
   );
+}
+
+function getOperationStatusConfig(status, isLive, theme, t) {
+  if (!status && !isLive) {
+    return null;
+  }
+  if (status === "live" || isLive) {
+    return {
+      label: t("liveLabel", { defaultValue: "LIVE" }),
+      backgroundColor: theme.colors.primaryContainer,
+      dotColor: theme.colors.tertiary,
+      textColor: theme.colors.tertiary,
+    };
+  }
+  if (status === "checking") {
+    return {
+      label: t("checkingLabel", { defaultValue: "CHECKING" }),
+      backgroundColor: theme.colors.surfaceVariant,
+      dotColor: theme.colors.primary,
+      textColor: theme.colors.primary,
+    };
+  }
+  if (status === "error") {
+    return {
+      label: t("errorLabel", { defaultValue: "ERROR" }),
+      backgroundColor: theme.colors.errorContainer,
+      dotColor: theme.colors.error,
+      textColor: theme.colors.error,
+    };
+  }
+  return {
+    label: t("offlineLabel", { defaultValue: "OFFLINE" }),
+    backgroundColor: theme.colors.surfaceVariant,
+    dotColor: theme.colors.onSurfaceVariant,
+    textColor: theme.colors.onSurfaceVariant,
+  };
 }
 
 const styles = StyleSheet.create({

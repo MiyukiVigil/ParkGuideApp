@@ -46,7 +46,7 @@ module.exports = {
         NSLocationWhenInUseUsageDescription:
           "This app needs access to your location to show nearby parks.",
         NSCameraUsageDescription:
-          "This app needs camera access for park identification features.",
+          "This app needs camera access for tour monitoring preview.",
         NSPhotoLibraryUsageDescription:
           "This app needs photo library access to upload park images.",
       },
@@ -103,7 +103,15 @@ module.exports = {
       policy: "appVersion",
     },
     plugins: [
-      "expo-camera",
+      [
+        "expo-camera",
+        {
+          cameraPermission:
+            "Allow ParkGuide to use the camera for tour monitoring preview.",
+          recordAudioAndroid: false,
+          barcodeScannerEnabled: false,
+        },
+      ],
       [
         "expo-location",
         {

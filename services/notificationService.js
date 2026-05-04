@@ -1,4 +1,5 @@
 import api from "../utils/api";
+import * as AlertService from "./alertService";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getAccessToken } from "../utils/tokenStorage";
@@ -7,6 +8,67 @@ import Constants from 'expo-constants';
 
 const PUSH_TOKEN_KEY = "pushNotificationToken";
 const NOTIFICATION_CHANNEL_KEY = "parkguide_notifications";
+const LOCAL_ALERT_READ_KEY = "parkguide_alert_notification_read_ids";
+const LOCAL_ALERT_CLEARED_KEY = "parkguide_alert_notification_cleared_ids";
+
+const getStoredIdList = async (key) => {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.log(`Failed to read stored list ${key}:`, err.message);
+    return [];
+  }
+};
+
+const setStoredIdList = async (key, ids) => {
+  try {
+    const uniqueIds = [...new Set(ids.filter(Boolean))];
+    await AsyncStorage.setItem(key, JSON.stringify(uniqueIds));
+  } catch (err) {
+    console.log(`Failed to save stored list ${key}:`, err.message);
+  }
+};
+
+const getAlertNotificationId = (alert) => `camera-alert-notification-${alert.id}`;
+
+const buildAlertNotification = (alert, readIds = []) => {
+  const notificationId = getAlertNotificationId(alert);
+
+  return {
+    id: notificationId,
+    title: alert.title,
+    description: alert.summary,
+    fullText: `${alert.summary}\n\nSeverity: ${alert.severity}\nStatus: ${alert.status}\nDetected Activity: ${alert.detectedActivity}\nConfidence: ${alert.confidence}\nReceived: ${alert.receivedAt}`,
+    time: alert.receivedAt,
+    type: "alerts",
+    isRead: readIds.includes(notificationId),
+    backendId: null,
+    isLocalAlert: true,
+    alertId: alert.id,
+    alert,
+  };
+};
+
+const isViolationNotification = (item = {}) => {
+  const rawType = String(item.type || item.category || item.notification_type || "").toLowerCase();
+
+  return (
+    rawType.includes("violation") ||
+    rawType.includes("anomaly") ||
+    Boolean(item.violation) ||
+    Boolean(item.violation_id) ||
+    Boolean(item.detected_class) ||
+    Boolean(item.confidence_score) ||
+    Boolean(item.evidence_video_url)
+  );
+};
+
+export const markLocalAlertNotificationAsRead = async (notificationId) => {
+  const readIds = await getStoredIdList(LOCAL_ALERT_READ_KEY);
+  await setStoredIdList(LOCAL_ALERT_READ_KEY, [...readIds, notificationId]);
+};
 
 // Simple event emitter for notification updates
 const notificationEventListeners = new Set();
@@ -90,36 +152,40 @@ export const registerForPushNotifications = async () => {
   }
 };
 
-/**
- * Fetch all notifications for current user from backend
- */
+// Fetch all notifications for current user from backend
 export const fetchNotifications = async () => {
+  const readAlertIds = await getStoredIdList(LOCAL_ALERT_READ_KEY);
+  const clearedAlertIds = await getStoredIdList(LOCAL_ALERT_CLEARED_KEY);
+  const cameraAlerts = await AlertService.fetchAlerts();
+  const alertNotifications = cameraAlerts.map((alert) => buildAlertNotification(alert, readAlertIds)).filter((item) => !clearedAlertIds.includes(item.id));
+
   try {
     const response = await api.get("/notifications/items/");
     if (response.data && Array.isArray(response.data)) {
       console.log("Fetched notifications from backend:", response.data.length);
-      // Transform backend data to match app format
-      return response.data.map((item) => ({
-        id: String(item.id),
-        title: item.title,
-        description: item.description,
-        fullText: item.fullText,
-        time: item.time,
-        type: "updates", // Backend doesn't specify type, default to updates
-        isRead: item.is_read,
-        backendId: item.id, // Store backend ID for marking as read
-      }));
+      const backendNotifications = response.data
+        .filter((item) => !isViolationNotification(item))
+        .map((item) => ({
+          id: String(item.id),
+          title: item.title,
+          description: item.description,
+          fullText: item.fullText || item.full_text || item.description,
+          time: item.time || item.created_at || "",
+          type: "updates",
+          isRead: Boolean(item.is_read),
+          backendId: item.id,
+          violation: null,
+        }));
+      return [...alertNotifications, ...backendNotifications];
     }
-    return [];
+    return alertNotifications;
   } catch (err) {
     console.log("Failed to fetch notifications:", err.message);
-    return [];
+    return alertNotifications;
   }
 };
 
-/**
- * Mark a single notification as read on backend
- */
+// Mark a single notification as read on backend
 export const markNotificationAsRead = async (backendId) => {
   try {
     await api.post(`/notifications/items/${backendId}/mark-read/`);
@@ -129,34 +195,50 @@ export const markNotificationAsRead = async (backendId) => {
   }
 };
 
-/**
- * Mark all notifications as read on backend
- */
+// Mark all notifications as read on backend
 export const markAllNotificationsAsRead = async () => {
   try {
     await api.post("/notifications/items/mark-all-read/");
-    console.log("All notifications marked as read");
+    console.log("All backend notifications marked as read");
   } catch (err) {
-    console.log("Failed to mark all notifications as read:", err.message);
+    console.log("Failed to mark all backend notifications as read:", err.message);
+  }
+
+  try {
+    const alerts = await AlertService.fetchAlerts();
+    const alertNotificationIds = alerts.map((alert) => getAlertNotificationId(alert));
+    const readIds = await getStoredIdList(LOCAL_ALERT_READ_KEY);
+    await setStoredIdList(LOCAL_ALERT_READ_KEY, [...readIds, ...alertNotificationIds]);
+    console.log("All local alert notifications marked as read");
+  } catch (err) {
+    console.log("Failed to mark local alert notifications as read:", err.message);
   }
 };
 
-/**
- * Clear (delete) all read notifications on backend
- */
+// Clear (delete) all read notifications on backend
 export const clearReadNotifications = async () => {
+  let backendResponse = null;
   try {
     const response = await api.post("/notifications/items/clear-read/");
-    console.log("Read notifications cleared:", response.data);
-    return response.data;
+    backendResponse = response.data;
+    console.log("Read backend notifications cleared:", response.data);
   } catch (err) {
-    console.log("Failed to clear read notifications:", err.message);
+    console.log("Failed to clear backend read notifications:", err.message);
   }
+
+  try {
+    const readIds = await getStoredIdList(LOCAL_ALERT_READ_KEY);
+    const clearedIds = await getStoredIdList(LOCAL_ALERT_CLEARED_KEY);
+    await setStoredIdList(LOCAL_ALERT_CLEARED_KEY, [...clearedIds, ...readIds]);
+    console.log("Read local alert notifications cleared");
+  } catch (err) {
+    console.log("Failed to clear local alert notifications:", err.message);
+  }
+
+  return backendResponse;
 };
 
-/**
- * Listen for incoming push notifications
- */
+// Listen for incoming push notifications
 export const listenToPushNotifications = (onNotification) => {
   // Handle notification received while app is in foreground
   const notificationListener = Notifications.addNotificationReceivedListener(
