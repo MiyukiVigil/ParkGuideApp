@@ -42,7 +42,7 @@ export default {
     
     // Bahagian notifikasi
     notificationCentre: "Pusat Notifikasi",
-    reviewAlerts: "Semak semula operasi maklum balas dan kemas kini untuk tugas pemandu taman.",
+    reviewAlerts: "Semak semula operasi maklum balas dan kemas kini untuk tugas panduan taman.",
     markAllRead: "Tandakan maklumat dibaca",
     clearRead: "Kosongkan maklumat dibaca",
     
@@ -55,8 +55,8 @@ export default {
     alert: "Maklum Balas",
     update: "Kemas Kini",
     
-    // Pilihan pemandu
-    guidePreferences: "Pilihan Pemandu",
+    // Pilihan panduan
+    guidePreferences: "Pilihan Panduan",
     tapToOpenSettings: "Ketik di sini untuk membuka tetapan akaun, emel, kata laluan dan profil",
     
     // Bahagian penampilan
@@ -85,7 +85,7 @@ export default {
     
     // Bahagian latihan
     trainingOverview: "Gambaran Keseluruhan Latihan",
-    learnFlexibly: "Belajar dengan fleksibel, jejak kemajuan latihan, dan kuasai kemahiran pemandu baharu.",
+    learnFlexibly: "Belajar dengan fleksibel, jejak kemajuan latihan, dan kuasai kemahiran panduan baharu.",
     completedModules: "Modul yang telah selesai",
     overallProgress: "Kemajuan keseluruhan",
     modules: "Modul",
@@ -95,7 +95,7 @@ export default {
     tapToStartMedia: "Ketik untuk memulakan modul",
     
     // Bahagian rumah
-    continueYourPath: "Teruskan pembelajaran panduan eko semasa anda dan pastikan kemajuan pensijilan Pemandu Taman anda lancar.",
+    continueYourPath: "Teruskan pembelajaran panduan eko semasa anda dan pastikan kemajuan pensijilan Panduan Taman anda lancar.",
     modulesRemaining: "Modul Berbaki",
     completed: "Selesai",
     remaining: "Baki",
@@ -147,7 +147,7 @@ export default {
     
     // Papan Pemuka
     adminDashboard: "Papan Pemuka Pentadbir",
-    parkGuideWebApp: "Aplikasi laman web Pemandu Taman",
+    parkGuideWebApp: "Aplikasi laman web Panduan Taman",
     
     // Bahagian lain
     tourMonitor: "Monitor Lawatan",

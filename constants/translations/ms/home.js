@@ -3,10 +3,10 @@
 export default {
     inProgress: "Sedang Berjalan",
     courseCompletion: "Kemajuan Kursus",
-    guideOperations: "Operasi Pemandu",
+    guideOperations: "Operasi Panduan",
     quickAccess: "Akses pantas",
-    forestGuideOperationsDashboard: "Papan pemuka operasi pemandu hutan",
-    parkGuide: "Pemandu Taman",
+    forestGuideOperationsDashboard: "Papan pemuka operasi panduan hutan",
+    parkGuide: "Panduan Taman",
     untitledCourse: "Kursus Tanpa Tajuk",
     map: "Peta",
     mapDesc: "Peta Langsung",
@@ -36,5 +36,5 @@ export default {
     todaysFocus: "Fokus hari ini",
     todaysFocusDesc: "Selesaikan modul latihan seterusnya, semak bahan latihan, dan periksa amaran sebelum penempatan lapangan.",
     sarawakForestry: "PERHUTANAN SARAWAK",
-    forestGuideOpsDashboard: "Papan pemuka operasi pemandu hutan",
+    forestGuideOpsDashboard: "Papan pemuka operasi panduan hutan",
 };

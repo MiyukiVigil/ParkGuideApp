@@ -1,10 +1,10 @@
 // ChatGPT is used for translation, please double check for me tq - Ivan
 
 export default {
-    loginHeadline: "Portal Pemandu SFC",
+    loginHeadline: "Portal Panduan SFC",
     loginMedium: "Akses Selamat untuk Profesional Taman",
-    loginEmail: "Emel Pemandu",
-    loginPassword: "Kata Laluan Pemandu",
+    loginEmail: "Emel Panduan",
+    loginPassword: "Kata Laluan Panduan",
     loginButton: "Log Masuk Selamat",
     forgotPasswordLink: "Lupa Kata Laluan",
     forgotPasswordTitle: "Tetapkan Semula Kata Laluan",
@@ -70,7 +70,7 @@ export default {
     birthdateFormat: "Sila guna format YYYY-MM-DD untuk tarikh lahir.",
     applicationSubmitted: "Permohonan Dihantar",
     applicationSubmittedMessage: "Permohonan anda telah dihantar untuk semakan pentadbir. Kami akan menghubungi anda selepas CV disemak.",
-    parkGuideApplication: "Permohonan Pemandu Taman",
+    parkGuideApplication: "Permohonan Panduan Taman",
     parkGuideApplicationSubtitle: "Hantar maklumat anda dan CV untuk semakan pentadbir.",
     fullName: "Nama Penuh",
     phoneNumber: "Nombor Telefon",
