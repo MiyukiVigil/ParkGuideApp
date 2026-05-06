@@ -110,3 +110,6 @@ coverage/
 coverage/
 lcov.info
 .codex
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
