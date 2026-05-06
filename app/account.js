@@ -10,17 +10,25 @@ import {
   TextInput,
   Portal,
   Modal,
+  Dialog,
   ActivityIndicator,
 } from "react-native-paper";
+import * as DocumentPicker from "expo-document-picker";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { useTranslation } from "react-i18next";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
-import { getProfile, updateProfile } from "../services/profileService";
-import { ensureMockPassword, changePassword } from "../services/authService";
+import { getProfile, updateProfile, uploadProfileImage } from "../services/profileService";
+import { changePassword } from "../services/authService";
+import { clearAuthTokens } from "../utils/tokenStorage";
+import { clearProgressData } from "../utils/progressSync";
+import { unregisterPushNotifications } from "../services/notificationService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 
 export default function AccountScreen() {
+  const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
 
@@ -34,6 +42,7 @@ export default function AccountScreen() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -41,6 +50,23 @@ export default function AccountScreen() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [signOutDialogVisible, setSignOutDialogVisible] = useState(false);
+
+  useScreenSpeech(
+    profile
+      ? [
+          'Account settings',
+          'Profile and security',
+          profile.name ? `Name: ${profile.name}` : '',
+          profile.email ? `Email: ${profile.email}` : '',
+          profile.phone ? `Phone: ${profile.phone}` : '',
+          profile.role ? `Role: ${profile.role}` : '',
+        ]
+          .filter(Boolean)
+          .join('. ')
+      : 'Account settings. Profile and security.',
+    { priority: 100 }
+  );
 
   useEffect(() => {
     initialize();
@@ -49,43 +75,11 @@ export default function AccountScreen() {
   const initialize = async () => {
     try {
       setIsLoading(true);
-
-      await ensureMockPassword();
-
-      const storedUser = await AsyncStorage.getItem("user");
-      const storedRole = await AsyncStorage.getItem("role");
-
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-
-        const fullName =
-          `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-          user.username ||
-          user.email ||
-          "User";
-
-        const backendProfile = {
-          name: fullName,
-          email: user.email || "",
-          phone: user.phone_number || "",
-          role:
-            storedRole === "admin"
-              ? "Administrator"
-              : storedRole === "learner"
-              ? "Park Guide"
-              : "Park Guide",
-        };
-
-        setProfile(backendProfile);
-        setDraftProfile(backendProfile);
-      } else {
-        const data = await getProfile();
-        setProfile(data);
-        setDraftProfile(data);
-      }
+      const data = await getProfile();
+      setProfile(data);
+      setDraftProfile(data);
     } catch (error) {
-      console.log("initialize account error:", error);
-      Alert.alert("Error", "Failed to load account information.");
+      Alert.alert(t("error"), t("failedToLoadAccountInfo"));
     } finally {
       setIsLoading(false);
     }
@@ -96,17 +90,17 @@ export default function AccountScreen() {
 
   const handleSaveProfile = async () => {
     if (!draftProfile.name.trim()) {
-      Alert.alert("Invalid Name", "Please enter a valid name.");
+      Alert.alert(t("invalidName"), t("pleaseEnterValidName"));
       return;
     }
 
     if (!validateEmail(draftProfile.email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      Alert.alert(t("invalidEmail"), t("pleaseEnterValidEmailAddress"));
       return;
     }
 
     if (!validatePhone(draftProfile.phone)) {
-      Alert.alert("Invalid Phone", "Please enter a valid phone number.");
+      Alert.alert(t("invalidPhone"), t("pleaseEnterValidPhoneNumber"));
       return;
     }
 
@@ -117,19 +111,63 @@ export default function AccountScreen() {
         name: draftProfile.name.trim(),
         email: draftProfile.email.trim(),
         phone: draftProfile.phone.trim(),
-        role: draftProfile.role,
       });
 
       setProfile(updated);
       setDraftProfile(updated);
       setIsEditing(false);
 
-      Alert.alert("Saved", "Your account details have been updated.");
+      Alert.alert(t("saved"), t("accountDetailsUpdated"));
     } catch (error) {
-      console.log("save profile error:", error);
-      Alert.alert("Error", "Failed to save profile changes.");
+      Alert.alert(t("error"), t("failedToSaveProfileChanges"));
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleUploadProfileImage = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const fileSize = Number(asset.size || 0);
+      const fileType = String(asset.mimeType || asset.type || '').toLowerCase();
+
+      if (fileType && !fileType.startsWith('image/')) {
+        Alert.alert(t('unsupportedFile'), t('pleaseChooseImageFile'));
+        return;
+      }
+
+      if (fileSize > 5 * 1024 * 1024) {
+        Alert.alert(t('imageTooLarge'), t('pleaseChooseSmallerImage'));
+        return;
+      }
+
+      setIsUploadingImage(true);
+      await Haptics.selectionAsync();
+      const uploadedProfile = await uploadProfileImage(asset);
+      setProfile(uploadedProfile);
+      setDraftProfile((prev) => ({
+        ...prev,
+        ...uploadedProfile,
+      }));
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(t('profilePhotoUpdated'), t('profilePhotoSaved'));
+    } catch (error) {
+      console.log('Profile image upload error:', error?.response?.data || error?.message || error);
+      const detail = error?.response?.data?.profile_image?.[0] || error?.response?.data?.detail;
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(t('uploadFailed'), detail || t('couldNotUploadPhoto'));
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -146,6 +184,31 @@ export default function AccountScreen() {
     setConfirmPassword("");
   };
 
+  const handleSignOut = async () => {
+    Alert.alert(
+      t("signOut"),
+      t("logoutConfirm"),
+      [
+        { text: t("cancel"), onPress: () => {}, style: "cancel" },
+        {
+          text: t("signOut"),
+          onPress: async () => {
+            try {
+              await unregisterPushNotifications();
+              await clearAuthTokens();
+              await clearProgressData();
+              await AsyncStorage.removeItem("userProfile");
+              router.replace("/");
+            } catch (error) {
+              Alert.alert(t("error"), t("failedToSignOut"));
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
+  };
+
   const handleChangePassword = async () => {
     try {
       setIsChangingPassword(true);
@@ -158,25 +221,24 @@ export default function AccountScreen() {
 
       resetPasswordForm();
       setPasswordModalVisible(false);
-      Alert.alert("Success", "Your password has been changed.");
+      Alert.alert(t("success"), t("yourPasswordHasBeenChanged"));
     } catch (error) {
-      Alert.alert("Password Error", error.message || "Failed to change password.");
+      let errorMessage = t("error");
+
+      const errorCodeMap = {
+        FILL_ALL_PASSWORD_FIELDS: "fillAllPasswordFields",
+        PASSWORD_MUST_BE_8: "passwordMustBe8",
+        PASSWORDS_DO_NOT_MATCH: "passwordsDoNotMatch",
+        CURRENT_PASSWORD_INCORRECT: "currentPasswordIncorrect",
+      };
+
+      if (error.code && errorCodeMap[error.code]) {
+        errorMessage = t(errorCodeMap[error.code]);
+      }
+
+      Alert.alert(t("error"), errorMessage);
     } finally {
       setIsChangingPassword(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await AsyncStorage.removeItem("accessToken");
-      await AsyncStorage.removeItem("refreshToken");
-      await AsyncStorage.removeItem("user");
-      await AsyncStorage.removeItem("role");
-
-      router.replace("/");
-    } catch (error) {
-      console.log("sign out error:", error);
-      Alert.alert("Error", "Failed to sign out.");
     }
   };
 
@@ -184,7 +246,7 @@ export default function AccountScreen() {
     return (
       <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
         <ThemedBackground />
-        <AppHeader title="Account Settings" subtitle="Profile and security" showBack showHome />
+        <AppHeader title={t("accountSettings")} subtitle={t("profileAndSecurity")} showBack showHome />
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
@@ -195,7 +257,7 @@ export default function AccountScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <ThemedBackground />
-      <AppHeader title="Account Settings" subtitle="Profile and security" showBack showHome />
+      <AppHeader title={t("accountSettings")} subtitle={t("profileAndSecurity")} showBack showHome />
 
       <View style={styles.container}>
         <Surface
@@ -208,36 +270,37 @@ export default function AccountScreen() {
           ]}
           elevation={2}
         >
-          <Avatar.Icon
-            size={64}
-            icon="account"
-            style={{ backgroundColor: theme.colors.primaryContainer }}
-            color={theme.colors.primary}
-          />
+          <View style={styles.avatarColumn}>
+            {profile.profile_image_url ? (
+              <Avatar.Image size={76} source={{ uri: profile.profile_image_url }} />
+            ) : (
+              <Avatar.Icon
+                size={76}
+                icon="account"
+                style={{ backgroundColor: theme.colors.primaryContainer }}
+                color={theme.colors.primary}
+              />
+            )}
+            <Button
+              mode="text"
+              compact
+              onPress={handleUploadProfileImage}
+              loading={isUploadingImage}
+              disabled={isUploadingImage}
+              style={styles.uploadButton}
+            >
+              {isUploadingImage ? t("uploadingPhoto") : t("choosePhoto")}
+            </Button>
+          </View>
 
           <View style={{ marginLeft: 14, flex: 1 }}>
-            <Text
-              variant="titleLarge"
-              style={{ color: theme.colors.onSurface, fontWeight: "900" }}
-            >
+            <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
               {profile.name}
             </Text>
-
-            <Text
-              variant="bodyMedium"
-              style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
-            >
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
               {profile.email}
             </Text>
-
-            <Text
-              variant="bodySmall"
-              style={{
-                color: theme.colors.tertiary,
-                marginTop: 8,
-                fontWeight: "700",
-              }}
-            >
+            <Text variant="bodySmall" style={{ color: theme.colors.tertiary, marginTop: 8, fontWeight: "700" }}>
               {profile.role}
             </Text>
           </View>
@@ -256,43 +319,36 @@ export default function AccountScreen() {
           {isEditing ? (
             <View style={styles.formWrap}>
               <TextInput
-                label="Full Name"
+                label={t("fullName")}
                 mode="outlined"
                 value={draftProfile.name}
-                onChangeText={(text) =>
-                  setDraftProfile((prev) => ({ ...prev, name: text }))
-                }
+                onChangeText={(text) => setDraftProfile((prev) => ({ ...prev, name: text }))}
                 style={styles.input}
               />
 
               <TextInput
-                label="Email"
+                label={t("email")}
                 mode="outlined"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={draftProfile.email}
-                onChangeText={(text) =>
-                  setDraftProfile((prev) => ({ ...prev, email: text }))
-                }
+                onChangeText={(text) => setDraftProfile((prev) => ({ ...prev, email: text }))}
                 style={styles.input}
               />
 
               <TextInput
-                label="Phone"
+                label={t("phone")}
                 mode="outlined"
                 keyboardType="phone-pad"
                 value={draftProfile.phone}
-                onChangeText={(text) =>
-                  setDraftProfile((prev) => ({ ...prev, phone: text }))
-                }
+                onChangeText={(text) => setDraftProfile((prev) => ({ ...prev, phone: text }))}
                 style={styles.input}
               />
 
               <View style={styles.actionRow}>
                 <Button mode="outlined" onPress={handleCancelEdit} style={styles.flexButton}>
-                  Cancel
+                  {t("cancel")}
                 </Button>
-
                 <Button
                   mode="contained"
                   onPress={handleSaveProfile}
@@ -300,50 +356,30 @@ export default function AccountScreen() {
                   loading={isSavingProfile}
                   disabled={isSavingProfile}
                 >
-                  Save
+                  {t("save")}
                 </Button>
               </View>
             </View>
           ) : (
             <>
               <List.Item
-                title="Email"
+                title={t("email")}
                 description={profile.email}
-                left={(props) => (
-                  <List.Icon
-                    {...props}
-                    icon="email-outline"
-                    color={theme.colors.tertiary}
-                  />
-                )}
+                left={(props) => <List.Icon {...props} icon="email-outline" color={theme.colors.tertiary} />}
                 titleStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
                 descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
               />
-
               <List.Item
-                title="Phone"
-                description={profile.phone || "No phone number added"}
-                left={(props) => (
-                  <List.Icon
-                    {...props}
-                    icon="phone-outline"
-                    color={theme.colors.tertiary}
-                  />
-                )}
+                title={t("phone")}
+                description={profile.phone}
+                left={(props) => <List.Icon {...props} icon="phone-outline" color={theme.colors.tertiary} />}
                 titleStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
                 descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
               />
-
               <List.Item
-                title="Change Password"
-                description="Update your login password"
-                left={(props) => (
-                  <List.Icon
-                    {...props}
-                    icon="lock-reset"
-                    color={theme.colors.primary}
-                  />
-                )}
+                title={t("changePassword")}
+                description={t("updateYourLoginPassword")}
+                left={(props) => <List.Icon {...props} icon="lock-reset" color={theme.colors.primary} />}
                 titleStyle={{ color: theme.colors.onSurface, fontWeight: "700" }}
                 descriptionStyle={{ color: theme.colors.onSurfaceVariant }}
                 onPress={() => setPasswordModalVisible(true)}
@@ -351,7 +387,7 @@ export default function AccountScreen() {
 
               <View style={styles.actionGroup}>
                 <Button mode="contained" onPress={() => setIsEditing(true)}>
-                  Edit Profile
+                  {t("editProfile")}
                 </Button>
               </View>
             </>
@@ -360,11 +396,11 @@ export default function AccountScreen() {
 
         <Button
           mode="outlined"
-          onPress={handleSignOut}
           style={[styles.signOut, { borderColor: theme.colors.error }]}
           textColor={theme.colors.error}
+          onPress={handleSignOut}
         >
-          Sign Out
+          {t("signOut")}
         </Button>
       </View>
 
@@ -380,19 +416,12 @@ export default function AccountScreen() {
             { backgroundColor: theme.colors.surface },
           ]}
         >
-          <Text
-            variant="titleLarge"
-            style={{
-              color: theme.colors.onSurface,
-              fontWeight: "900",
-              marginBottom: 16,
-            }}
-          >
-            Change Password
+          <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: "900", marginBottom: 16 }}>
+            {t("changePassword")}
           </Text>
 
           <TextInput
-            label="Current Password"
+            label={t("currentPassword")}
             mode="outlined"
             secureTextEntry
             value={currentPassword}
@@ -401,7 +430,7 @@ export default function AccountScreen() {
           />
 
           <TextInput
-            label="New Password"
+            label={t("newPassword")}
             mode="outlined"
             secureTextEntry
             value={newPassword}
@@ -410,7 +439,7 @@ export default function AccountScreen() {
           />
 
           <TextInput
-            label="Confirm New Password"
+            label={t("confirmNewPassword")}
             mode="outlined"
             secureTextEntry
             value={confirmPassword}
@@ -428,9 +457,8 @@ export default function AccountScreen() {
               style={styles.flexButton}
               disabled={isChangingPassword}
             >
-              Cancel
+              {t("cancel")}
             </Button>
-
             <Button
               mode="contained"
               onPress={handleChangePassword}
@@ -438,19 +466,34 @@ export default function AccountScreen() {
               loading={isChangingPassword}
               disabled={isChangingPassword}
             >
-              Update
+              {t("update")}
             </Button>
           </View>
         </Modal>
+
+        <Dialog
+          visible={signOutDialogVisible}
+          onDismiss={() => setSignOutDialogVisible(false)}
+          style={{ backgroundColor: theme.colors.surface }}
+        >
+          <Dialog.Title>{t("signOut")}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{t("signOutConfirm")}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setSignOutDialogVisible(false)}>{t("cancel")}</Button>
+            <Button textColor={theme.colors.error} onPress={confirmSignOut}>
+              {t("signOut")}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
+  screen: { flex: 1 },
   container: {
     flex: 1,
     padding: 20,
@@ -467,6 +510,13 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 1,
     marginBottom: 18,
+  },
+  avatarColumn: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadButton: {
+    marginTop: 8,
   },
   sectionCard: {
     borderRadius: 24,

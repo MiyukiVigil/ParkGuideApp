@@ -1,27 +1,140 @@
-const API_BASE_URL = "http://127.0.0.1:8000";
+import axios from "axios";
+import CONFIG from "../constants/config";
+import {
+  clearAuthTokens,
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+} from "./tokenStorage";
 
-export async function apiFetch(path, options = {}) {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-        headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-        },
-        ...options,
+// API_BASE_URL from configuration
+// For development, edit constants/config.js or set EAS environment variables
+const API_BASE_URL = CONFIG.API_BASE_URL;
+
+if (!API_BASE_URL) {
+  console.warn(
+    "⚠️  API_BASE_URL is not configured. Please check constants/config.js or EAS environment variables."
+  );
+}
+const REFRESH_ENDPOINTS = [
+  "/accounts/token/refresh/",
+  "/token/refresh/",
+];
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { "Content-Type": "application/json" },
+});
+
+const refreshClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { "Content-Type": "application/json" },
+});
+
+let refreshPromise = null;
+
+const requestNewAccessToken = async () => {
+  const refresh = await getRefreshToken();
+  if (!refresh) return null;
+
+  for (const endpoint of REFRESH_ENDPOINTS) {
+    try {
+      const response = await refreshClient.post(endpoint, { refresh });
+      if (response.data?.access) {
+        if (response.data?.refresh) {
+          await setRefreshToken(response.data.refresh);
+        }
+        return response.data.access;
+      }
+    } catch (err) {
+      if (err.response?.status === 404) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  return null;
+};
+
+export const ensureFreshSession = async () => {
+  const refresh = await getRefreshToken();
+  if (!refresh) return false;
+
+  if (!refreshPromise) {
+    refreshPromise = requestNewAccessToken().finally(() => {
+      refreshPromise = null;
     });
+  }
 
-    const data = await response.json().catch(() => null);
+  const access = await refreshPromise;
 
-    console.log("API status:", response.status);
-    console.log("API response:", data);
+  if (!access) {
+    await clearAuthTokens();
+    return false;
+  }
 
-    if (!response.ok) {
-        throw new Error(
-        data?.detail ||
-        data?.message ||
-        JSON.stringify(data) ||
-        "Request failed"
-        );
+  await setAccessToken(access);
+  return true;
+};
+
+// Interceptor for attaching access token
+api.interceptors.request.use(async (config) => {
+  const token = await getAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Let axios/react-native generate a proper multipart boundary for FormData uploads.
+  if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers["Content-Type"];
+      delete config.headers["content-type"];
+    }
+  }
+
+  return config;
+});
+
+// Interceptor for handling 401 errors (expired token)
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const hasFreshSession = await ensureFreshSession();
+        if (!hasFreshSession) {
+          error.isSessionExpired = true;
+          throw error;
+        }
+
+        const access = await getAccessToken();
+        if (!access) {
+          error.isSessionExpired = true;
+          throw error;
+        }
+
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${access}`;
+        return api(originalRequest); // retry the original request
+      } catch (err) {
+        if (err !== error) {
+          console.log("Refresh token failed", err.response?.data || err.message || err);
+        }
+        await clearAuthTokens();
+        error.isSessionExpired = true;
+        throw error;
+      }
     }
 
-    return data;
-}
+    throw error;
+  }
+);
+
+export default api;
