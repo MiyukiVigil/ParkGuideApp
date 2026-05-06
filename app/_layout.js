@@ -1,122 +1,135 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Stack } from "expo-router";
 import { PaperProvider } from "react-native-paper";
-import { darkTheme, lightTheme } from "../theme/theme";
-import { Appearance, useColorScheme, AppState, Alert } from "react-native";
-import * as Localization from 'expo-localization';
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import { en, ms, zh } from '../constants/translations';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from "expo-router";
-import { ensureFreshSession } from "../utils/api";
-import { getRefreshToken } from "../utils/tokenStorage";
+import { Appearance, useColorScheme } from "react-native";
+import * as Localization from "expo-localization";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+import {
+  darkTheme,
+  lightTheme,
+  highContrastDarkTheme,
+  highContrastLightTheme,
+} from "../theme/theme";
+import { en, ms, zh } from "../constants/translations";
+import { ThemeContext } from "../contexts/ThemeContext";
 
-const ThemeContext = createContext();
-export const useThemeContext = () => useContext(ThemeContext);
-
-// Setup Translations
-const supportedLangs = ['en', 'ms', 'zh'];
+const supportedLangs = ["en", "ms", "zh"];
 const deviceLocales = Localization.getLocales() || [];
-const deviceLang = deviceLocales.find(l => supportedLangs.includes(l.languageCode))?.languageCode || 'en';
+const deviceLang =
+  deviceLocales.find((l) => supportedLangs.includes(l.languageCode))?.languageCode || "en";
 
-i18n.use(initReactI18next).init({
-  resources: {
-    en: { translation: { ...en } },
-    ms: { translation: { ...ms } },
-    zh: { translation: { ...zh } },
-  },
-  lng: deviceLang,
-  fallbackLng: 'en',
-  interpolation: { escapeValue: false },
-});
+if (!i18n.isInitialized) {
+  i18n.use(initReactI18next).init({
+    resources: {
+      en: { translation: { ...en } },
+      ms: { translation: { ...ms } },
+      zh: { translation: { ...zh } },
+    },
+    lng: deviceLang,
+    fallbackLng: "en",
+    interpolation: { escapeValue: false },
+  });
+}
 
 export default function RootLayout() {
-  const router = useRouter();
   const systemScheme = useColorScheme();
   const [isDarkMode, setIsDarkMode] = useState(systemScheme === "dark");
-  const [fontScale, setFontScale] = useState(1.0); // Font scale state
-  const sessionAlertShown = useRef(false);
+  const [uiMode, setUiMode] = useState("pretty");
+  const [highContrast, setHighContrast] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const toggleTheme = () => setIsDarkMode(prev => !prev);
-
-  // Sync with System Theme changes
-  useEffect(() => {
-    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      setIsDarkMode(colorScheme === "dark");
-    });
-    return () => subscription.remove();
-  }, []);
-
-  // Load Saved Preferences (Language & Font)
-  useEffect(() => {
-    const loadSettings = async () => {
-      const savedLang = await AsyncStorage.getItem('appLanguage');
-      const savedFont = await AsyncStorage.getItem('appFontScale');
-      if (savedLang) i18n.changeLanguage(savedLang);
-      if (savedFont) setFontScale(parseFloat(savedFont));
-    };
-    loadSettings();
-  }, []);
-
-  useEffect(() => {
-    const handleActiveState = async (nextState) => {
-      if (nextState !== "active") return;
-
-      const refresh = await getRefreshToken();
-      if (!refresh) return;
-
-      const ok = await ensureFreshSession();
-      if (ok || sessionAlertShown.current) return;
-
-      sessionAlertShown.current = true;
-      Alert.alert(
-        "Session expired",
-        "Your session has expired. Please log in again.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              sessionAlertShown.current = false;
-              router.replace("/");
-            },
-          },
-        ]
-      );
-    };
-
-    const subscription = AppState.addEventListener("change", handleActiveState);
-
-    return () => subscription.remove();
-  }, [router]);
-
-  // Apply font scaling across all React Native Paper typography variants.
-  const baseTheme = isDarkMode ? darkTheme : lightTheme;
-  const scaledFonts = Object.fromEntries(
-    Object.entries(baseTheme.fonts).map(([key, value]) => {
-      if (typeof value?.fontSize === "number") {
-        return [key, { ...value, fontSize: value.fontSize * fontScale }];
-      }
-      return [key, value];
-    })
-  );
-
-  const theme = {
-    ...baseTheme,
-    fonts: scaledFonts,
+  const toggleTheme = async () => {
+    const next = !isDarkMode;
+    setIsDarkMode(next);
+    await AsyncStorage.setItem("appThemeMode", next ? "dark" : "light");
   };
 
+  const toggleUiMode = async () => {
+    const next = uiMode === "pretty" ? "simple" : "pretty";
+    setUiMode(next);
+    await AsyncStorage.setItem("appUiMode", next);
+  };
+
+  const toggleHighContrast = async () => {
+    const next = !highContrast;
+    setHighContrast(next);
+    await AsyncStorage.setItem("appHighContrast", next ? "true" : "false");
+  };
+
+  useEffect(() => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      AsyncStorage.getItem("appThemeMode").then((savedTheme) => {
+        if (savedTheme === "dark") setIsDarkMode(true);
+        else if (savedTheme === "light") setIsDarkMode(false);
+        else setIsDarkMode(colorScheme === "dark");
+      });
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const [savedLang, savedTheme, savedUiMode, savedHighContrast] = await Promise.all([
+          AsyncStorage.getItem("appLanguage"),
+          AsyncStorage.getItem("appThemeMode"),
+          AsyncStorage.getItem("appUiMode"),
+          AsyncStorage.getItem("appHighContrast"),
+        ]);
+
+        if (savedLang) {
+          await i18n.changeLanguage(savedLang);
+        }
+
+        if (savedTheme === "dark") setIsDarkMode(true);
+        else if (savedTheme === "light") setIsDarkMode(false);
+        else setIsDarkMode(systemScheme === "dark");
+
+        if (savedUiMode === "simple" || savedUiMode === "pretty") {
+          setUiMode(savedUiMode);
+        }
+
+        if (savedHighContrast === "true") {
+          setHighContrast(true);
+        } else {
+          setHighContrast(false);
+        }
+      } catch (e) {
+        console.log("Failed to load settings", e);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadSettings();
+  }, [systemScheme]);
+
+  const theme = useMemo(() => {
+    if (highContrast) {
+      return isDarkMode ? highContrastDarkTheme : highContrastLightTheme;
+    }
+    return isDarkMode ? darkTheme : lightTheme;
+  }, [isDarkMode, highContrast]);
+
+  if (!isLoaded) return null;
+
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme, fontScale, setFontScale }}>
+    <ThemeContext.Provider
+      value={{
+        isDarkMode,
+        toggleTheme,
+        uiMode,
+        toggleUiMode,
+        isSimpleMode: uiMode === "simple",
+        highContrast,
+        toggleHighContrast,
+      }}
+    >
       <PaperProvider theme={theme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            headerTitleStyle: {
-              fontSize: (baseTheme.fonts.titleLarge?.fontSize || 22) * fontScale,
-            },
-          }}
-        />
+        <Stack screenOptions={{ headerShown: false }} />
       </PaperProvider>
     </ThemeContext.Provider>
   );

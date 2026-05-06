@@ -1,20 +1,3 @@
 export default {
-    matHeadline: "Bahan Pembelajaran",
-    materialView: "Lihat",
-    materialDownload: "Muat Turun",
-    materialDownloading: "Memuat turun...",
-    materialDownloaded: "Dimuat turun",
-    downloadCompleteTitle: "Muat Turun Selesai",
-    downloadCompleteMessage: "Bahan disimpan secara tempatan.",
-    downloadSavedAt: "Disimpan di:",
-    downloadDescription: "Memuat turun bahan PDF",
-    downloadLocationTitle: "Pilih lokasi muat turun",
-    downloadLocationMessage: "Pilih tempat anda mahu simpan fail ini.",
-    downloadLocationMessageIOS: "Pilih storan aplikasi atau buka di pelayar untuk simpan melalui Files.",
-    downloadToDevice: "Muat Turun Peranti",
-    downloadInBrowser: "Pilih di Pelayar",
-    downloadToAppStorage: "Storan Aplikasi",
-    cancelAction: "Batal",
-    downloadFailedTitle: "Muat Turun Gagal",
-    downloadFailedMessage: "Tidak dapat memuat turun bahan. Sila cuba lagi."
+    matHeadline: "Bahan Pembelajaran"
 };

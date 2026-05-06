@@ -1,20 +1,3 @@
 export default {
-    matHeadline: "Learning Materials",
-    materialView: "View",
-    materialDownload: "Download",
-    materialDownloading: "Downloading...",
-    materialDownloaded: "Downloaded",
-    downloadCompleteTitle: "Download Complete",
-    downloadCompleteMessage: "Material saved locally.",
-    downloadSavedAt: "Saved at:",
-    downloadDescription: "Downloading PDF material",
-    downloadLocationTitle: "Choose download location",
-    downloadLocationMessage: "Select where you want to save this file.",
-    downloadLocationMessageIOS: "Choose app storage or open in browser to save via Files.",
-    downloadToDevice: "Device Downloads",
-    downloadInBrowser: "Choose in Browser",
-    downloadToAppStorage: "App Storage",
-    cancelAction: "Cancel",
-    downloadFailedTitle: "Download Failed",
-    downloadFailedMessage: "Unable to download material. Please try again."
+    matHeadline: "Learning Materials"
 }

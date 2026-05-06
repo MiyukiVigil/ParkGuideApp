@@ -1,20 +1,3 @@
 export default {
-    matHeadline: "学习资料",
-    materialView: "查看",
-    materialDownload: "下载",
-    materialDownloading: "下载中...",
-    materialDownloaded: "已下载",
-    downloadCompleteTitle: "下载完成",
-    downloadCompleteMessage: "资料已保存到本地。",
-    downloadSavedAt: "保存位置：",
-    downloadDescription: "正在下载 PDF 资料",
-    downloadLocationTitle: "选择下载位置",
-    downloadLocationMessage: "请选择要保存此文件的位置。",
-    downloadLocationMessageIOS: "可选择应用存储，或在浏览器中打开后通过文件应用保存。",
-    downloadToDevice: "设备下载目录",
-    downloadInBrowser: "在浏览器中选择",
-    downloadToAppStorage: "应用存储",
-    cancelAction: "取消",
-    downloadFailedTitle: "下载失败",
-    downloadFailedMessage: "无法下载资料，请重试。"
+    matHeadline: "学习资料"
 };
