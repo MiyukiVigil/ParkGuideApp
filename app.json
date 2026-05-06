@@ -1,31 +1,39 @@
 {
-  "name": "ParkGuideApp",
-  "displayName": "ParkGuide",
-  "slug": "park-guide-app",
-  "scheme": "parkguideapp",
-  "version": "1.1.0",
-  "orientation": "portrait",
-  "icon": "./assets/icon.png",
-  "splash": {
-    "image": "./assets/splash-icon.png",
-    "resizeMode": "contain",
-    "backgroundColor": "#FFFFFF"
-  },
-  "assetBundlePatterns": ["**/*"],
-  "android": {
-    "package": "com.miyukivigil.parkguideapp",
-    "googleServicesFile": "./google-services.json",
-    "adaptiveIcon": {
-      "foregroundImage": "./assets/android-icon-foreground.png",
-      "backgroundImage": "./assets/android-icon-background.png"
-    }
-  },
-  "ios": {
-    "bundleIdentifier": "com.miyukivigil.parkguideapp"
-  },
-  "extra": {
-    "eas": {
-      "projectId": "50ad8a0d-3529-4b5f-8945-4114823f64f3"
-    }
+  "expo": {
+    "name": "park-guide-app",
+    "slug": "park-guide-app",
+    "version": "1.0.0",
+    "scheme": "park-guide-app",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "Automatic",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sfc.parkguideapp",
+      "infoPlist": {
+        "UIUserInterfaceStyle": "Automatic"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.sfc.parkguideapp"
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-localization"
+    ]
   }
 }

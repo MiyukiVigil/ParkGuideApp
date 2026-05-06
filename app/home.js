@@ -1,59 +1,46 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
-import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text, Avatar, Surface, TouchableRipple, IconButton, Chip, useTheme } from "react-native-paper";
+import {
+  ScrollView,
+  View,
+  StyleSheet,
+  Platform,
+  useWindowDimensions,
+  Animated,
+} from "react-native";
+import {
+  Text,
+  Avatar,
+  Surface,
+  TouchableRipple,
+  IconButton,
+  Chip,
+  useTheme,
+} from "react-native-paper";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { TRAINING_COURSES } from "../constants/courses";
+import { apiFetch } from "../utils/api";
 import ThemedBackground from "../components/ThemedBackground";
-import AnimatedHeaderBackground from "../components/AnimatedHeaderBackground";
-import { useThemeContext } from "../contexts/ThemeContext";
-import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
-import CONFIG, { getAvatarUrl } from "../constants/config";
-import * as NotificationService from "../services/notificationService";
-import courseService from "../services/courseService";
-import { getProfile } from "../services/profileService";
-import * as MonitorService from "../services/monitorService";
-
-const withCacheBust = (url, version) => {
-  if (!url) return url;
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}v=${version}`;
-};
-
-const parseLocalizedValue = (value) => {
-  if (!value || typeof value !== "string") {
-    return value;
-  }
-
-  try {
-    return JSON.parse(value);
-  } catch {
-    try {
-      const normalized = value.replace(/'/g, '"');
-      return JSON.parse(normalized);
-    } catch {
-      return value;
-    }
-  }
-};
 
 export default function Home() {
   const router = useRouter();
   const theme = useTheme();
-  const themeContext = useThemeContext();
   const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
 
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [remainingModules, setRemainingModules] = useState(0);
   const [completedModules, setCompletedModules] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [currentCourse, setCurrentCourse] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [profileImageVersion, setProfileImageVersion] = useState(Date.now());
-  const [monitorStatus, setMonitorStatus] = useState(MonitorService.DEFAULT_MONITOR_STATUS);
+  const [alertCount, setAlertCount] = useState(0);
+
+  const [currentUser, setCurrentUser] = useState({
+    name: "Park Guide",
+    email: "",
+    role: "Guide",
+  });
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const heroScale = useRef(new Animated.Value(0.98)).current;
@@ -64,114 +51,67 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
-
-      const loadProfile = async () => {
+      const loadHomeData = async () => {
         try {
-          const data = await getProfile();
-          if (isActive) {
-            setProfile(data);
-            setProfileImageVersion(Date.now());
+          const stored = await AsyncStorage.getItem("completedModules");
+          const completed = stored ? JSON.parse(stored) : [];
+
+          const current =
+            TRAINING_COURSES.find((course) =>
+              course.modules.some((mod) => !completed.includes(mod.id))
+            ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
+
+          const completedInCourse = current.modules.filter((mod) =>
+            completed.includes(mod.id)
+          ).length;
+
+          const currentCourseProgress = completedInCourse / current.modules.length;
+
+          const totalIncomplete = TRAINING_COURSES.reduce((acc, course) => {
+            return acc + course.modules.filter((m) => !completed.includes(m.id)).length;
+          }, 0);
+
+          setCompletedModules(completed);
+          setTrainingProgress(currentCourseProgress);
+          setRemainingModules(totalIncomplete);
+
+          const storedUser = await AsyncStorage.getItem("user");
+          const storedRole = await AsyncStorage.getItem("role");
+
+          if (storedUser) {
+            const user = JSON.parse(storedUser);
+
+            const fullName =
+              `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+              user.username ||
+              user.email ||
+              "Park Guide";
+
+            setCurrentUser({
+              name: fullName,
+              email: user.email || "",
+              role:
+                storedRole === "admin"
+                  ? "Administrator"
+                  : storedRole === "learner"
+                  ? "Park Guide"
+                  : storedRole || "Guide",
+            });
+          }
+
+          try {
+            const monitorData = await apiFetch("/api/ranger-eye/dashboard-data/");
+            setAlertCount(Number(monitorData.pending_count || monitorData.total_alerts || 0));
+          } catch (monitorErr) {
+            console.log("Failed to load RangerEye alert count", monitorErr);
+            setAlertCount(0);
           }
         } catch (err) {
-          console.log('Failed to load profile', err);
+          console.log("Failed to load home data", err);
         }
       };
 
-      const loadTrainingProgress = async () => {
-        try {
-          const enrollments = await courseService.getUserEnrollments();
-          console.log('[home] User enrollments:', enrollments);
-          
-          // Set current course to first incomplete one, or first course overall
-          const incompleteCourse = enrollments.find(e => e.status !== 'completed' && (e.progress_percentage || 0) < 100);
-          const nextCourse = incompleteCourse || enrollments[0];
-          
-          // Parse course_title if it's a JSON string (handle both JSON and Python dict strings)
-          const courseTitle = parseLocalizedValue(nextCourse?.course_title || nextCourse?.title);
-          
-          // Ensure course object has title 
-          const courseToDisplay = nextCourse 
-            ? { ...nextCourse, title: courseTitle || nextCourse.title } 
-            : { title: t("noCourses") };
-          setCurrentCourse(courseToDisplay);
-
-          // Calculate overall progress across all enrolled courses
-          const totalProgress = enrollments.length > 0
-            ? enrollments.reduce((sum, e) => sum + (e.progress_percentage || 0), 0) / enrollments.length
-            : 0;
-
-          // Count courses not yet completed
-          const remainingModules = enrollments.filter(e => e.status !== 'completed' && (e.progress_percentage || 0) < 100).length;
-
-          setCompletedModules(enrollments.filter(e => e.status === 'completed' || (e.progress_percentage || 0) >= 100).map(e => e.id));
-          setTrainingProgress(totalProgress / 100);
-          setRemainingModules(remainingModules);
-        } catch (err) {
-          console.log("Failed to load progress", err);
-          // Fallback: show no progress
-          setCurrentCourse({ title: t("noCourses") });
-          setTrainingProgress(0);
-          setRemainingModules(0);
-        }
-      };
-
-      loadProfile();
-      loadTrainingProgress();
-
-      return () => {
-        isActive = false;
-      };
-    }, [])
-  );
-
-  // Fetch unread notifications from backend
-  useFocusEffect(
-    useCallback(() => {
-      const loadUnreadCount = async () => {
-        try {
-          const notifications = await NotificationService.fetchNotifications();
-          const unread = notifications.filter((n) => !n.isRead).length;
-          setUnreadCount(unread);
-        } catch (err) {
-          console.log("Failed to load unread count", err);
-        }
-      };
-      loadUnreadCount();
-
-      // Listen for real-time notification updates
-      const unsubscribe = NotificationService.onNotificationUpdate((notification) => {
-        // Refresh unread count when a new notification arrives
-        loadUnreadCount();
-      });
-
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
-    }, [])
-  );
-
-  // Fetch tour monitor / camera module status
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-
-      const loadMonitorStatus = async () => {
-        const status = await MonitorService.getMonitorStatus();
-
-        if (isActive) {
-          setMonitorStatus(status);
-        }
-      };
-
-      loadMonitorStatus();
-
-      const timer = setInterval(loadMonitorStatus, 15000);
-
-      return () => {
-        isActive = false;
-        clearInterval(timer);
-      };
+      loadHomeData();
     }, [])
   );
 
@@ -200,131 +140,83 @@ export default function Home() {
     }).start();
   }, [trainingProgress, barAnim]);
 
-  const getLocalizedTitle = (titleData) => {
-    if (!titleData) return t("untitledCourse");
-    if (typeof titleData === "string") {
-      const parsed = parseLocalizedValue(titleData);
-      if (parsed && typeof parsed === "object") {
-        return parsed[i18n.language] || parsed.en || parsed.ms || parsed.zh || t("untitledCourse");
-      }
+  const currentCourse =
+    TRAINING_COURSES.find((course) =>
+      course.modules.some((mod) => !completedModules.includes(mod.id))
+    ) || TRAINING_COURSES[TRAINING_COURSES.length - 1];
 
-      return titleData;
-    }
-    if (typeof titleData === "object") {
-      return titleData[i18n.language] || titleData.en || titleData.course_title || JSON.stringify(titleData);
-    }
-    return String(titleData);
+  const getLocalizedTitle = (titleData) => {
+    if (typeof titleData === "string") return titleData;
+    return titleData[i18n.language] || titleData.en || "Untitled Course";
   };
 
   const completedCount = completedModules.length;
-  const profileImageUri = profile?.profile_image_url
-    ? withCacheBust(profile.profile_image_url, profileImageVersion)
-    : getAvatarUrl(profile?.name || profile?.email || t("parkGuide"));
 
   const barWidth = barAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ["0%", "100%"],
   });
 
-  useScreenSpeech(
-    [
-      t("todaysFocus"),
-      currentCourse?.title ? `${t('training')}: ${getLocalizedTitle(currentCourse.title)}` : t('noCourses'),
-      remainingModules > 0 ? `${t('remainingCount', { count: remainingModules })} ${t('modules')}` : t('allCaughtUp'),
-      unreadCount > 0 ? `${unreadCount} ${t('unread')} ${t('notiHeadline')}` : t('noNotificationsView'),
-    ].join(" "),
-    { priority: 100 }
-  );
-
   return (
-    <View style={styles.screen}>
-        <ThemedBackground />
-      
-      {/* Fixed Header Container - sticks to top */}
-      <View style={styles.fixedHeaderContainer}>
-        <AnimatedHeaderBackground />
-        <Animated.View
-          style={[
-            styles.topBar,
-            {
-              opacity: fadeAnim,
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 10,
-            },
-          ]}
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <ThemedBackground />
+
+      <Animated.View
+        style={[
+          styles.topBar,
+          {
+            opacity: fadeAnim,
+            alignSelf: "center",
+            width: contentWidth,
+          },
+        ]}
+      >
+        <TouchableRipple
+          onPress={() => router.push("/account")}
+          borderRadius={30}
+          style={{ borderRadius: 30 }}
         >
-          {/* Transparent header overlay - sits on top of animated header */}
-          <View
-            style={[
-              styles.headerBackground,
-              {
-                backgroundColor: "transparent",
-                width: "100%",
-              },
-            ]}
-          >
-          <TouchableRipple
-            onPress={() => router.push("/account")}
-            borderRadius={30}
-            style={{ borderRadius: 30 }}
-          >
-            <Avatar.Image
-              size={54}
-              source={{
-                uri: profileImageUri,
-              }}
-            />
-          </TouchableRipple>
+          <Avatar.Image
+            size={54}
+            source={{
+              uri: `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(
+                currentUser.email || currentUser.name
+              )}`,
+            }}
+          />
+        </TouchableRipple>
 
-          <View style={{ flex: 1, marginLeft: 14 }}>
-            <Text style={[styles.brandTop, { color: theme.colors.primary }]}>
-              {t("sarawakForestry")}
-            </Text>
-            <Text
-              variant="headlineSmall"
-              style={[styles.nameText, { color: theme.colors.onSurface }]}
-            >
-              {profile?.name || t("parkGuide")}
-            </Text>
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              {t("forestGuideOpsDashboard")}
-            </Text>
-          </View>
+        <View style={{ flex: 1, marginLeft: 14 }}>
+          <Text style={[styles.brandTop, { color: theme.colors.primary }]}>
+            SARAWAK FORESTRY
+          </Text>
+          <Text
+            variant="headlineSmall"
+            style={[styles.nameText, { color: theme.colors.onSurface }]}
+          >
+            {currentUser.name}
+          </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            {currentUser.role} operations dashboard
+          </Text>
+        </View>
 
-          <View>
-            <IconButton
-              icon="bell-badge-outline"
-              iconColor={theme.colors.tertiary}
-              size={28}
-              onPress={() => router.push("/notification")}
-            />
-            {unreadCount > 0 && (
-              <View
-                style={[
-                  styles.badge,
-                  { backgroundColor: theme.colors.tertiary },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    { color: theme.colors.onTertiary },
-                  ]}
-                >
-                  {unreadCount}
-                </Text>
-              </View>
-            )}
-          </View>
+        <View>
+          <IconButton
+            icon="bell-badge-outline"
+            iconColor={theme.colors.tertiary}
+            size={28}
+            onPress={() => router.push("/notification")}
+          />
+          {alertCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: theme.colors.tertiary }]}>
+              <Text style={[styles.badgeText, { color: theme.colors.onTertiary }]}>
+                {alertCount > 99 ? "99+" : alertCount}
+              </Text>
+            </View>
+          )}
         </View>
       </Animated.View>
-      </View>
 
       <ScrollView
         style={[
@@ -332,14 +224,15 @@ export default function Home() {
           {
             alignSelf: "center",
             width: contentWidth,
-            marginTop: 150,
+            backgroundColor: theme.colors.background,
           },
         ]}
         contentContainerStyle={{
           paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom + 24, 44),
+          paddingBottom: 40,
           flexGrow: 1,
-        }}  
+          backgroundColor: theme.colors.background,
+        }}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
@@ -357,7 +250,7 @@ export default function Home() {
             <TouchableRipple
               onPress={() => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                router.push("/courses");
+                router.push("/training");
               }}
               style={styles.cardRipple}
             >
@@ -366,7 +259,10 @@ export default function Home() {
                   <Chip
                     compact
                     style={{ backgroundColor: theme.colors.primaryContainer }}
-                    textStyle={{ color: theme.colors.onPrimaryContainer, fontWeight: "800" }}
+                    textStyle={{
+                      color: theme.colors.onPrimaryContainer,
+                      fontWeight: "800",
+                    }}
                   >
                     {t("inProgress").toUpperCase()}
                   </Chip>
@@ -375,17 +271,21 @@ export default function Home() {
                   </Text>
                 </View>
 
-                <Text variant="headlineSmall" style={[styles.featureTitle, { color: theme.colors.onSurface }]}>
-                  {currentCourse ? getLocalizedTitle(currentCourse.title) : t("noCourses")}
+                <Text
+                  variant="headlineSmall"
+                  style={[styles.featureTitle, { color: theme.colors.onSurface }]}
+                >
+                  {getLocalizedTitle(currentCourse.title)}
                 </Text>
 
                 <Text style={[styles.featureSub, { color: theme.colors.onSurfaceVariant }]}>
-                  {t("continueYourPath")}
+                  Continue your current eco-guide learning path and keep your certification
+                  progress on track.
                 </Text>
 
                 <View style={styles.progressMeta}>
                   <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
-                    {remainingModules} {t("modulesRemaining")}
+                    {remainingModules} modules remaining
                   </Text>
                   <Text style={[styles.metaLabel, { color: theme.colors.onSurfaceVariant }]}>
                     {t("courseCompletion")}
@@ -416,30 +316,33 @@ export default function Home() {
         <View style={styles.statsRow}>
           <StatCard
             theme={theme}
-            label={t("completed")}
+            label="Completed"
             value={String(completedCount)}
             icon="check-circle-outline"
           />
           <StatCard
             theme={theme}
-            label={t("remaining")}
+            label="Remaining"
             value={String(remainingModules)}
             icon="clock-outline"
           />
           <StatCard
             theme={theme}
-            label={t("alerts")}
-            value={String(unreadCount)}
+            label="Alerts"
+            value={String(alertCount)}
             icon="bell-outline"
           />
         </View>
 
         <View style={styles.sectionRow}>
-          <Text variant="titleMedium" style={[styles.sectionHeader, { color: theme.colors.onSurface }]}>
+          <Text
+            variant="titleMedium"
+            style={[styles.sectionHeader, { color: theme.colors.onSurface }]}
+          >
             {t("guideOperations")}
           </Text>
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            {t("quickAccess")}
+            Quick access
           </Text>
         </View>
 
@@ -448,54 +351,44 @@ export default function Home() {
             theme={theme}
             icon="book-open-variant"
             label={t("materials")}
-            subtitle={t("forestResources")}
+            subtitle="Forest resources"
+            progress={0.6}
             onPress={() => router.push("/materials")}
           />
+
           <OperationCard
             theme={theme}
             icon="school"
             label={t("training")}
-            subtitle={`${remainingModules} ${t("remaining")}`}
+            subtitle={`${remainingModules} remaining`}
             progress={trainingProgress}
-            onPress={() => router.push("/courses")}
+            onPress={() => router.push("/training")}
           />
-          <OperationCard
-            theme={theme}
-            icon="cube-scan"
-            label={t("arTraining")}
-            subtitle={t("immersiveTraining")}
-            onPress={() => router.push("/ar-training")}
-          />
+
           <OperationCard
             theme={theme}
             icon="certificate"
-            label={t("badges")}
-            subtitle={t("badgesEarned")}
+            label={t("certs")}
+            subtitle="Verified records"
+            progress={1}
             onPress={() => router.push("/cert")}
           />
-          <OperationCard
-            theme={theme}
-            icon="map-marker-radius"
-            label={t("map")}
-            subtitle={t("mapDesc")}
-            onPress={() => router.push("/map")}
-          />
-          <OperationCard
-            theme={theme}
-            icon="video-check"
-            label={t("tourMonitor")}
-            subtitle={
-              monitorStatus.isLive? t("liveForestMonitor") : t("monitorOffline", { defaultValue: "Camera offline" })
-            }
-            status={monitorStatus.state}
-            onPress={() => router.push("/monitor")}
-          />
+
           <OperationCard
             theme={theme}
             icon="cog"
             label={t("settings")}
-            subtitle={t("preferences")}
+            subtitle="Preferences"
             onPress={() => router.push("/settings")}
+          />
+
+          <OperationCard
+            theme={theme}
+            icon="video-check"
+            label="RangerEye"
+            subtitle="IoT alerts and evidence"
+            fullWidth
+            onPress={() => router.push("/monitor")}
           />
         </View>
 
@@ -509,11 +402,15 @@ export default function Home() {
           ]}
           elevation={1}
         >
-          <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: "900" }}>
-            {t("todaysFocus")}
+          <Text
+            variant="titleMedium"
+            style={{ color: theme.colors.onSurface, fontWeight: "900" }}
+          >
+            Today’s focus
           </Text>
           <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, lineHeight: 22 }}>
-            {t("todaysFocusDesc")}
+            Complete your next training module, review guide materials, and check RangerEye
+            alerts before field deployment.
           </Text>
         </Surface>
       </ScrollView>
@@ -545,16 +442,14 @@ function StatCard({ theme, label, value, icon }) {
   );
 }
 
-function OperationCard({ icon, label, progress, subtitle, isLive, status, onPress, theme }) {
-  const { t } = useTranslation();
-  const statusPill = getOperationStatusConfig(status, isLive, theme, t);
+function OperationCard({ icon, label, progress, subtitle, fullWidth, onPress, theme }) {
   return (
     <Surface
       style={[
         styles.opCard,
         {
-          width: "48%",
-          height: 178,
+          width: fullWidth ? "100%" : "48%",
+          height: fullWidth ? 148 : 178,
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.outlineVariant,
         },
@@ -577,26 +472,29 @@ function OperationCard({ icon, label, progress, subtitle, isLive, status, onPres
               color={theme.colors.tertiary}
               style={{ backgroundColor: theme.colors.primaryContainer }}
             />
-            {statusPill && (
-              <View style={[styles.livePill, { backgroundColor: statusPill.backgroundColor }]}>
-                <View style={[styles.liveDot, { backgroundColor: statusPill.dotColor }]} />
-                <Text style={[styles.liveText, { color: statusPill.textColor }]}>
-                  {statusPill.label}
-                </Text>
-              </View>
-            )}
           </View>
 
           <View>
-            <Text variant="titleMedium" style={[styles.cardLabel, { color: theme.colors.onSurface }]}>
+            <Text
+              variant="titleMedium"
+              style={[styles.cardLabel, { color: theme.colors.onSurface }]}
+            >
               {label}
             </Text>
-            <Text variant="bodySmall" style={[styles.cardSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+            <Text
+              variant="bodySmall"
+              style={[styles.cardSubtitle, { color: theme.colors.onSurfaceVariant }]}
+            >
               {subtitle}
             </Text>
 
             {progress !== undefined && (
-              <View style={[styles.miniBarContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
+              <View
+                style={[
+                  styles.miniBarContainer,
+                  { backgroundColor: theme.colors.surfaceVariant },
+                ]}
+              >
                 <View
                   style={[
                     styles.miniBarFill,
@@ -615,69 +513,15 @@ function OperationCard({ icon, label, progress, subtitle, isLive, status, onPres
   );
 }
 
-function getOperationStatusConfig(status, isLive, theme, t) {
-  if (!status && !isLive) {
-    return null;
-  }
-  if (status === "live" || isLive) {
-    return {
-      label: t("liveLabel", { defaultValue: "LIVE" }),
-      backgroundColor: theme.colors.primaryContainer,
-      dotColor: theme.colors.tertiary,
-      textColor: theme.colors.tertiary,
-    };
-  }
-  if (status === "checking") {
-    return {
-      label: t("checkingLabel", { defaultValue: "CHECKING" }),
-      backgroundColor: theme.colors.surfaceVariant,
-      dotColor: theme.colors.primary,
-      textColor: theme.colors.primary,
-    };
-  }
-  if (status === "error") {
-    return {
-      label: t("errorLabel", { defaultValue: "ERROR" }),
-      backgroundColor: theme.colors.errorContainer,
-      dotColor: theme.colors.error,
-      textColor: theme.colors.error,
-    };
-  }
-  return {
-    label: t("offlineLabel", { defaultValue: "OFFLINE" }),
-    backgroundColor: theme.colors.surfaceVariant,
-    dotColor: theme.colors.onSurfaceVariant,
-    textColor: theme.colors.onSurfaceVariant,
-  };
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  fixedHeaderContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-    height: 150,
-    width: "100%",
-  },
-  container: { flex: 1, paddingHorizontal: 22, marginTop: 150 },
+  container: { flex: 1, paddingHorizontal: 22 },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
     paddingTop: 60,
-    paddingBottom: 0,
-    paddingHorizontal: 0,
-    width: "100%",
-  },
-  headerBackground: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 0,
     paddingBottom: 18,
     paddingHorizontal: 22,
-    borderRadius: 0,
   },
   brandTop: {
     fontWeight: "900",
@@ -817,23 +661,6 @@ const styles = StyleSheet.create({
   miniBarFill: {
     height: "100%",
     borderRadius: 6,
-  },
-  livePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  liveText: {
-    fontSize: 11,
-    fontWeight: "900",
   },
   bottomPanel: {
     borderRadius: 26,

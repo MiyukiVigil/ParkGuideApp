@@ -1,112 +1,30 @@
-# ========================================
-# Environment & Secrets Management
-# ========================================
-# Environment configuration files
-# CRITICAL: Never commit .env files with actual values
-# Use .env.example as a template instead
-.env
-.env.local
-.env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env*.local
+# Do not changes anything here unless there's a file you want to exclude from the GitHub Repo
 
-# ========================================
 # Dependency directories
-# ========================================
 node_modules/
 jspm_packages/
 
-# ========================================
-# Expo & React Native Build Files
-# ========================================
+# Expo files
 .expo/
 dist/
 web-build/
-.expo-source-maps/
 
-# ========================================
-# Native Build Directories
-# CRITICAL: These often contain build artifacts and configurations
-# Rebuild them locally with 'eas build' or 'expo prebuild'
-# ========================================
+# Native build directories
 ios/
 android/
-build/
 
-# ========================================
-# Firebase & Authentication Credentials
-# CRITICAL: Firebase service account keys should NEVER be committed
-# Generate locally or retrieve from secure storage for builds
-# ========================================
-google-services.json
-*-firebase-adminsdk-*.json
-*firebase*.pem
-*.jks
-*.keystore
+# Local environment and secret files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# ========================================
 # Logs
-# ========================================
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-*.log
-pnpm-debug.log*
 
-# ========================================
-# System Files
-# ========================================
+# System files
 .DS_Store
 Thumbs.db
-.AppleDouble
-.LSOverride
-
-# ========================================
-# IDE & Editor Configuration
-# ========================================
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.project
-.pydevproject
-.settings/
-*.sublime-project
-*.sublime-workspace
-
-# ========================================
-# OS Temporary Files
-# ========================================
-*.tmp
-*.temp
-.cache/
-
-# ========================================
-# Build Artifacts
-# ========================================
-dist/
-build/
-coverage/
-
-# ========================================
-# Additional Sensitive Files
-# ========================================
-.agents
-*.secrets
-*.key
-*.pem
-*.p12
-*.p8
-*.mobileprovision
-*.ipa
-*.apk
-
-# ========================================
-# Test Coverage Reports
-# ========================================
-coverage/
-lcov.info
-.codex
