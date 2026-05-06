@@ -4,6 +4,7 @@ import { Text, Surface, TouchableRipple, Avatar, Button, Portal, Modal, Chip, Se
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { WebView } from "react-native-webview";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
 import * as NotificationService from "../services/notificationService";
@@ -17,6 +18,8 @@ export default function Notifications() {
   const params = useLocalSearchParams();
   const router = useRouter();
   const initialFilter = params?.filter === "alerts" ? "alerts" : params?.filter === "unread" ? "unread" : "all";
+  const requestedAlertId = typeof params?.alertId === "string" ? params.alertId : null;
+  const shouldOpenRequestedAlert = params?.open === "1";
 
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,7 @@ export default function Notifications() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const modalScale = useRef(new Animated.Value(0.94)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
+  const openedRouteAlertRef = useRef(null);
 
   // Fetch notifications from backend
   const loadNotifications = useCallback(async () => {
@@ -120,7 +124,6 @@ export default function Notifications() {
   );
 
   const openModal = async (item) => {
-    setSelected({ ...item, isRead: true });
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
     );
@@ -131,6 +134,13 @@ export default function Notifications() {
     } else if (item.backendId && !item.isRead) {
       await NotificationService.markNotificationAsRead(item.backendId);
     }
+
+    if (item.type === "alerts" && item.alertId) {
+      router.push({ pathname: "/monitor", params: { alertId: String(item.alertId), open: "1" } });
+      return;
+    }
+
+    setSelected({ ...item, isRead: true });
     
     setModalVisible(true);
 
@@ -164,14 +174,16 @@ export default function Notifications() {
     ]).start(() => setModalVisible(false));
   };
 
-  const openSelectedAlertDashboard = () => {
-    if (!selected?.alertId) return;
-    const targetAlertId = selected.alertId;
-    closeModal();
-    setTimeout(() => {
-      router.push({ pathname: "/alerts", params: { alertId: targetAlertId, open: "1" } });
-    }, 220);
-  };
+  useEffect(() => {
+    if (!shouldOpenRequestedAlert || !requestedAlertId || loading || openedRouteAlertRef.current === requestedAlertId) {
+      return;
+    }
+    const matched = notifications.find((item) => item.type === "alerts" && String(item.alertId) === requestedAlertId);
+    if (!matched) return;
+    openedRouteAlertRef.current = requestedAlertId;
+    setFilter("alerts");
+    openModal(matched);
+  }, [loading, notifications, requestedAlertId, shouldOpenRequestedAlert]);
 
   const clearRead = async () => {
     try {
@@ -425,8 +437,16 @@ export default function Notifications() {
                         <AlertSummaryItem theme={theme} label="Received" value={selected.alert?.receivedAt} />
                       </View>
 
+                      {selected.alert?.videoUrl && (
+                        <AlertVideoEvidence alert={selected.alert} theme={theme} />
+                      )}
+
                       <Text style={[styles.alertLinkHelp, { color: theme.colors.onSurfaceVariant }]}>
-                        Open this alert in the Alerts Dashboard to view the attached video evidence and full review information.
+                        Evidence file: {selected.alert?.videoFilename || "N/A"}
+                      </Text>
+
+                      <Text style={[styles.alertLinkHelp, { color: theme.colors.onSurfaceVariant }]}>
+                        Recommended action: {selected.alert?.recommendedAction || "Review the footage and confirm the event."}
                       </Text>
                     </View>
                   ) : (
@@ -435,12 +455,6 @@ export default function Notifications() {
                     </Text>
                   )}
                 </ScrollView>
-
-                {isAlertNotification(selected) && (
-                  <Button mode="contained" onPress={openSelectedAlertDashboard} style={styles.alertLinkButton} icon="open-in-new" buttonColor={theme.colors.primary} textColor={theme.colors.onPrimary}>
-                    Open in Alerts Dashboard
-                  </Button>
-                )}
 
                 <Button mode={isAlertNotification(selected) ? "outlined" : "contained"} onPress={closeModal} style={styles.modalButton} buttonColor={isAlertNotification(selected) ? undefined : theme.colors.primary} textColor={isAlertNotification(selected) ? theme.colors.primary : theme.colors.onPrimary}>
                   {t("closeButton")}
@@ -469,6 +483,32 @@ function AlertSummaryItem({ theme, label, value }) {
     <View style={styles.alertSummaryItem}>
       <Text numberOfLines={1} style={[styles.alertSummaryLabel, { color: theme.colors.onSurfaceVariant }]}>{label}</Text>
       <Text numberOfLines={2} style={[styles.alertSummaryValue, { color: theme.colors.onSurface }]}>{value || "N/A"}</Text>
+    </View>
+  );
+}
+
+function AlertVideoEvidence({ alert, theme }) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+          video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        </style>
+      </head>
+      <body>
+        <video controls playsinline>
+          <source src="${alert.videoUrl}" type="video/mp4" />
+        </video>
+      </body>
+    </html>
+  `;
+
+  return (
+    <View style={[styles.alertVideoBox, { borderColor: theme.colors.outlineVariant }]}>
+      <WebView source={{ html }} style={styles.alertVideoWebView} allowsInlineMediaPlayback mediaPlaybackRequiresUserAction={false} javaScriptEnabled domStorageEnabled />
     </View>
   );
 }
@@ -654,13 +694,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "700",
   },
-  alertLinkButton: {
-    marginTop: 14,
-    borderRadius: 16,
-  },
   modalButton: {
     marginTop: 10,
     borderRadius: 16,
+  },
+  alertVideoBox: {
+    height: 190,
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+    marginTop: 4,
+    marginBottom: 12,
+    backgroundColor: "#000",
+  },
+  alertVideoWebView: {
+    flex: 1,
+    backgroundColor: "#000",
   },
   emptyWrap: {
     alignItems: "center",

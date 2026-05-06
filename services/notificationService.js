@@ -2,14 +2,24 @@ import api from "../utils/api";
 import * as AlertService from "./alertService";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { getAccessToken } from "../utils/tokenStorage";
-import { Platform } from "react-native";
 import Constants from 'expo-constants';
 
 const PUSH_TOKEN_KEY = "pushNotificationToken";
 const NOTIFICATION_CHANNEL_KEY = "parkguide_notifications";
 const LOCAL_ALERT_READ_KEY = "parkguide_alert_notification_read_ids";
 const LOCAL_ALERT_CLEARED_KEY = "parkguide_alert_notification_cleared_ids";
+
+// Use secure storage for sensitive push tokens on native, AsyncStorage on web
+const secureStorage = Platform.OS === 'web'
+  ? AsyncStorage
+  : {
+      getItem: SecureStore.getItemAsync,
+      setItem: SecureStore.setItemAsync,
+      removeItem: SecureStore.deleteItemAsync,
+    };
 
 const getStoredIdList = async (key) => {
   try {
@@ -52,11 +62,26 @@ const buildAlertNotification = (alert, readIds = []) => {
 };
 
 const isViolationNotification = (item = {}) => {
-  const rawType = String(item.type || item.category || item.notification_type || "").toLowerCase();
+  const haystack = [
+    item.type,
+    item.category,
+    item.notification_type,
+    item.title,
+    item.description,
+    item.fullText,
+    item.full_text,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 
   return (
-    rawType.includes("violation") ||
-    rawType.includes("anomaly") ||
+    haystack.includes("violation") ||
+    haystack.includes("anomaly") ||
+    haystack.includes("monitoring alert") ||
+    haystack.includes("camera alert") ||
+    haystack.includes("ai detection") ||
+    haystack.includes("detected activity") ||
     Boolean(item.violation) ||
     Boolean(item.violation_id) ||
     Boolean(item.detected_class) ||
@@ -132,7 +157,7 @@ export const registerForPushNotifications = async () => {
     console.log("Push token obtained:", token);
 
     // Store token locally
-    await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
+    await secureStorage.setItem(PUSH_TOKEN_KEY, token);
 
     // Detect device type
     const deviceType = Platform.OS === 'ios' ? 'ios' : 'android';
@@ -247,7 +272,7 @@ export const listenToPushNotifications = (onNotification) => {
       // Emit update so notification screen can refresh
       emitNotificationUpdate();
       if (onNotification) {
-        onNotification(notification);
+        onNotification(notification, "received");
       }
     }
   );
@@ -259,9 +284,8 @@ export const listenToPushNotifications = (onNotification) => {
       // Emit update so notification screen can refresh
       emitNotificationUpdate();
       // You can navigate to specific screen based on notification
-      const data = response.notification.request.content.data;
       if (onNotification) {
-        onNotification(response.notification);
+        onNotification(response.notification, "response");
       }
     }
   );
@@ -308,7 +332,7 @@ export const getUnreadCount = async () => {
 export const unregisterPushNotifications = async () => {
   try {
     // Get the stored token
-    const token = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
+    const token = await secureStorage.getItem(PUSH_TOKEN_KEY);
     
     if (!token) {
       console.log("No push notification token found to unregister");
@@ -325,7 +349,7 @@ export const unregisterPushNotifications = async () => {
     }
 
     // Clear token from local storage
-    await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
+    await secureStorage.removeItem(PUSH_TOKEN_KEY);
     console.log("Push notification token cleared from local storage");
   } catch (err) {
     console.log("Failed to unregister push notifications:", err);

@@ -1,240 +1,566 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
-import { Button, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
-import { CameraView, useCameraPermissions } from "expo-camera";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
-import * as Haptics from "expo-haptics";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Avatar, Button, Chip, Modal, Portal, Surface, Text, TouchableRipple, useTheme } from "react-native-paper";
+import { WebView } from "react-native-webview";
+import { useLocalSearchParams } from "expo-router";
+
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
-import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 import * as AlertService from "../services/alertService";
-
-const CAMERA_PRODUCT_NAME = "ESP32-CAM";
+import * as MonitorService from "../services/monitorService";
 
 export default function Monitor() {
-  const router = useRouter();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const { t } = useTranslation();
-  const [permission, requestPermission] = useCameraPermissions();
-  const [cameraCheckStatus, setCameraCheckStatus] = useState("checking");
-  const [cameraError, setCameraError] = useState(null);
-  const [alertCount, setAlertCount] = useState(0);
-  const tr = useCallback((key, fallback, options = {}) => t(key, { defaultValue: fallback, ...options }), [t]);
-  const canUseCamera = Platform.OS !== "web";
-  const cameraProductName = CAMERA_PRODUCT_NAME;
-  const statusCheckLabel = useMemo(() => getCameraBottomStatusLabel(cameraCheckStatus, tr), [cameraCheckStatus, tr]);
+  const { width, height } = useWindowDimensions();
+  const params = useLocalSearchParams();
+  const requestedAlertId = typeof params?.alertId === "string" ? params.alertId : null;
+  const shouldOpenRequestedAlert = params?.open === "1";
+  const [status, setStatus] = useState(MonitorService.DEFAULT_MONITOR_STATUS);
+  const [alerts, setAlerts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [isModalVisible, setModalVisible] = useState(false);
+  const openedRouteAlertRef = useRef(null);
 
-  const runCameraModuleCheck = useCallback(async () => {
-    setCameraError(null);
-    if (!canUseCamera) {
-      setCameraCheckStatus("unsupported");
-      return;
-    }
-    setCameraCheckStatus("checking");
-    if (permission?.granted) {
-      return;
-    }
+  const loadMonitor = useCallback(async ({ showLoader = true } = {}) => {
     try {
-      const result = await requestPermission();
-      if (!result?.granted) {
-        setCameraCheckStatus("permission");
-      }
+      if (showLoader) setIsLoading(true);
+      setError("");
+      const [nextStatus, nextAlerts] = await Promise.all([
+        MonitorService.getMonitorStatus(),
+        AlertService.fetchAlerts({ fallbackToLocal: false }),
+      ]);
+      setStatus(nextStatus);
+      setAlerts(nextAlerts);
     } catch (err) {
-      setCameraCheckStatus("failed");
-      setCameraError(err?.message || tr("cameraModuleCheckError", "Unable to check the camera module."));
+      console.log("Monitor load error:", err?.response?.data || err?.message || err);
+      setError("Unable to load live monitor data from the backend.");
+      setAlerts([]);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [canUseCamera, permission?.granted, requestPermission, tr]);
+  }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-      const loadMonitorData = async () => {
-        const alerts = await AlertService.fetchAlerts();
-        if (isActive) setAlertCount(alerts.length);
-      };
-      runCameraModuleCheck();
-      loadMonitorData();
-      return () => {
-        isActive = false;
-      };
-    }, [runCameraModuleCheck])
-  );
+  useEffect(() => {
+    loadMonitor();
+    const interval = setInterval(() => loadMonitor({ showLoader: false }), 10000);
+    return () => clearInterval(interval);
+  }, [loadMonitor]);
 
-  const handleOpenAlerts = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/alerts");
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadMonitor({ showLoader: false });
+  }, [loadMonitor]);
+
+  const pendingCount = useMemo(() => alerts.filter((alert) => String(alert.status).toLowerCase().includes("pending")).length, [alerts]);
+  const highCount = useMemo(() => alerts.filter((alert) => String(alert.severity).toLowerCase() === "high").length, [alerts]);
+  const visibleAlerts = alerts;
+  const hasManyAlerts = visibleAlerts.length > 4;
+  const modalWidth = Math.min(width - 24, 560);
+  const modalMaxHeight = Math.max(height - 48, 420);
+
+  const openAlertModal = (alert) => {
+    setSelectedAlert(alert);
+    setModalVisible(true);
   };
 
-  const handleCameraReady = () => {
-    setCameraCheckStatus("passed");
-    setCameraError(null);
+  const closeAlertModal = () => {
+    setModalVisible(false);
+    setSelectedAlert(null);
   };
 
-  const handleCameraMountError = (event) => {
-    const message = event?.message || tr("cameraFeedError", "Camera feed could not be started.");
-    setCameraCheckStatus("failed");
-    setCameraError(message);
-  };
-
-  useScreenSpeech(
-    [tr("tourMonitor", "Tour Monitor"), tr("cameraModuleTest", "Camera module test"), `${tr("camera", "Camera")}: ${cameraProductName}`, `${tr("statusCheck", "Status Check")}: ${statusCheckLabel}`].join(" "),
-    { priority: 100 }
-  );
+  useEffect(() => {
+    if (!shouldOpenRequestedAlert || !requestedAlertId || isLoading || openedRouteAlertRef.current === requestedAlertId) {
+      return;
+    }
+    const matchedAlert = alerts.find((alert) => String(alert.id) === requestedAlertId);
+    if (!matchedAlert) return;
+    openedRouteAlertRef.current = requestedAlertId;
+    openAlertModal(matchedAlert);
+  }, [alerts, isLoading, requestedAlertId, shouldOpenRequestedAlert]);
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <ThemedBackground />
+      <AppHeader title="RangerEye Monitor" subtitle="ESP32 AI violation reports" showBack showHome />
 
-      <AppHeader title={tr("tourMonitor", "Tour Monitor")} subtitle={tr("cameraModuleTest", "Camera module test")} showBack showHome />
-
-      <View style={styles.body}>
-        <View style={styles.cameraStage}>
-          {canUseCamera && permission?.granted ? (
-            <CameraView style={StyleSheet.absoluteFillObject} facing="back" onCameraReady={handleCameraReady} onMountError={handleCameraMountError} />
-          ) : (
-            <View style={[styles.permissionPanel, { backgroundColor: theme.colors.surface }]}>
-              <Text style={[styles.permissionTitle, { color: theme.colors.onSurface }]}>
-                {tr("cameraFeedInactive", "Camera feed is not active")}
-              </Text>
-
-              <Text style={[styles.permissionText, { color: theme.colors.onSurfaceVariant }]}>
-                {cameraCheckStatus === "unsupported"
-                  ? tr("cameraUnsupportedHelp", "Camera feed is not supported on this platform.")
-                  : tr("cameraAccessHelp", "Grant camera access to check whether the camera module feed can start properly.")}
-              </Text>
-
-              {canUseCamera && (
-                <Button mode="contained" onPress={runCameraModuleCheck} icon="camera" style={styles.permissionButton}>
-                  {tr("enableCameraFeed", "Enable Camera Feed")}
-                </Button>
-              )}
-            </View>
-          )}
+      {isLoading ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 12 }}>Loading live monitor data...</Text>
         </View>
-
-        <Surface
-          style={[
-            styles.controlPanel,
-            {
-              paddingBottom: Math.max(insets.bottom + 12, 20),
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.outlineVariant,
-            },
-          ]}
-          elevation={4}
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.container}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         >
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>{t("monitorPreview")}</Text>
-          <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>
-            {t("monitorPreviewDesc")}
-          </Text>
-        </Surface>
-      </View>
+          <Surface style={[styles.statusCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]} elevation={2}>
+            <View style={styles.statusTop}>
+              <View style={styles.statusTitleBlock}>
+                <Avatar.Icon
+                  size={48}
+                  icon={status.isLive ? "camera-wireless-outline" : "camera-off-outline"}
+                  color={status.isLive ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                  style={{ backgroundColor: status.isLive ? theme.colors.primaryContainer : theme.colors.surfaceVariant }}
+                />
+                <View style={styles.statusTextBlock}>
+                  <Text style={[styles.statusTitle, { color: theme.colors.onSurface }]}>ESP32-CAM Pipeline</Text>
+                  <Text numberOfLines={2} style={[styles.statusMessage, { color: theme.colors.onSurfaceVariant }]}>
+                    {status.message || "Camera module is offline."}
+                  </Text>
+                </View>
+              </View>
+
+              <Chip
+                compact
+                style={{ backgroundColor: status.isLive ? theme.colors.primaryContainer : theme.colors.surfaceVariant }}
+                textStyle={{ color: status.isLive ? theme.colors.primary : theme.colors.onSurfaceVariant, fontWeight: "800" }}
+              >
+                {status.isLive ? "Live" : "Offline"}
+              </Chip>
+            </View>
+
+            {error ? <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text> : null}
+          </Surface>
+
+          <View style={styles.summaryRow}>
+            <SummaryCard theme={theme} label="AI Alerts" value={String(alerts.length)} />
+            <SummaryCard theme={theme} label="Pending" value={String(pendingCount)} tone="warning" />
+            <SummaryCard theme={theme} label="High" value={String(highCount)} tone="danger" />
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleBlock}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Violation Reports</Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.colors.onSurfaceVariant }]}>
+                {visibleAlerts.length ? `${visibleAlerts.length} AI alert${visibleAlerts.length === 1 ? "" : "s"} from the current database` : "No stored AI alerts yet"}
+              </Text>
+            </View>
+            <Chip compact style={{ backgroundColor: theme.colors.primaryContainer }} textStyle={{ color: theme.colors.primary, fontWeight: "800" }}>
+              {visibleAlerts.length}
+            </Chip>
+          </View>
+
+          {visibleAlerts.length ? (
+            <View style={styles.alertList}>
+              {visibleAlerts.map((alert, index) => (
+                <Surface
+                  key={alert.id}
+                  style={[
+                    styles.alertCard,
+                    hasManyAlerts && styles.compactAlertCard,
+                    { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
+                  ]}
+                  elevation={index === 0 ? 2 : 1}
+                >
+                  <TouchableRipple onPress={() => openAlertModal(alert)} borderRadius={22}>
+                    <View style={[styles.alertPressArea, hasManyAlerts && styles.compactAlertPressArea]}>
+                      <View style={styles.alertHeader}>
+                        <View style={styles.alertTitleBlock}>
+                          <Text numberOfLines={2} style={[styles.alertTitle, { color: theme.colors.onSurface }]}>{alert.title}</Text>
+                          <Text numberOfLines={2} style={[styles.alertSummary, { color: theme.colors.onSurfaceVariant }]}>{alert.summary}</Text>
+                        </View>
+                        <Chip compact style={{ backgroundColor: getSeverityBg(alert.severity, theme) }} textStyle={{ color: getSeverityColor(alert.severity, theme), fontWeight: "900" }}>
+                          {alert.severity}
+                        </Chip>
+                      </View>
+
+                      <View style={styles.listMetaRow}>
+                        <Text numberOfLines={1} style={[styles.listMetaText, { color: theme.colors.onSurfaceVariant }]}>
+                          {[alert.detectedActivity, alert.confidence, alert.receivedAt].filter(Boolean).join(" • ")}
+                        </Text>
+                        <Chip compact style={{ backgroundColor: theme.colors.primaryContainer }} textStyle={{ color: theme.colors.primary, fontWeight: "800" }}>
+                          View
+                        </Chip>
+                      </View>
+                    </View>
+                  </TouchableRipple>
+                </Surface>
+              ))}
+            </View>
+          ) : (
+            <Surface style={[styles.emptyCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]} elevation={1}>
+              <Avatar.Icon size={56} icon="shield-check-outline" color={theme.colors.primary} style={{ backgroundColor: theme.colors.primaryContainer }} />
+              <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>No AI violation reports</Text>
+              <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
+                Only backend AI alerts appear here. Old raw captures and placeholder sensor rows are no longer shown.
+              </Text>
+            </Surface>
+          )}
+        </ScrollView>
+      )}
+
+      <Portal>
+        <Modal visible={isModalVisible} onDismiss={closeAlertModal} contentContainerStyle={styles.modalOuter}>
+          <Surface style={[styles.modalCard, { width: modalWidth, maxHeight: modalMaxHeight, backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]} elevation={5}>
+            {selectedAlert && (
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Avatar.Icon size={52} icon="alert" style={{ backgroundColor: theme.colors.errorContainer }} color={theme.colors.error} />
+                  <Chip compact style={{ backgroundColor: theme.colors.errorContainer }} textStyle={{ color: theme.colors.error, fontWeight: "800" }}>
+                    Camera Alert
+                  </Chip>
+                </View>
+
+                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
+                  <Text style={[styles.modalTitle, { color: theme.colors.onSurface }]}>{selectedAlert.title}</Text>
+                  <Text style={[styles.modalTime, { color: theme.colors.onSurfaceVariant }]}>{selectedAlert.receivedAt}</Text>
+                  <Text style={[styles.modalBodyText, { color: theme.colors.onSurface }]}>{selectedAlert.summary}</Text>
+
+                  <View style={[styles.alertNotificationBox, { backgroundColor: theme.colors.background, borderColor: theme.colors.outlineVariant }]}>
+                    <Text style={[styles.alertNotificationTitle, { color: theme.colors.onSurface }]}>Alert Summary</Text>
+
+                    <View style={styles.alertSummaryGrid}>
+                      <AlertSummaryItem theme={theme} label="Severity" value={selectedAlert.severity} />
+                      <AlertSummaryItem theme={theme} label="Status" value={selectedAlert.status} />
+                      <AlertSummaryItem theme={theme} label="Detected Activity" value={selectedAlert.detectedActivity} />
+                      <AlertSummaryItem theme={theme} label="Confidence" value={selectedAlert.confidence} />
+                      <AlertSummaryItem theme={theme} label="Camera ID" value={selectedAlert.cameraId} />
+                      <AlertSummaryItem theme={theme} label="Received" value={selectedAlert.receivedAt} />
+                    </View>
+
+                    {selectedAlert.videoUrl ? (
+                      <AnnotatedVideo uri={selectedAlert.videoUrl} theme={theme} />
+                    ) : (
+                      <View style={[styles.noVideoBox, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surface }]}>
+                        <Text style={{ color: theme.colors.onSurfaceVariant }}>No annotated evidence video attached.</Text>
+                      </View>
+                    )}
+
+                    <Text style={[styles.alertLinkHelp, { color: theme.colors.onSurfaceVariant }]}>
+                      Evidence file:{"\n"}{selectedAlert.videoFilename || "N/A"}
+                    </Text>
+                    <Text style={[styles.alertLinkHelp, { color: theme.colors.onSurfaceVariant }]}>
+                      Recommended action: {selectedAlert.recommendedAction || "Review the footage and confirm the event."}
+                    </Text>
+                  </View>
+                </ScrollView>
+
+                <Button mode="outlined" onPress={closeAlertModal} style={styles.modalButton} textColor={theme.colors.primary}>
+                  Close
+                </Button>
+              </View>
+            )}
+          </Surface>
+        </Modal>
+      </Portal>
     </View>
   );
 }
 
-function CompactStat({ theme, label, value, onPress }) {
-  const content = (
-    <View style={styles.compactStatInner}>
-      <Text numberOfLines={1} style={[styles.compactStatValue, { color: theme.colors.onSurface }]}>{value}</Text>
-      <Text numberOfLines={1} style={[styles.compactStatLabel, { color: theme.colors.onSurfaceVariant }]}>{label}</Text>
-    </View>
-  );
-  if (!onPress) {
-    return <View style={styles.compactStat}>{content}</View>;
-  }
+function AnnotatedVideo({ uri, theme }) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+          video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        </style>
+      </head>
+      <body>
+        <video controls playsinline>
+          <source src="${uri}" type="video/mp4" />
+        </video>
+      </body>
+    </html>
+  `;
+
   return (
-    <TouchableRipple onPress={onPress} borderRadius={18} style={styles.compactStat}>
-      {content}
-    </TouchableRipple>
+    <View style={[styles.videoBox, { borderColor: theme.colors.outlineVariant }]}>
+      <WebView source={{ html }} style={styles.videoWebView} allowsInlineMediaPlayback mediaPlaybackRequiresUserAction={false} javaScriptEnabled domStorageEnabled />
+    </View>
   );
 }
 
-function getCameraBottomStatusLabel(status, tr) {
-  if (status === "passed") return tr("onlineStatus", "Online");
-  if (status === "checking") return tr("checkingStatus", "Checking");
-  if (status === "failed") return tr("issueStatus", "Issue");
-  if (status === "unsupported") return tr("unsupportedStatus", "Unsupported");
-  return tr("accessNeededStatus", "Access Needed");
+function SummaryCard({ theme, label, value, tone }) {
+  const color = tone === "danger" ? theme.colors.error : tone === "warning" ? "#D6A33A" : theme.colors.primary;
+  return (
+    <Surface style={[styles.summaryCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]} elevation={1}>
+      <Text style={[styles.summaryValue, { color }]}>{value}</Text>
+      <Text numberOfLines={1} style={[styles.summaryLabel, { color: theme.colors.onSurfaceVariant }]}>{label}</Text>
+    </Surface>
+  );
+}
+
+function AlertSummaryItem({ theme, label, value }) {
+  return (
+    <View style={styles.alertSummaryItem}>
+      <Text numberOfLines={1} style={[styles.alertSummaryLabel, { color: theme.colors.onSurfaceVariant }]}>{label}</Text>
+      <Text numberOfLines={2} style={[styles.alertSummaryValue, { color: theme.colors.onSurface }]}>{value || "N/A"}</Text>
+    </View>
+  );
+}
+
+function getSeverityColor(severity, theme) {
+  if (String(severity).toLowerCase() === "high") return theme.colors.error;
+  if (String(severity).toLowerCase() === "medium") return "#D6A33A";
+  return theme.colors.primary;
+}
+
+function getSeverityBg(severity, theme) {
+  if (String(severity).toLowerCase() === "high") return theme.colors.errorContainer;
+  if (String(severity).toLowerCase() === "medium") return "rgba(214,163,58,0.18)";
+  return theme.colors.primaryContainer;
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
+  screen: { flex: 1 },
+  scroll: { flex: 1 },
+  container: {
+    padding: 18,
+    paddingBottom: 40,
   },
-  body: {
-    flex: 1,
-    marginTop: 12,
-  },
-  cameraStage: {
-    flex: 1,
-    width: "100%",
-    minHeight: 430,
-    backgroundColor: "#000",
-    overflow: "hidden",
-    position: "relative",
-  },
-  permissionPanel: {
+  loaderWrap: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 28,
   },
-  permissionTitle: {
-    fontSize: 20,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-  permissionText: {
-    marginTop: 8,
-    textAlign: "center",
-    lineHeight: 21,
-  },
-  permissionButton: {
-    marginTop: 18,
-    borderRadius: 16,
-  },
-  controlPanel: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+  statusCard: {
+    borderRadius: 24,
     borderWidth: 1,
-    borderBottomWidth: 0,
-    paddingTop: 14,
-    paddingHorizontal: 16,
+    padding: 18,
+    marginBottom: 14,
   },
-  compactStats: {
+  statusTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-  compactStat: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: "hidden",
-  },
-  compactStatInner: {
     alignItems: "center",
-    paddingHorizontal: 4,
-    paddingVertical: 6,
+    gap: 12,
   },
-  compactStatValue: {
-    fontSize: 15,
+  statusTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  statusTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  statusTitle: {
+    fontSize: 20,
     fontWeight: "900",
-    textAlign: "center",
   },
-  compactStatLabel: {
-    marginTop: 3,
-    fontSize: 11,
-    fontWeight: "700",
-    textAlign: "center",
+  statusMessage: {
+    marginTop: 4,
+    lineHeight: 19,
   },
   errorText: {
-    marginTop: 10,
+    marginTop: 12,
+    fontWeight: "700",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  summaryCard: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+  },
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  summaryLabel: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 12,
+  },
+  sectionTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  sectionSubtitle: {
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  alertList: {
+    gap: 10,
+  },
+  alertCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  compactAlertCard: {
+    borderRadius: 18,
+  },
+  alertPressArea: {
+    padding: 14,
+  },
+  compactAlertPressArea: {
+    padding: 12,
+  },
+  alertHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 12,
+  },
+  alertTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  alertTitle: {
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: "900",
+  },
+  alertSummary: {
+    marginTop: 4,
+    lineHeight: 19,
+  },
+  videoBox: {
+    height: 190,
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#000",
+  },
+  videoWebView: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  noVideoBox: {
+    minHeight: 82,
+    borderWidth: 1,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+  },
+  listMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 6,
+  },
+  listMetaText: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 12,
     fontWeight: "700",
-    lineHeight: 18,
+  },
+  emptyCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: "center",
+  },
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  emptyText: {
+    marginTop: 6,
     textAlign: "center",
+    lineHeight: 20,
+  },
+  modalOuter: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 18,
+  },
+  modalCard: {
+    borderRadius: 30,
+    borderWidth: 1,
+    padding: 20,
+    overflow: "hidden",
+  },
+  modalContent: {
+    maxHeight: "100%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalScroll: {
+    flexShrink: 1,
+  },
+  modalScrollContent: {
+    paddingBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    lineHeight: 31,
+  },
+  modalTime: {
+    marginTop: 8,
+    fontSize: 13,
+  },
+  modalBodyText: {
+    marginTop: 18,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  alertNotificationBox: {
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 16,
+    marginTop: 18,
+  },
+  alertNotificationTitle: {
+    fontSize: 19,
+    fontWeight: "900",
+    marginBottom: 12,
+  },
+  alertSummaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  alertSummaryItem: {
+    width: "48%",
+    marginBottom: 14,
+  },
+  alertSummaryLabel: {
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  alertSummaryValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 19,
+  },
+  alertLinkHelp: {
+    marginTop: 10,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  modalButton: {
+    marginTop: 12,
+    borderRadius: 16,
   },
 });

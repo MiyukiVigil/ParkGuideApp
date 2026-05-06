@@ -216,6 +216,16 @@ export default function Home() {
     return String(titleData);
   };
 
+  useScreenSpeech(
+    [
+      t("todaysFocus"),
+      currentCourse?.title ? `${t('training')}: ${getLocalizedTitle(currentCourse.title)}` : t('noCourses'),
+      remainingModules > 0 ? `${remainingModules} ${t('modulesRemaining')}` : t('allCaughtUp'),
+      unreadCount > 0 ? `${unreadCount} ${t('unread')} ${t('notifications')}` : t('noNotifications'),
+    ].join(". "),
+    { priority: 100 }
+  );
+
   const completedCount = completedModules.length;
   const profileImageUri = profile?.profile_image_url
     ? withCacheBust(profile.profile_image_url, profileImageVersion)
@@ -225,16 +235,6 @@ export default function Home() {
     inputRange: [0, 1],
     outputRange: ["0%", "100%"],
   });
-
-  useScreenSpeech(
-    [
-      t("todaysFocus"),
-      currentCourse?.title ? `${t('training')}: ${getLocalizedTitle(currentCourse.title)}` : t('noCourses'),
-      remainingModules > 0 ? `${t('remainingCount', { count: remainingModules })} ${t('modules')}` : t('allCaughtUp'),
-      unreadCount > 0 ? `${unreadCount} ${t('unread')} ${t('notiHeadline')}` : t('noNotificationsView'),
-    ].join(" "),
-    { priority: 100 }
-  );
 
   return (
     <View style={styles.screen}>
@@ -485,7 +485,7 @@ export default function Home() {
             icon="video-check"
             label={t("tourMonitor")}
             subtitle={
-              monitorStatus.isLive? t("liveForestMonitor") : t("monitorOffline", { defaultValue: "Camera offline" })
+              monitorStatus.isLive? t("liveForestMonitor") : t("monitorOffline", { defaultValue: t("monitorOfflineDefault") })
             }
             status={monitorStatus.state}
             onPress={() => router.push("/monitor")}

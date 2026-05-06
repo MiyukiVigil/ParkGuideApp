@@ -184,29 +184,24 @@ export default function AccountScreen() {
     setConfirmPassword("");
   };
 
-  const handleSignOut = async () => {
-    Alert.alert(
-      t("signOut"),
-      t("logoutConfirm"),
-      [
-        { text: t("cancel"), onPress: () => {}, style: "cancel" },
-        {
-          text: t("signOut"),
-          onPress: async () => {
-            try {
-              await unregisterPushNotifications();
-              await clearAuthTokens();
-              await clearProgressData();
-              await AsyncStorage.removeItem("userProfile");
-              router.replace("/");
-            } catch (error) {
-              Alert.alert(t("error"), t("failedToSignOut"));
-            }
-          },
-          style: "destructive",
-        },
-      ]
-    );
+  const handleSignOut = () => {
+    setSignOutDialogVisible(true);
+  };
+
+  const confirmSignOut = async () => {
+    setSignOutDialogVisible(false);
+    try {
+      await unregisterPushNotifications();
+      await clearAuthTokens();
+      await clearProgressData();
+      await AsyncStorage.removeItem("userProfile");
+      router.replace({
+        pathname: "/",
+        params: { logout: "true" },
+      });
+    } catch (error) {
+      Alert.alert(t("error"), t("failedToSignOut"));
+    }
   };
 
   const handleChangePassword = async () => {

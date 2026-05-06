@@ -1,6 +1,6 @@
 import api from "../utils/api";
 
-const MONITOR_API_ENABLED = process.env.EXPO_PUBLIC_MONITOR_API_ENABLED === "true";
+const MONITOR_API_ENABLED = process.env.EXPO_PUBLIC_MONITOR_API_ENABLED !== "false";
 let warnedMonitorApiDisabled = false;
 let warnedStatusEndpoint = false;
 let warnedStartEndpoint = false;
@@ -9,7 +9,7 @@ let warnedStopEndpoint = false;
 export const DEFAULT_MONITOR_STATUS = {
   isLive: false,
   state: "offline",
-  source: "phone-placeholder",
+  source: "esp32",
   streamUrl: null,
   sessionId: null,
   alertCount: 0,
@@ -71,7 +71,7 @@ export const getMonitorStatus = async () => {
   if (!MONITOR_API_ENABLED) {
     logOnce(
       "disabled",
-      "[monitor] backend polling disabled. Using phone camera placeholder until monitor API is ready."
+      "[monitor] backend polling disabled by EXPO_PUBLIC_MONITOR_API_ENABLED=false. Using offline ESP32 status."
     );
     return DEFAULT_MONITOR_STATUS;
   }

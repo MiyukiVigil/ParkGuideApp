@@ -232,9 +232,13 @@ export default function RootLayout() {
         await NotificationService.registerForPushNotifications();
 
         // Listen to incoming push notifications
-        disposePushListeners = NotificationService.listenToPushNotifications((notification) => {
+        disposePushListeners = NotificationService.listenToPushNotifications((notification, eventType) => {
           console.log("Push notification received:", notification);
-          // You can add logic here to refresh notifications or navigate
+          const data = notification?.request?.content?.data || {};
+          const alertId = data.monitoring_alert_id || data.alert_id;
+          if (eventType === "response" && alertId) {
+            router.push({ pathname: "/monitor", params: { alertId: String(alertId), open: "1" } });
+          }
         });
       } catch (err) {
         console.log("Error setting up notifications:", err);

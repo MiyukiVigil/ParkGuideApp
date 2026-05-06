@@ -31,4 +31,7 @@ export default {
     todaysFocusDesc: "完成下一个培训模块，复习导游资料，并在实地部署前检查警报。",
     sarawakForestry: "砂拉越林业机构", 
     forestGuideOpsDashboard: "公园导游操作控制台", 
+    liveForestMonitor: "实时森林监控",
+    monitorOffline: "监控离线",
+    monitorOfflineDefault: "摄像头离线",
 };

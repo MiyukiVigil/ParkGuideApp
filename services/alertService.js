@@ -1,6 +1,6 @@
 import api from "../utils/api";
 
-const ALERTS_API_ENABLED = process.env.EXPO_PUBLIC_ALERTS_API_ENABLED === "true";
+const ALERTS_API_ENABLED = process.env.EXPO_PUBLIC_ALERTS_API_ENABLED !== "false";
 
 let warnedAlertsApiDisabled = false;
 let warnedAlertsEndpoint = false;
@@ -66,43 +66,95 @@ const logOnce = (type, message, err) => {
   }
 };
 
-const normalizeAlert = (item = {}) => ({
-  id: String(item.id || item.alert_id || item.violation_id || Date.now()),
-  title: item.title || item.detected_activity || item.detected_class || "Violation alert",
-  summary: item.summary || item.description || "A possible violation was detected from returned camera footage.",
-  severity: item.severity || "Unspecified",
-  status: item.status || item.review_status || "Pending review",
-  detectedActivity: item.detectedActivity || item.detected_activity || item.detected_class || "Unspecified detection",
-  confidence: item.confidence || item.confidence_score || "N/A",
-  cameraId: item.cameraId || item.camera_id || item.camera_source || "N/A",
-  guideName: item.guideName || item.guide_name || item.guide || "N/A",
-  location: item.location || "N/A",
-  capturedAt: item.capturedAt || item.captured_at || item.time || "N/A",
-  receivedAt: item.receivedAt || item.received_at || item.created_at || "N/A",
-  videoUrl: item.videoUrl || item.video_url || item.evidence_video_url || null,
-  videoFilename: item.videoFilename || item.video_filename || item.evidence_filename || "No video filename",
-  videoDuration: item.videoDuration || item.video_duration || "N/A",
-  evidenceStatus: item.evidenceStatus || item.evidence_status || "N/A",
-  recommendedAction: item.recommendedAction || item.recommended_action || "Review the footage and confirm whether further action is required.",
-  details: item.details || item.fullText || item.full_text || item.description || "No additional details provided.",
-});
+const toTitleCase = (value) =>
+  String(value || "")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
 
-export const fetchAlerts = async () => {
+const formatDateTime = (value) => {
+  if (!value) return "N/A";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatConfidence = (item = {}) => {
+  if (item.confidence) return String(item.confidence);
+  const raw = item.confidence_score;
+  if (raw === null || raw === undefined || raw === "") return "N/A";
+  const numeric = Number(raw);
+  if (Number.isNaN(numeric)) return String(raw);
+  return `${Math.round(numeric * 100)}%`;
+};
+
+const getEvidenceFile = (item = {}) => item.evidence_file || item.evidenceFile || null;
+
+const normalizeAlert = (item = {}) => {
+  const evidenceFile = getEvidenceFile(item);
+  const status = item.status_display || item.review_status || item.status || "Pending review";
+  const detectedActivity = item.detectedActivity || item.detected_activity || item.detected_class || "Unspecified detection";
+  return {
+    id: String(item.id || item.alert_id || item.violation_id || Date.now()),
+    title: item.title || detectedActivity || "Violation alert",
+    summary: item.summary || item.description || "A possible violation was detected from returned camera footage.",
+    severity: item.severity || "Unspecified",
+    status: toTitleCase(status),
+    detectedActivity: toTitleCase(detectedActivity),
+    confidence: formatConfidence(item),
+    cameraId: item.cameraId || item.camera_id || item.camera_source || "RE-CAM-01",
+    guideName: item.guideName || item.guide_name || item.guide || "RangerEye ESP32-CAM",
+    location: item.location || "N/A",
+    capturedAt: formatDateTime(item.capturedAt || item.captured_at || item.time),
+    receivedAt: formatDateTime(item.receivedAt || item.received_at || item.created_at),
+    videoUrl: item.videoUrl || item.video_url || item.evidence_video_url || evidenceFile?.download_url || null,
+    videoFilename:
+      item.videoFilename ||
+      item.video_filename ||
+      item.evidence_filename ||
+      evidenceFile?.original_name ||
+      "No video filename",
+    videoDuration: item.videoDuration || item.video_duration || "N/A",
+    evidenceStatus: item.evidenceStatus || item.evidence_status || "N/A",
+    recommendedAction: item.recommendedAction || item.recommended_action || "Review the footage and confirm whether further action is required.",
+    details: item.details || item.fullText || item.full_text || item.description || "No additional details provided.",
+  };
+};
+
+export const fetchAlerts = async ({ fallbackToLocal = false } = {}) => {
   if (!ALERTS_API_ENABLED) {
-    logOnce("disabled", "[alerts] backend alert polling disabled. Using local placeholder alerts until the alerts API is ready.");
-    return LOCAL_ALERTS;
+    logOnce("disabled", "[alerts] backend alert polling disabled by EXPO_PUBLIC_ALERTS_API_ENABLED=false.");
+    return fallbackToLocal ? LOCAL_ALERTS : [];
   }
   try {
-    const response = await api.get("/monitor/alerts/");
-    if (Array.isArray(response.data)) {
-      return response.data.map(normalizeAlert);
+    let nextUrl = "/monitor/alerts/";
+    const allAlerts = [];
+
+    while (nextUrl) {
+      const response = await api.get(nextUrl);
+      if (Array.isArray(response.data)) {
+        allAlerts.push(...response.data);
+        break;
+      }
+      if (Array.isArray(response.data?.results)) {
+        allAlerts.push(...response.data.results);
+        nextUrl = response.data.next || null;
+        continue;
+      }
+      break;
     }
-    if (Array.isArray(response.data?.results)) {
-      return response.data.results.map(normalizeAlert);
-    }
-    return LOCAL_ALERTS;
+
+    return allAlerts.length ? allAlerts.map(normalizeAlert) : fallbackToLocal ? LOCAL_ALERTS : [];
   } catch (err) {
-    logOnce("alerts", "[alerts] alerts endpoint unavailable. Falling back to local placeholder alerts.", err);
+    logOnce("alerts", "[alerts] alerts endpoint unavailable.", err);
+    if (!fallbackToLocal) {
+      throw err;
+    }
     return LOCAL_ALERTS;
   }
 };

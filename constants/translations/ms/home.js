@@ -37,4 +37,7 @@ export default {
     todaysFocusDesc: "Selesaikan modul latihan seterusnya, semak bahan latihan, dan periksa amaran sebelum penempatan lapangan.",
     sarawakForestry: "PERHUTANAN SARAWAK",
     forestGuideOpsDashboard: "Papan pemuka operasi panduan hutan",
+    liveForestMonitor: "Pemantau hutan langsung",
+    monitorOffline: "Pemantau luar talian",
+    monitorOfflineDefault: "Kamera luar talian",
 };

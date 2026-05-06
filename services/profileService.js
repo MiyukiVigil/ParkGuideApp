@@ -1,10 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import api from '../utils/api';
 import CONFIG from '../constants/config';
 import { getAccessToken } from '../utils/tokenStorage';
 
 const PROFILE_KEY = 'userProfile';
+
+// Use secure storage for sensitive profile data on native, AsyncStorage on web
+const profileStorage = Platform.OS === 'web'
+  ? AsyncStorage
+  : {
+      getItem: SecureStore.getItemAsync,
+      setItem: SecureStore.setItemAsync,
+      removeItem: SecureStore.deleteItemAsync,
+    };
 
 const DEFAULT_PROFILE = {
   name: CONFIG.DEFAULT_USER_NAME,
@@ -36,7 +47,7 @@ const normalizeProfile = (payload = {}) => {
 
 const cacheProfile = async (profile) => {
   try {
-    await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    await profileStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   } catch (error) {
     console.log('cacheProfile error:', error);
   }
@@ -53,7 +64,7 @@ export const saveProfileSnapshotFromAuthPayload = async (payload) => {
 
 export async function getCachedProfile() {
   try {
-    const stored = await AsyncStorage.getItem(PROFILE_KEY);
+    const stored = await profileStorage.getItem(PROFILE_KEY);
     if (!stored) return null;
     return normalizeProfile(JSON.parse(stored));
   } catch (error) {

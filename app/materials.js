@@ -18,6 +18,7 @@ import ReactNativeBlobUtil from "react-native-blob-util";
 import api, { ensureFreshSession } from "../utils/api";
 import { getAccessToken } from "../utils/tokenStorage";
 import AppHeader from "../components/AppHeader";
+import ThemedBackground from "../components/ThemedBackground";
 import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 
 const DOWNLOAD_STORAGE_KEY = "downloadedSecureMaterialsV2";
@@ -43,6 +44,7 @@ export default function Materials() {
   const theme = useTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const maxContentWidth = width > 1200 ? 980 : "100%";
 
   // Responsive column count based on screen width
   const getNumColumns = () => {
@@ -167,7 +169,6 @@ export default function Materials() {
           fileId: row.id,
           title: row.original_name || `File ${row.id}`,
           sub: `${(row.content_type || "FILE").toUpperCase()} • ${formatBytes(row.size)}`,
-          category: row.content_type ? (row.content_type.includes("guide") ? "Guide" : "Policy") : "Guide",
           url: row.download_url || null,
           apiDownloadUrl: `${api.defaults.baseURL}/secure-files/files/${row.id}/download/`,
           uploadedAt: row.uploaded_at || null,
@@ -567,6 +568,7 @@ export default function Materials() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <ThemedBackground />
       <AppHeader
         title={t("matHeadline")}
         subtitle={t("forestKnowledgeResources")}
@@ -574,7 +576,7 @@ export default function Materials() {
         showHome
       />
 
-      <View style={styles.container}>
+      <View style={[styles.container, { maxWidth: maxContentWidth }]}>
         <Searchbar
           placeholder={t("searchMaterials")}
           placeholderTextColor={theme.colors.onSurfaceVariant}
@@ -704,6 +706,8 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    width: "100%",
+    alignSelf: "center",
     padding: 16,
   },
   search: {

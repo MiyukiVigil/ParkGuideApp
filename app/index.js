@@ -344,7 +344,7 @@ export default function Login() {
             {t("protectedSession")}
           </Text>
           <Text variant="labelSmall" style={styles.footerSub}>
-            1.3.1
+            1.5.0
           </Text>
         </View>
       </Animated.View>

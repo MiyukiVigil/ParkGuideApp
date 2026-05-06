@@ -31,4 +31,7 @@ export default {
     todaysFocusDesc: "Complete your next training module, review guide materials, and check alerts before field deployment.",
     sarawakForestry: "SARAWAK FORESTRY",
     forestGuideOpsDashboard: "Forest guide operations dashboard",
+    liveForestMonitor: "Live forest monitor",
+    monitorOffline: "Monitor offline",
+    monitorOfflineDefault: "Camera offline",
 };
