@@ -8,22 +8,28 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "GOOGLE_MAPS_API_KEY_IOS"
+        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
+        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "NODE_ENV": "development",
+        "ENABLE_MOCK_AUTH": "true"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "GOOGLE_MAPS_API_KEY_IOS"
+        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
+        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "NODE_ENV": "staging",
+        "ENABLE_MOCK_AUTH": "false"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "GOOGLE_MAPS_API_KEY_ANDROID": "GOOGLE_MAPS_API_KEY_ANDROID",
-        "GOOGLE_MAPS_API_KEY_IOS": "GOOGLE_MAPS_API_KEY_IOS"
+        "GOOGLE_MAPS_API_KEY_ANDROID": "YOUR_GOOGLE_MAPS_API_KEY_ANDROID",
+        "GOOGLE_MAPS_API_KEY_IOS": "YOUR_GOOGLE_MAPS_API_KEY_IOS",
+        "NODE_ENV": "production",
+        "ENABLE_MOCK_AUTH": "false"
       }
     }
   },

@@ -1,0 +1,245 @@
+// all checked
+
+export default {
+    // 提示标题
+    missingFields: "有未填项目",
+    loginFailed: "登录失败",
+    sessionExpired: "会话已过期",
+    unavailable: "不可用",
+    authRequired: "需要身份验证",
+    downloadFailed: "下载失败",
+    error: "错误",
+    logout: "安全登出",
+    logoutConfirm: "确定要登出吗？所有本地数据将被清除。",
+    
+    // 常见消息
+    pleaseEnterEmailPassword: "请输入您的邮箱和密码。",
+    somethingWentWrong: "出错了，请重试。",
+    pleaseLogInAgain: "请重新登录。",
+    thisFileNotAvailable: "此文件目前不可用。",
+    couldNotDownloadPDF: "无法下载 PDF，请重试。",
+    failedToOpenFile: "打开文件失败，请重试。",
+    failedToSignOut: "登出失败。",
+    sessionHasExpired: "您的会话已过期，请重新登录。",
+    
+    // 按钮标签
+    signOut: "登出",
+    cancel: "取消",
+    signingIn: "正在登录...",
+    
+    // 加载状态
+    loadingNotifications: "正在加载通知...",
+    
+    // 空状态
+    allCaughtUp: "已读完所有消息",
+    noNotificationsView: "目前没有新通知。",
+    noQuizFound: "未找到测验",
+    
+    // 设置标签
+    demoLoginEnabled: "已启用演示登录（仅供预览）",
+    protectedSession: "受保护会话 • 已验证访问权限",
+    appVersion: "v1.0.0 - 砂拉越林业机构",
+    
+    // 通知部分
+    notificationCentre: "通知中心",
+    reviewAlerts: "查看操作警报和公园导游职责的最新更新。",
+    markAllRead: "全部标记为已读",
+    clearRead: "清除已读",
+    
+    // 过滤选项
+    all: "全部",
+    unread: "未读",
+    alerts: "警报",
+    
+    // 通知类型
+    alert: "警报",
+    update: "更新",
+    
+    // 导游偏好
+    guidePreferences: "导游偏好设置",
+    tapToOpenSettings: "点击查看账户设置、邮箱、密码和个人资料",
+    
+    // 外观部分
+    appearance: "外观设置",
+    themeMode: "主题模式",
+    darkMode: "深色模式",
+    lightMode: "浅色模式",
+    interfaceMode: "界面模式",
+    basic: "基础版",
+    pro: "专业版",
+    highContrast: "高对比度",
+    highContrastOn: "已开启高对比度",
+    highContrastOff: "已关闭高对比度",
+    backgroundAnimations: "背景动画",
+    animationsEnabled: "启用动画",
+    animationsDisabled: "禁用动画",
+    
+    // 字体大小选项
+    small: "小",
+    standard: "标准",
+    large: "大",
+    fontStyle: "字体样式",
+    systemFont: "系统",
+    serifFont: "衬线",
+    monoFont: "等宽",
+    
+    // 培训部分
+    trainingOverview: "培训概述",
+    learnFlexibly: "灵活学习、跟踪进度并解锁新的导游技能。",
+    completedModules: "已完成模块",
+    overallProgress: "总体进度",
+    modules: "模块",
+    interactiveLessons: "交互式课程、评估和进度跟踪。",
+    courseSummary: "课程总结",
+    completeModulesInOrder: "按顺序完成模块以解锁后续课程，保持导游培训状态最新。",
+    tapToStartMedia: "点击播放教学内容",
+    
+    // 主页部分
+    continueYourPath: "继续您的生态导游学习路径，确保认证进度不掉队。",
+    modulesRemaining: "剩余模块",
+    completed: "已完成",
+    remaining: "剩余",
+    
+    // 验证错误（密码）
+    fillAllPasswordFields: "请填写所有密码选项。",
+    passwordMustBe8: "新密码必须至少为 8 个字符。",
+    passwordsDoNotMatch: "两次输入的密码不一致。",
+    currentPasswordIncorrect: "当前密码错误。",
+    
+    // 语言名称
+    english: "English",
+    malay: "Bahasa Melayu",
+    chinese: "中文",
+    
+    // 设置
+    preferencesAndDisplay: "偏好与显示",
+    
+    // 辅助功能 (Accessibility)
+    accessibility: "辅助功能",
+    textToSpeech: "文字转语音 (TTS)",
+    readTrainingModulesAloud: "语音朗读培训模块",
+    
+    // 帐户设置
+    accountSettings: "帐户设置",
+    profileAndSecurity: "个人资料与安全",
+    failedToLoadAccountInfo: "无法加载帐户信息。",
+    invalidName: "姓名无效",
+    pleaseEnterValidName: "请输入有效的姓名。",
+    invalidEmail: "电子邮件无效",
+    pleaseEnterValidEmailAddress: "请输入有效的电子邮件地址。",
+    invalidPhone: "电话号码无效",
+    pleaseEnterValidPhoneNumber: "请输入有效的电话号码。",
+    saved: "已保存",
+    accountDetailsUpdated: "帐户详情已更新。",
+    failedToSaveProfileChanges: "保存个人资料失败。",
+    failedToSignOut: "登出失败。",
+    passwordChanged: "密码已更改",
+    yourPasswordHasBeenChanged: "您的密码已成功更改。",
+    email: "电子邮件",
+    phone: "电话",
+    changePassword: "更改密码",
+    updateYourLoginPassword: "更新您的登录密码",
+    
+    // 培训
+    failedToSaveProgress: "保存进度失败。",
+    forestLearningHub: "森林学习中心",
+    courseModules: "课程模块",
+    
+    // 仪表板
+    adminDashboard: "管理控制台",
+    parkGuideWebApp: "ParkGuide 网页版",
+    
+    // 其他部分
+    tourMonitor: "旅游监测",
+    liveFieldMonitor: "现场实况监测",
+    forestKnowledgeResources: "森林知识资源",
+    forestResources: "森林资源",
+    verifiedRecords: "验证记录",
+    preferences: "偏好",
+    liveForestMonitor: "森林实况监测",
+    monitorOffline: "Camera offline",
+    checkingLabel: "CHECKING",
+    offlineLabel: "OFFLINE",
+    errorLabel: "ERROR",
+    cameraModuleLive: "Camera module is live.",
+    cameraModuleOffline: "Camera module is offline.",
+    localPreviewRunning: "Local camera preview is running.",
+    monitoringNotStarted: "Monitoring session has not started.",
+    liveCameraPreview: "Live Camera Preview",
+    esp32StreamPreview: "ESP32-CAM stream preview",
+    phoneCameraPlaceholder: "Phone camera placeholder until ESP32-CAM stream is connected",
+    cameraPreviewDisabled: "Camera preview is not active",
+    cameraPermissionHelp: "Grant camera permission to use the phone camera as a temporary monitoring preview.",
+    enableCameraPreview: "Enable Camera Preview",
+    cameraSourceEsp32: "ESP32-CAM",
+    cameraSourcePhone: "Phone Camera Placeholder",
+    startMonitoring: "Start Monitoring",
+    stopMonitoring: "Stop Monitoring",
+    switchCamera: "Switch",
+    cameraModule: "Camera Module",
+    aiDetection: "AI Detection",
+    standbyLabel: "Standby",
+    notRunningLabel: "Not running",
+    detectionOverview: "Detection Overview",
+    detectionOverviewBody: "This section is prepared for the future AI abnormal activity detection flow. When connected, detected violations can appear here with timestamp, confidence score, guide/session ID, and evidence status.",
+    sessionStatus: "Session Status",
+    activeLabel: "Active",
+    inactiveLabel: "Inactive",
+    evidenceStorage: "Evidence Storage",
+    notRecordingLabel: "Not recording",
+    lastCameraHeartbeat: "Last Camera Heartbeat",
+    notAvailableShort: "N/A",
+    recentDetections: "Recent Detections",
+    recentDetectionsSub: "Latest abnormal activity alerts will appear here",
+    noAbnormalActivity: "No abnormal activity detected",
+    noAbnormalActivityBody: "Once the AI model is integrated, detected prohibited actions such as damaging protected plants or disturbing wildlife can be listed here.",
+    
+    // 徽章/证书部分
+    noCompletedModulesYet: "暂无完成的模块",
+    finishTrainingModulesUnlockBadges: "完成培训模块以解锁勋章。",
+    allActiveBadgesEarned: "已获得所有活动勋章",
+    greatWorkUnlockedEveryActiveBadge: "做得好！您已解锁所有活动勋章。",
+    noBadgesEarnedYet: "尚未获得勋章",
+    completeMoreModulesEarnBadges: "完成更多模块以赢取勋章。",
+    
+    // 缺失错误
+    missingDownloadURL: "缺少下载链接",
+
+    // 登录页面
+    signInWithPasskey: "使用通行密钥登录",
+    checkingPasskey: "正在验证通行密钥...",
+    applyForAccount: "申请账户",
+
+    // 个人资料照片
+    unsupportedFile: "不支持的文件",
+    pleaseChooseImageFile: "请为您的个人资料照片选择图片文件。",
+    imageTooLarge: "图片太大",
+    pleaseChooseSmallerImage: "请选择小于 5 MB 的图片。",
+    uploadingPhoto: "上传中...",
+    choosePhoto: "选择照片",
+    profilePhotoUpdated: "个人资料照片已更新",
+    profilePhotoSaved: "您的新个人资料照片已保存到您的账户。",
+    uploadFailed: "上传失败",
+    couldNotUploadPhoto: "我们现在无法上传您的个人资料照片。",
+
+    // 通用操作
+    success: "成功",
+    ok: "确定",
+    save: "保存",
+    update: "更新",
+    fullName: "全名",
+    editProfile: "编辑资料",
+    currentPassword: "当前密码",
+    newPassword: "新密码",
+    confirmNewPassword: "确认新密码",
+
+    // 注册
+    cannotEnroll: "无法报名",
+    cannotEnrollYet: "暂时无法报名",
+    enrollmentSuccessMessage: "您已成功报名此课程。",
+    unknownEnrollmentError: "报名时发生未知错误。",
+    noChaptersMessage: "此课程暂无章节内容。",
+    completePrerequisitesFirst: "请先完成所有前置必修课程。",
+    prerequisiteCompleted: "（已完成）",
+    prerequisiteRequired: "（必修）",
+}

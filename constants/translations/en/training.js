@@ -1,5 +1,5 @@
 export default {
-    TrainingModules: "Traning Modules",
+    TrainingModules: "Training Modules",
     TrainingModuleR: "modules remaining",
     success: "Success",
     moduleCompleted: "Module completed!",
@@ -14,6 +14,8 @@ export default {
     knowledgeCheck: "Knowledge Check",
     cancel: "Cancel",
     submitAssessment: "Submit",
+    nextQuestion: "Next Question",
+    completeAssessment: "Complete Assessment",
     modulesCount: "modules",
     completed: "Completed",
     available: "Available",

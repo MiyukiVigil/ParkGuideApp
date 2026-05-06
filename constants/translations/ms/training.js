@@ -14,6 +14,8 @@ export default {
     knowledgeCheck: "Ujian Pengetahuan",
     cancel: "Batal",
     submitAssessment: "Hantar",
+    nextQuestion: "Soalan Seterusnya",
+    completeAssessment: "Selesaikan Penilaian",
     modulesCount: "modul",
     completed: "Sudah Selesai",
     available: "Tersedia",
