@@ -19,65 +19,89 @@ import { useThemeContext } from "../contexts/ThemeContext";
 import arTrainingService from "../services/arTrainingService";
 
 const fallbackImage =
-  "https://firebasestorage.googleapis.com/v0/b/parkguideapp-c8517.firebasestorage.app/o/assests%2F360%2FAdobeStock_15550322.jpeg?alt=media&token=c9d64eed-c48a-4075-b9e3-35314566cd68";
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/A_panoramic_example_of_the_deep_ravine_forest_ecosystem._%2831018541-539e-49b5-be18-dd6123962a3a%29.JPG/3840px-A_panoramic_example_of_the_deep_ravine_forest_ecosystem._%2831018541-539e-49b5-be18-dd6123962a3a%29.JPG";
 
 const fallbackScenarios = [
   {
     id: "offline-biodiversity",
-    code: "ar-biodiversity-guide-sim",
+    code: "vr-biodiversity-canopy-briefing",
     title: {
-      en: "Forest Biodiversity Guiding Simulation",
+      en: "Biodiversity Briefing in a Simulated Rainforest",
       ms: "Simulasi Panduan Biodiversiti Hutan",
       zh: "森林生物多样性导览模拟",
     },
     description: {
-      en: "Practise explaining forest layers, species relationships, and low-impact observation.",
+      en: "Practise a guide talk that connects canopy, understory, forest floor, and species relationships in one immersive scene.",
       ms: "Latih penerangan lapisan hutan, hubungan spesies, dan pemerhatian rendah impak.",
       zh: "练习讲解森林层次、物种关系和低影响观察。",
     },
+    field_brief: {
+      en: "A group of first-time visitors is entering a sensitive rainforest trail. Build a clear explanation without encouraging off-trail movement.",
+    },
+    learning_objectives: [
+      { en: "Explain biodiversity through visible evidence." },
+      { en: "Connect habitat layers and nutrient cycling." },
+      { en: "Use low-impact visitor instructions." },
+    ],
     scenario_type: "biodiversity",
     difficulty: "intermediate",
-    duration_minutes: 12,
+    duration_minutes: 14,
     thumbnail: fallbackImage,
-    hotspot_count: 4,
+    hotspot_count: 3,
     quiz_count: 1,
   },
   {
     id: "offline-ecotourism",
-    code: "ar-ecotourism-practice-sim",
+    code: "ar-ecotourism-low-impact-trail",
     title: {
-      en: "Eco-tourism Visitor Management Simulation",
+      en: "Eco-tourism Trail Management Simulation",
       ms: "Simulasi Pengurusan Pelawat Eko-pelancongan",
       zh: "生态旅游游客管理模拟",
     },
     description: {
-      en: "Practise group control, photo-stop decisions, trail etiquette, and leave-no-trace guidance.",
+      en: "Practise group spacing, photo-stop control, waste prevention, and leave-no-trace messages during a busy trail stop.",
       ms: "Latih kawalan kumpulan, keputusan tempat bergambar, etika laluan, dan panduan tidak tinggal kesan.",
       zh: "练习团队管理、拍照点决策、步道礼仪和无痕指导。",
     },
+    field_brief: {
+      en: "Your group reaches a narrow viewpoint. Several visitors want photos, snacks, and shortcuts.",
+    },
+    learning_objectives: [
+      { en: "Keep visitor movement safe and low impact." },
+      { en: "Explain eco-tourism practices clearly." },
+      { en: "Balance visitor enjoyment with site protection." },
+    ],
     scenario_type: "ecotourism",
     difficulty: "beginner",
-    duration_minutes: 10,
+    duration_minutes: 12,
     thumbnail: fallbackImage,
     hotspot_count: 3,
     quiz_count: 1,
   },
   {
     id: "offline-wildlife",
-    code: "ar-wildlife-encounter-sim",
+    code: "vr-wildlife-encounter-response",
     title: {
-      en: "Wildlife Encounter Response Simulation",
+      en: "Wildlife Encounter Response Drill",
       ms: "Simulasi Respons Pertemuan Hidupan Liar",
       zh: "野生动物遭遇应对模拟",
     },
     description: {
-      en: "Practise safe distance, no-feeding messaging, rerouting, and emergency escalation.",
+      en: "Practise calm crowd control, safe distance, no-feeding messaging, rerouting, and escalation during a wildlife encounter.",
       ms: "Latih jarak selamat, mesej jangan beri makan, tukar laluan, dan eskalasi kecemasan.",
       zh: "练习安全距离、禁止喂食、改道和紧急升级处理。",
     },
+    field_brief: {
+      en: "A macaque appears near the trail while visitors begin raising phones and snacks.",
+    },
+    learning_objectives: [
+      { en: "Recognise wildlife stress and visitor risk cues." },
+      { en: "Maintain safe distance and prevent feeding." },
+      { en: "Decide when to reroute or escalate." },
+    ],
     scenario_type: "wildlife",
     difficulty: "advanced",
-    duration_minutes: 14,
+    duration_minutes: 15,
     thumbnail: fallbackImage,
     hotspot_count: 4,
     quiz_count: 1,
@@ -114,8 +138,10 @@ const getLocalizedText = (value, language, fallback = "") => {
   return parsed[language] || parsed.en || parsed.ms || parsed.zh || fallback;
 };
 
-const getImage = (scenario) =>
-  scenario.thumbnail || scenario.initial_panorama_url || scenario.panoramas?.[0]?.panorama_url || fallbackImage;
+const getImage = (scenario) => {
+  const image = scenario.thumbnail || scenario.initial_panorama_url || scenario.panoramas?.[0]?.panorama_url;
+  return image && !String(image).includes("firebasestorage") ? image : fallbackImage;
+};
 
 function ScenarioCard({ scenario, language, theme, onPress }) {
   const [failed, setFailed] = useState(false);
@@ -157,6 +183,11 @@ function ScenarioCard({ scenario, language, theme, onPress }) {
           <Text numberOfLines={3} style={[styles.description, { color: theme.colors.onSurfaceVariant }]}>
             {getLocalizedText(scenario.description, language)}
           </Text>
+          {scenario.field_brief ? (
+            <Text numberOfLines={2} style={[styles.briefText, { color: theme.colors.primary }]}>
+              Field brief: {getLocalizedText(scenario.field_brief, language)}
+            </Text>
+          ) : null}
 
           <View style={styles.metrics}>
             <Chip icon="clock-outline" compact style={styles.metricChip}>
@@ -175,7 +206,7 @@ function ScenarioCard({ scenario, language, theme, onPress }) {
               <Text style={styles.levelText}>{difficulty.toUpperCase()}</Text>
             </View>
             <View style={[styles.startPill, { backgroundColor: theme.colors.primary }]}>
-              <Text style={[styles.startText, { color: theme.colors.onPrimary }]}>Start Simulation</Text>
+              <Text style={[styles.startText, { color: theme.colors.onPrimary }]}>Start Drill</Text>
               <MaterialCommunityIcons name="arrow-right" size={18} color={theme.colors.onPrimary} />
             </View>
           </View>
@@ -296,7 +327,7 @@ export default function ARTraining() {
                 VR/AR Training for Park Guides
               </Text>
               <Text style={[styles.heroText, { color: theme.colors.onPrimaryContainer }]}>
-                Choose a scenario, scan the simulated park environment, discover hotspots, and answer field decisions.
+                Practise realistic guide situations: biodiversity explanations, eco-tourism visitor control, and wildlife encounter response.
               </Text>
             </View>
           </View>
@@ -348,7 +379,7 @@ export default function ARTraining() {
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Available Simulations</Text>
           <Text style={[styles.sectionSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-            Biodiversity, eco-tourism, and wildlife practice modules
+            Immersive drills with field briefs, scanning tasks, hotspot decisions, and assessment questions
           </Text>
         </View>
 
@@ -527,6 +558,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 13,
     lineHeight: 18,
+  },
+  briefText: {
+    marginTop: 9,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
   },
   metrics: {
     flexDirection: "row",
