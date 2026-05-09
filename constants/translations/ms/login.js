@@ -24,6 +24,7 @@ export default {
     networkError: "Ralat rangkaian. Sila periksa sambungan anda.",
     connectionTimeout: "Sambungan tamat masa. Sila cuba lagi.",
     serverError: "Ralat pelayan. Sila cuba sebentar lagi.",
+    restoringSession: "Memulihkan sesi selamat anda...",
     forgotPassword: "Lupa Kata Laluan?",
     rememberMe: "Ingat Saya",
     signInWithPasskey: "Log masuk dengan passkey",

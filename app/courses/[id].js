@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions, Alert } from 'react-native';
-import { useTheme, Surface, Text, Button, ActivityIndicator, ProgressBar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { useTheme, Surface, Text, Button, ActivityIndicator, ProgressBar, Chip } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
@@ -8,6 +8,7 @@ import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
 import { useScreenSpeech } from '../../contexts/ScreenSpeechContext';
 import courseService from '../../services/courseService';
+import { useAppAlert } from '../../components/AppAlertProvider';
 
 const isLessonCompleted = (lesson) => Boolean(
   lesson?.is_completed ||
@@ -40,6 +41,7 @@ export default function CourseDetail() {
   const theme = useTheme();
   const router = useRouter();
   const { t, i18n } = useTranslation();
+  const { showAlert } = useAppAlert();
   const { width } = useWindowDimensions();
   const { isSimpleMode, highContrast } = useThemeContext();
   const { id } = useLocalSearchParams();
@@ -75,9 +77,6 @@ export default function CourseDetail() {
       setLoading(true);
       setError(null);
       const data = await courseService.getCourseDetails(id);
-      console.log(`[courseDetail] Full course data received:`, JSON.stringify(data, null, 2));
-      console.log(`[courseDetail] Chapter data:`, data?.chapters);
-      console.log(`[courseDetail] Chapters count:`, data?.chapters?.length);
       setCourse(data);
     } catch (err) {
       setError(err.message);
@@ -90,40 +89,23 @@ export default function CourseDetail() {
   const handleEnroll = async () => {
     try {
       setEnrolling(true);
-      console.log(`[courseDetail] Attempting to enroll in course ${id}`);
-      const response = await courseService.enrollCourse(id);
-      console.log(`[courseDetail] Enrollment response:`, response);
+      await courseService.enrollCourse(id);
       // Reload immediately after API success
       await loadCourseDetails();
-      Alert.alert(
-        t('enrollmentSuccess'),
-        t('enrollmentSuccessMessage'),
-        [
-          {
-            text: t('ok'),
-            onPress: () => {
-              console.log(`[courseDetail] Course details reloaded after enrollment`);
-            }
-          },
-        ]
-      );
+      showAlert(t('enrollmentSuccess'), t('enrollmentSuccessMessage'));
     } catch (err) {
       console.error(`[courseDetail] Enrollment error:`, err);
-      Alert.alert(
-        t('cannotEnroll'),
-        err.message || t('unknownEnrollmentError')
-      );
+      showAlert(t('cannotEnroll'), err.message || t('unknownEnrollmentError'));
     } finally {
       setEnrolling(false);
     }
   };
 
   const handleStartCourse = () => {
-    console.log(`[courseDetail] handleStartCourse called`, { chaptersArray: course?.chapters, firstChapter: course?.chapters?.[0] });
     if (course?.chapters && course.chapters.length > 0) {
       router.push(`/chapters/${course.chapters[0].id}`);
     } else {
-      Alert.alert(t('noChapters'), t('noChaptersMessage'));
+      showAlert(t('noChapters'), t('noChaptersMessage'));
     }
   };
 
@@ -232,6 +214,14 @@ export default function CourseDetail() {
           >
             {getLocalizedText(course.title)}
           </Text>
+
+          {Array.isArray(course.tags) && course.tags.length > 0 && (
+            <View style={styles.tagRow}>
+              {course.tags.map((tag) => (
+                <Chip key={tag} compact>{tag}</Chip>
+              ))}
+            </View>
+          )}
 
           <Text
             variant="bodyMedium"
@@ -492,6 +482,12 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
+    marginBottom: 16,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 16,
   },
   chapterCard: {

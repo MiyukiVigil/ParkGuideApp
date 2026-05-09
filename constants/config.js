@@ -115,28 +115,22 @@ const CONFIG = {
     "default"
   ),
 
-  // Default User Profile (for development/testing)
-  DEFAULT_USER_NAME: process.env.DEFAULT_USER_NAME || "Test User",
-  DEFAULT_USER_EMAIL: process.env.DEFAULT_USER_EMAIL || "test@example.com",
-  DEFAULT_USER_PHONE: process.env.DEFAULT_USER_PHONE || "+60 1234 5678",
+  // Development-only defaults. Do not place secrets here: bundled app config is readable by clients.
+  DEFAULT_USER_NAME: process.env.DEFAULT_USER_NAME || "",
+  DEFAULT_USER_EMAIL: process.env.DEFAULT_USER_EMAIL || "",
+  DEFAULT_USER_PHONE: process.env.DEFAULT_USER_PHONE || "",
   DEFAULT_USER_ROLE: process.env.DEFAULT_USER_ROLE || "Park Guide",
-
-  // Default Password (for development only)
-  DEFAULT_PASSWORD: process.env.DEFAULT_PASSWORD || "12345678",
+  DEFAULT_PASSWORD: process.env.DEFAULT_PASSWORD || "",
 
   // Environment
   NODE_ENV: process.env.NODE_ENV || "development",
 
-  // Firebase Configuration
-  FIREBASE_API_KEY:
-    process.env.FIREBASE_API_KEY || "AIzaSyAobrwBs_E0jWAqH4XXOLZjDaGbx2f48qU",
-  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || "parkguideapp-c8517",
-  FIREBASE_PROJECT_NUMBER: process.env.FIREBASE_PROJECT_NUMBER || "408905223058",
-  FIREBASE_STORAGE_BUCKET:
-    process.env.FIREBASE_STORAGE_BUCKET || "parkguideapp-c8517.firebasestorage.app",
-  FIREBASE_ANDROID_APP_ID:
-    process.env.FIREBASE_ANDROID_APP_ID ||
-    "1:408905223058:android:940cbaf67ff9ff6c384f4b",
+  // Firebase client identifiers are not private, but still keep environment-specific values out of source.
+  FIREBASE_API_KEY: getConfigValue("firebaseApiKey", "EXPO_PUBLIC_FIREBASE_API_KEY", ""),
+  FIREBASE_PROJECT_ID: getConfigValue("firebaseProjectId", "EXPO_PUBLIC_FIREBASE_PROJECT_ID", ""),
+  FIREBASE_PROJECT_NUMBER: getConfigValue("firebaseProjectNumber", "EXPO_PUBLIC_FIREBASE_PROJECT_NUMBER", ""),
+  FIREBASE_STORAGE_BUCKET: getConfigValue("firebaseStorageBucket", "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET", ""),
+  FIREBASE_ANDROID_APP_ID: getConfigValue("firebaseAndroidAppId", "EXPO_PUBLIC_FIREBASE_ANDROID_APP_ID", ""),
 };
 
 // Helper function to get avatar URL with seed
@@ -160,6 +154,10 @@ export const validateConfig = () => {
       `⚠️  Missing critical configuration: ${missing.join(", ")}. 
        Please ensure your .env file is properly configured or EAS Build environment variables are set.`
     );
+  }
+
+  if (CONFIG.DEFAULT_PASSWORD) {
+    console.warn("DEFAULT_PASSWORD is configured in the client bundle. Use backend-issued temporary passwords instead.");
   }
 
   return missing.length === 0;

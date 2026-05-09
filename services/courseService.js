@@ -6,8 +6,19 @@
 import CONFIG from '../constants/config';
 import { getAccessToken } from '../utils/tokenStorage';
 import { ensureFreshSession } from '../utils/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = CONFIG.API_BASE_URL;
+const CACHE_PREFIX = 'courseServiceCache:';
+
+const readCache = async (key) => {
+  const cached = await AsyncStorage.getItem(`${CACHE_PREFIX}${key}`);
+  return cached ? JSON.parse(cached) : null;
+};
+
+const writeCache = async (key, data) => {
+  await AsyncStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(data));
+};
 
 // Helper function to make authenticated requests
 const authenticatedFetch = async (endpoint, options = {}) => {
@@ -80,6 +91,30 @@ const authenticatedFetch = async (endpoint, options = {}) => {
     if (error.status !== 401) {
       console.error(`[courseService] Network error for ${fullUrl}:`, error.message);
     }
+    if (!error.status) {
+      error.message = error.message || 'Network request failed';
+      error.isNetworkError = true;
+    }
+    throw error;
+  }
+};
+
+const withOfflineCache = async (cacheKey, request) => {
+  try {
+    const data = await request();
+    await writeCache(cacheKey, data);
+    return data;
+  } catch (error) {
+    if (error.isNetworkError || !error.status) {
+      const cached = await readCache(cacheKey);
+      if (cached) {
+        if (Array.isArray(cached)) {
+          cached._fromCache = true;
+          return cached;
+        }
+        return { ...cached, _fromCache: true };
+      }
+    }
     throw error;
   }
 };
@@ -99,14 +134,14 @@ export const courseService = {
       url += `?${params.toString()}`;
     }
 
-    return authenticatedFetch(url);
+    return withOfflineCache(`courses:${params.toString()}`, () => authenticatedFetch(url));
   },
 
   /**
    * Get course details with chapters and enrollment status
    */
   getCourseDetails: async (courseId) => {
-    const data = await authenticatedFetch(`/courses/${courseId}/`);
+    const data = await withOfflineCache(`course:${courseId}`, () => authenticatedFetch(`/courses/${courseId}/`));
     console.log(`[courseService] getCourseDetails response for course ${courseId}:`, {
       hasChapters: !!data.chapters,
       chaptersCount: data.chapters?.length || 0,
@@ -130,7 +165,13 @@ export const courseService = {
    * Get user's course enrollments
    */
   getUserEnrollments: async () => {
-    return authenticatedFetch('/enrollments/');
+    const response = await authenticatedFetch(`/enrollments/?_=${Date.now()}`, {
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
+    return Array.isArray(response) ? response : (response?.results || []);
   },
 
   /**
@@ -157,7 +198,7 @@ export const courseService = {
    * Get lesson content
    */
   getLesson: async (lessonId) => {
-    return authenticatedFetch(`/lessons/${lessonId}/`);
+    return withOfflineCache(`lesson:${lessonId}`, () => authenticatedFetch(`/lessons/${lessonId}/`));
   },
 
   /**

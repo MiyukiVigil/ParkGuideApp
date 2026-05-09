@@ -52,9 +52,30 @@ const chunkBadges = (badges, size) => {
   return rows;
 };
 
+const normalizeLanguageCode = (language) => {
+  const normalized = String(language || 'en').toLowerCase();
+  if (normalized.startsWith('zh')) return 'zh';
+  if (normalized.startsWith('ms') || normalized.startsWith('ms-my')) return 'ms';
+  if (normalized.startsWith('en')) return 'en';
+  return normalized.split('-')[0] || 'en';
+};
+
+const parseMaybeJson = (value) => {
+  if (!value || typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    try {
+      return JSON.parse(value.replace(/'/g, '"'));
+    } catch {
+      return value;
+    }
+  }
+};
+
 export default function Certification() {
   const theme = useTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allBadges, setAllBadges] = useState([]);
@@ -251,6 +272,61 @@ export default function Certification() {
 
   const isEarnedBadge = useCallback((badge) => badge.earned || badge.status === 'granted', []);
   const isPendingBadge = useCallback((badge) => badge.pending || badge.status === 'pending', []);
+  const activeLanguage = useMemo(() => normalizeLanguageCode(i18n.resolvedLanguage || i18n.language), [i18n.language, i18n.resolvedLanguage]);
+  const getLocalizedObjectText = useCallback((value, fallback = '') => {
+    const parsed = parseMaybeJson(value);
+    if (!parsed) return fallback;
+    if (typeof parsed === 'string') return parsed;
+    if (typeof parsed === 'object') {
+      return parsed[activeLanguage] || parsed.en || parsed.ms || parsed.zh || fallback;
+    }
+    return fallback;
+  }, [activeLanguage]);
+  const getLocalizedBadgeText = useCallback((badge, field) => {
+    const directValue = badge?.[field] || badge?.[`badge_${field}`];
+
+    const translations =
+      badge?.[`${field}_translations`] ||
+      badge?.[`badge_${field}_translations`] ||
+      badge?.translations?.[field] ||
+      badge?.badge?.[`${field}_translations`] ||
+      badge?.badge?.[`badge_${field}_translations`];
+
+    const translated = getLocalizedObjectText(translations);
+    if (translated) return translated;
+
+    return getLocalizedObjectText(directValue);
+  }, [getLocalizedObjectText]);
+
+  const getLocalizedBadgeCourseTitle = useCallback((badge) => {
+    return getLocalizedObjectText(
+      badge?.course_title_translations ||
+        badge?.badge_course_title_translations ||
+        badge?.course?.title ||
+        badge?.course?.title_translations,
+      badge?.course_title || badge?.badge_course_title || t('milestoneBadge')
+    );
+  }, [getLocalizedObjectText, t]);
+
+  const getLocalizedBadgeArray = useCallback((badge, field) => {
+    const translatedItems = parseMaybeJson(
+      badge?.[`${field}_translations`] ||
+        badge?.[`badge_${field}_translations`] ||
+        badge?.translations?.[field]
+    );
+
+    if (Array.isArray(translatedItems) && translatedItems.length > 0) {
+      return translatedItems.map((item) => getLocalizedObjectText(item)).filter(Boolean);
+    }
+
+    const fallbackItems = parseMaybeJson(badge?.[field] || badge?.[`badge_${field}`]);
+
+    if (Array.isArray(fallbackItems)) {
+      return fallbackItems.map((item) => getLocalizedObjectText(item)).filter(Boolean);
+    }
+
+    return [];
+  }, [getLocalizedObjectText]);
 
   const getBadgeStatusLabel = useCallback((badge) => {
     if (isEarnedBadge(badge)) return t('badgeStatusObtained');
@@ -310,9 +386,9 @@ export default function Certification() {
       if (statusDelta !== 0) return statusDelta;
       const pendingDelta = Number(isPendingBadge(a)) - Number(isPendingBadge(b));
       if (pendingDelta !== 0) return pendingDelta;
-      return (a.name || '').localeCompare(b.name || '');
+      return getLocalizedBadgeText(a, 'name').localeCompare(getLocalizedBadgeText(b, 'name'));
     });
-  }, [allBadges, isEarnedBadge, isPendingBadge]);
+  }, [allBadges, getLocalizedBadgeText, isEarnedBadge, isPendingBadge]);
 
   const badgeRows = useMemo(() => chunkBadges(displayBadges, BADGES_PER_ROW), [displayBadges]);
   const caseMinHeight = 138 + (Math.max(1, badgeRows.length) * 126);
@@ -532,10 +608,10 @@ export default function Certification() {
                 <Image source={{ uri: getBadgeImageUri(selectedBadge) }} style={styles.modalBadgeImage} />
                 <View style={styles.modalHeaderText}>
                   <Text variant="titleLarge" style={[styles.modalTitle, { color: theme.colors.onSurface }]}>
-                    {selectedBadge.name}
+                    {getLocalizedBadgeText(selectedBadge, 'name')}
                   </Text>
                   <Text style={[styles.modalSubtitle, { color: theme.colors.onSurfaceVariant }]}>
-                    {selectedBadge.course_title || t('milestoneBadge')}
+                    {getLocalizedBadgeCourseTitle(selectedBadge)}
                   </Text>
                   <View style={styles.modalChipRow}>
                     <Chip style={[styles.modalStateChip, { backgroundColor: getBadgeStatusTone(selectedBadge).chip }]} textStyle={[styles.modalStateChipText, { color: getBadgeStatusTone(selectedBadge).text }]}>
@@ -552,7 +628,7 @@ export default function Certification() {
 
               <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('badgeDetails')}</Text>
               <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>
-                {selectedBadge.description || t('badgeDefaultDesc')}
+                {getLocalizedBadgeText(selectedBadge, 'description') || t('badgeDefaultDesc')}
               </Text>
 
               <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('badgeProgressLabel')}</Text>
@@ -571,8 +647,8 @@ export default function Certification() {
 
               <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('skillsCovered')}</Text>
               <View style={styles.modalSkillWrap}>
-                {(selectedBadge.skills_awarded || []).length ? (
-                  selectedBadge.skills_awarded.map((skill, index) => (
+                {getLocalizedBadgeArray(selectedBadge, 'skills_awarded').length ? (
+                  getLocalizedBadgeArray(selectedBadge, 'skills_awarded').map((skill, index) => (
                     <Chip key={`${skill}-${index}`} compact style={[styles.skillChip, { backgroundColor: palette.modalAccentSoft }]} textStyle={[styles.skillChipText, { color: theme.colors.onSurface }]}>
                       {skill}
                     </Chip>
@@ -583,9 +659,9 @@ export default function Certification() {
               </View>
 
               <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('lessonHighlights')}</Text>
-              {(selectedBadge.lesson_highlights || []).length ? (
+              {getLocalizedBadgeArray(selectedBadge, 'lesson_highlights').length ? (
                 <View style={styles.lessonList}>
-                  {selectedBadge.lesson_highlights.map((lesson, index) => (
+                  {getLocalizedBadgeArray(selectedBadge, 'lesson_highlights').map((lesson, index) => (
                     <View key={`${lesson}-${index}`} style={styles.lessonRow}>
                       <View style={[styles.lessonDot, { backgroundColor: theme.colors.primary }]} />
                       <Text style={[styles.lessonText, { color: theme.colors.onSurface }]}>{lesson}</Text>

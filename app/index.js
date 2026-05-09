@@ -5,9 +5,8 @@ import {
   Platform,
   Image,
   Animated,
-  Alert,
 } from "react-native";
-import { TextInput, Button, Text, Surface, Portal, Modal, Menu } from "react-native-paper";
+import { TextInput, Button, Text, Surface, Portal, Modal, Menu, ActivityIndicator } from "react-native-paper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -20,10 +19,12 @@ import * as NotificationService from "../services/notificationService";
 import { getFriendlyPasskeyError, isPasskeySupported, signInWithPasskey } from "../services/passkeyService";
 import { getFriendlyTwoFactorError, verifyTwoFactorLogin } from "../services/twoFactorService";
 import { saveProfileSnapshotFromAuthPayload } from "../services/profileService";
+import { useAppAlert } from "../components/AppAlertProvider";
 
 export default function Login() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
+  const { showAlert } = useAppAlert();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,6 +57,26 @@ export default function Login() {
   const resolveAdminFlag = (payload) => {
     const role = String(payload?.role || payload?.user?.user_type || '').trim().toLowerCase();
     return role === 'admin' || payload?.user?.is_staff || payload?.user?.is_superuser;
+  };
+
+  const getLoginErrorMessage = (err) => {
+    if (!err?.response) {
+      if (err?.code === "ECONNABORTED") return t("connectionTimeout");
+      return t("networkError");
+    }
+
+    const data = err.response?.data || {};
+    const detail =
+      data.detail ||
+      data.error ||
+      data.non_field_errors?.[0] ||
+      data.email?.[0] ||
+      data.password?.[0];
+
+    if (detail && typeof detail === "string") return detail;
+    if (err.response.status === 401 || err.response.status === 400) return t("loginError");
+    if (err.response.status >= 500) return t("serverError");
+    return t("somethingWentWrong");
   };
 
   useEffect(() => {
@@ -145,14 +166,13 @@ export default function Login() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert(t("missingFields"), t("pleaseEnterEmailPassword"));
+      showAlert(t("missingFields"), t("pleaseEnterEmailPassword"));
       return;
     }
 
     try {
       setLoading(true);
-      console.log("🔐 Login attempt - API Base URL:", api.defaults.baseURL);
-      console.log("🔐 Full endpoint would be:", api.defaults.baseURL + "/accounts/login/");
+      setError("");
       const response = await api.post("/accounts/login/", {
         email: email.trim(), // must match your Django JWT username_field
         password: password,
@@ -167,16 +187,9 @@ export default function Login() {
 
       await completeLogin(response.data);
     } catch (err) {
-      console.log("Login error - Full error object:", err);
-      console.log("Login error - URL attempted:", err.config?.url);
-      console.log("Login error - Response status:", err.response?.status);
-      console.log("Login error - Response data:", err.response?.data || err.message);
-
-      if (err.response?.status === 401 || err.response?.status === 400) {
-        Alert.alert(t("loginFailed"), t("somethingWentWrong"));
-      } else {
-        Alert.alert(t("loginFailed"), t("somethingWentWrong"));
-      }
+      const message = getLoginErrorMessage(err);
+      setError(message);
+      showAlert(t("loginFailed"), message);
     } finally {
       setLoading(false);
     }
@@ -184,7 +197,7 @@ export default function Login() {
 
   const handleTwoFactorLogin = async () => {
     if (!twoFactorCode.trim()) {
-      Alert.alert(t("error"), t("authenticatorCodeRequired"));
+      showAlert(t("error"), t("authenticatorCodeRequired"));
       return;
     }
 
@@ -199,7 +212,7 @@ export default function Login() {
       setTwoFactorRequestId("");
       await completeLogin(payload);
     } catch (err) {
-      Alert.alert(t("error"), getFriendlyTwoFactorError(err, t("somethingWentWrong")));
+      showAlert(t("error"), getFriendlyTwoFactorError(err, t("somethingWentWrong")));
     } finally {
       setTwoFactorSubmitting(false);
     }
@@ -211,11 +224,22 @@ export default function Login() {
       const payload = await signInWithPasskey(email);
       await completeLogin(payload);
     } catch (err) {
-      Alert.alert(t("error"), getFriendlyPasskeyError(err, t("somethingWentWrong")));
+      showAlert(t("error"), getFriendlyPasskeyError(err, t("somethingWentWrong")));
     } finally {
       setPasskeyLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <AuthScreenLayout maxWidth={360}>
+        <Surface style={styles.checkingCard} elevation={2}>
+          <ActivityIndicator animating color="#D6B36A" />
+          <Text style={styles.checkingText}>{t("restoringSession")}</Text>
+        </Surface>
+      </AuthScreenLayout>
+    );
+  }
 
   return (
     <AuthScreenLayout maxWidth={Platform.OS === "web" ? 460 : 430}>
@@ -305,6 +329,8 @@ export default function Login() {
             {loading ? t("signingIn") : t("loginButton")}
           </Button>
 
+          {error ? <Text style={styles.inlineError}>{error}</Text> : null}
+
           {isPasskeySupported() ? (
             <Button
               mode="outlined"
@@ -344,7 +370,7 @@ export default function Login() {
             {t("protectedSession")}
           </Text>
           <Text variant="labelSmall" style={styles.footerSub}>
-            1.5.0
+            1.6.0
           </Text>
         </View>
       </Animated.View>
@@ -441,6 +467,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: "rgba(24,54,40,0.95)",
     borderColor: "rgba(127,169,138,0.16)",
+  },
+  inlineError: {
+    color: "#FFB4AB",
+    marginTop: 12,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  checkingCard: {
+    alignItems: "center",
+    borderRadius: 18,
+    padding: 24,
+    backgroundColor: "rgba(24,54,40,0.95)",
+    borderWidth: 1,
+    borderColor: "rgba(127,169,138,0.16)",
+  },
+  checkingText: {
+    color: "#F4F7F2",
+    fontWeight: "700",
+    marginTop: 14,
   },
   input: {
     marginBottom: 14,

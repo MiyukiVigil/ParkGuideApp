@@ -437,7 +437,7 @@ export default function QuizView() {
                           color: theme.colors.onSurfaceVariant,
                         }}
                       >
-                        {question.explanation}
+                        {getLocalizedText(question.explanation, i18n.language)}
                       </Text>
                     </View>
                   )}

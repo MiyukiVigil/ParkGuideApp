@@ -24,6 +24,7 @@ export default {
     networkError: "网络错误。请检查您的连接。",
     connectionTimeout: "连接超时。请重试。",
     serverError: "服务器错误。请稍后重试。",
+    restoringSession: "正在恢复您的安全会话...",
     forgotPassword: "忘记密码?",
     rememberMe: "记住我",
     signInWithPasskey: "使用通行密钥登录",

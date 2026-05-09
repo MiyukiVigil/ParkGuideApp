@@ -16,6 +16,7 @@ import { ThemeContext } from "../contexts/ThemeContext";
 import { ScreenSpeechProvider } from "../contexts/ScreenSpeechContext";
 import TTSFloatingButton from "../components/TTSFloatingButton";
 import { validateConfig } from "../constants/config";
+import { AppAlertProvider } from "../components/AppAlertProvider";
 
 // Setup Translations
 const supportedLangs = ['en', 'ms', 'zh'];
@@ -326,8 +327,10 @@ export default function RootLayout() {
     >
       <ScreenSpeechProvider>
         <PaperProvider theme={theme}>
-          <Stack screenOptions={{ headerShown: false }} />
-          <TTSFloatingButton />
+          <AppAlertProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+            <TTSFloatingButton />
+          </AppAlertProvider>
         </PaperProvider>
       </ScreenSpeechProvider>
     </ThemeContext.Provider>

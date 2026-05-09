@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, useWindowDimensions, Alert } from 'react-native';
+import { Image, Linking, TouchableOpacity, View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { useTheme, Surface, Text, Button, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -8,11 +8,25 @@ import ThemedBackground from '../../components/ThemedBackground';
 import { useThemeContext } from '../../contexts/ThemeContext';
 import { useScreenSpeech } from '../../contexts/ScreenSpeechContext';
 import courseService from '../../services/courseService';
+import { useAppAlert } from '../../components/AppAlertProvider';
+
+const getMediaUrl = (item) => {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  return item.url || item.uri || item.src || "";
+};
+
+const getMediaTitle = (item, fallback) => {
+  if (!item || typeof item === "string") return fallback;
+  if (typeof item.title === "string") return item.title;
+  return item.title?.en || item.name || fallback;
+};
 
 export default function LessonView() {
   const theme = useTheme();
   const router = useRouter();
   const { t, i18n } = useTranslation();
+  const { showAlert } = useAppAlert();
   const { width } = useWindowDimensions();
   const { isSimpleMode, highContrast } = useThemeContext();
   const { id } = useLocalSearchParams();
@@ -33,6 +47,7 @@ export default function LessonView() {
   };
 
   const isCompleted = lesson?.is_completed || (lesson?.progress?.completed) || false;
+  const arScenario = lesson?.ar_scenario_info;
 
   const speechText = loading
     ? [t('lesson'), t('loadingLessons')].join('. ')
@@ -66,17 +81,6 @@ export default function LessonView() {
       setLoading(true);
       setError(null);
       const data = await courseService.getLesson(id);
-      console.log('[LessonView] Lesson data loaded:', {
-        id: data?.id,
-        title: data?.title,
-        content_text: !!data?.content_text,
-        content_images: data?.content_images,
-        content_images_count: data?.content_images?.length || 0,
-        content_videos: data?.content_videos,
-        content_videos_count: data?.content_videos?.length || 0,
-        is_completed: data?.is_completed,
-        progress: data?.progress,
-      });
       setLesson(data);
     } catch (err) {
       setError(err.message);
@@ -92,20 +96,9 @@ export default function LessonView() {
       await courseService.markLessonComplete(id);
       // Reload immediately after API success
       await loadLesson();
-      Alert.alert(
-        t('lessonCompleted'),
-        t('goodJobKeepGoing'),
-        [
-          {
-            text: t('continue'),
-            onPress: () => {
-              // Just close the alert, lesson is already reloaded
-            },
-          },
-        ]
-      );
+      showAlert(t('lessonCompleted'), t('goodJobKeepGoing'));
     } catch (err) {
-      Alert.alert(t('error'), err.message);
+      showAlert(t('error'), err.message);
     } finally {
       setMarking(false);
     }
@@ -222,29 +215,31 @@ export default function LessonView() {
               >
                 {t('images')}
               </Text>
-              {lesson.content_images.map((image, index) => (
-                <View
+              {lesson.content_images.map((image, index) => {
+                const imageUrl = getMediaUrl(image);
+                return (
+                <TouchableOpacity
                   key={index}
+                  activeOpacity={0.86}
+                  onPress={() => imageUrl ? Linking.openURL(imageUrl) : null}
                   style={[
                     styles.imageContainer,
                     {
                       backgroundColor: theme.colors.surfaceVariant,
                       borderColor: theme.colors.outlineVariant,
                       borderRadius: 12,
-                      padding: 12,
                     },
                   ]}
                 >
-                  <Text
-                    style={{
-                      color: theme.colors.onSurfaceVariant,
-                      textAlign: 'center',
-                    }}
-                  >
-                    📷 {typeof image === 'string' ? image : JSON.stringify(image)}
-                  </Text>
-                </View>
-              ))}
+                  {imageUrl ? (
+                    <Image source={{ uri: imageUrl }} style={styles.lessonImage} resizeMode="cover" />
+                  ) : (
+                    <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+                      {t('imageUnavailable')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )})}
             </View>
           )}
 
@@ -261,9 +256,14 @@ export default function LessonView() {
               >
                 {t('videos') || 'Videos'}
               </Text>
-              {(lesson.content_videos || lesson.videos || []).map((video, index) => (
-                <View
+              {(lesson.content_videos || lesson.videos || []).map((video, index) => {
+                const videoUrl = getMediaUrl(video);
+                const videoTitle = getMediaTitle(video, `${t('video')} ${index + 1}`);
+                return (
+                <TouchableOpacity
                   key={index}
+                  activeOpacity={0.86}
+                  onPress={() => videoUrl ? Linking.openURL(videoUrl) : null}
                   style={[
                     styles.videoContainer,
                     {
@@ -274,18 +274,63 @@ export default function LessonView() {
                     },
                   ]}
                 >
-                  <Text
-                    style={{
-                      color: theme.colors.onSurfaceVariant,
-                      textAlign: 'center',
-                    }}
-                  >
-                    🎥 {typeof video === 'string' ? video : video.name || t('videos')}
+                  <Text variant="titleSmall" style={{ color: theme.colors.onSurface, textAlign: 'center', fontWeight: '700' }}>
+                    {videoTitle}
                   </Text>
-                </View>
-              ))}
+                  <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 6 }}>
+                    {videoUrl ? t('tapToOpenVideo') : t('videoUnavailable')}
+                  </Text>
+                </TouchableOpacity>
+              )})}
             </View>
           )}
+
+          {arScenario ? (
+            <View
+              style={[
+                styles.arBox,
+                {
+                  backgroundColor: theme.colors.primaryContainer,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+            >
+              <Text
+                variant="titleSmall"
+                style={{
+                  color: theme.colors.onPrimaryContainer,
+                  fontWeight: '800',
+                  marginBottom: 6,
+                }}
+              >
+                {t('integratedARLesson')}
+              </Text>
+              <Text
+                style={{
+                  color: theme.colors.onPrimaryContainer,
+                  lineHeight: 20,
+                  marginBottom: 12,
+                }}
+              >
+                {getLocalizedText(arScenario.title) || arScenario.code}
+              </Text>
+              <Button
+                mode="contained"
+                icon="cube-scan"
+                onPress={() => {
+                  const params = new URLSearchParams({
+                    scenarioId: String(arScenario.id),
+                    scenario: arScenario.scenario_type || 'biodiversity',
+                  });
+                  const image = arScenario.initial_panorama_url || arScenario.thumbnail;
+                  if (image) params.set('image', image);
+                  router.push(`/ar-training/forest-biodiversity?${params.toString()}`);
+                }}
+              >
+                {t('launchARLesson')}
+              </Button>
+            </View>
+          ) : null}
 
           {/* Key Takeaways */}
           {getLocalizedText(lesson.key_takeaways) ? (
@@ -400,6 +445,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  lessonImage: {
+    width: '100%',
+    height: '100%',
   },
   videoContainer: {
     height: 200,
@@ -414,6 +464,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     marginVertical: 20,
+  },
+  arBox: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
   },
   infoCard: {
     padding: 12,

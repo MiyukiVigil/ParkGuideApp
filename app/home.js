@@ -38,6 +38,14 @@ const parseLocalizedValue = (value) => {
   }
 };
 
+const normalizeLanguageCode = (language) => {
+  const normalized = String(language || "en").toLowerCase();
+  if (normalized.startsWith("zh")) return "zh";
+  if (normalized.startsWith("ms")) return "ms";
+  if (normalized.startsWith("en")) return "en";
+  return normalized.split("-")[0] || "en";
+};
+
 export default function Home() {
   const router = useRouter();
   const theme = useTheme();
@@ -81,11 +89,12 @@ export default function Home() {
       const loadTrainingProgress = async () => {
         try {
           const enrollments = await courseService.getUserEnrollments();
+          const rows = Array.isArray(enrollments) ? enrollments : (enrollments?.results || []);
           console.log('[home] User enrollments:', enrollments);
           
           // Set current course to first incomplete one, or first course overall
-          const incompleteCourse = enrollments.find(e => e.status !== 'completed' && (e.progress_percentage || 0) < 100);
-          const nextCourse = incompleteCourse || enrollments[0];
+          const incompleteCourse = rows.find(e => e.status !== 'completed' && (e.progress_percentage || 0) < 100);
+          const nextCourse = incompleteCourse || rows[0];
           
           // Parse course_title if it's a JSON string (handle both JSON and Python dict strings)
           const courseTitle = parseLocalizedValue(nextCourse?.course_title || nextCourse?.title);
@@ -97,14 +106,14 @@ export default function Home() {
           setCurrentCourse(courseToDisplay);
 
           // Calculate overall progress across all enrolled courses
-          const totalProgress = enrollments.length > 0
-            ? enrollments.reduce((sum, e) => sum + (e.progress_percentage || 0), 0) / enrollments.length
+          const totalProgress = rows.length > 0
+            ? rows.reduce((sum, e) => sum + (e.progress_percentage || 0), 0) / rows.length
             : 0;
 
           // Count courses not yet completed
-          const remainingModules = enrollments.filter(e => e.status !== 'completed' && (e.progress_percentage || 0) < 100).length;
+          const remainingModules = rows.filter(e => e.status !== 'completed' && (e.progress_percentage || 0) < 100).length;
 
-          setCompletedModules(enrollments.filter(e => e.status === 'completed' || (e.progress_percentage || 0) >= 100).map(e => e.id));
+          setCompletedModules(rows.filter(e => e.status === 'completed' || (e.progress_percentage || 0) >= 100).map(e => e.id));
           setTrainingProgress(totalProgress / 100);
           setRemainingModules(remainingModules);
         } catch (err) {
@@ -122,7 +131,7 @@ export default function Home() {
       return () => {
         isActive = false;
       };
-    }, [])
+    }, [t])
   );
 
   // Fetch unread notifications from backend
@@ -201,17 +210,18 @@ export default function Home() {
   }, [trainingProgress, barAnim]);
 
   const getLocalizedTitle = (titleData) => {
+    const language = normalizeLanguageCode(i18n.resolvedLanguage || i18n.language);
     if (!titleData) return t("untitledCourse");
     if (typeof titleData === "string") {
       const parsed = parseLocalizedValue(titleData);
       if (parsed && typeof parsed === "object") {
-        return parsed[i18n.language] || parsed.en || parsed.ms || parsed.zh || t("untitledCourse");
+        return parsed[language] || parsed.en || parsed.ms || parsed.zh || t("untitledCourse");
       }
 
       return titleData;
     }
     if (typeof titleData === "object") {
-      return titleData[i18n.language] || titleData.en || titleData.course_title || JSON.stringify(titleData);
+      return titleData[language] || titleData.en || titleData.ms || titleData.zh || titleData.course_title || JSON.stringify(titleData);
     }
     return String(titleData);
   };

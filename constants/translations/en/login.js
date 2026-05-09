@@ -22,6 +22,7 @@ export default {
     networkError: "Network error. Please check your connection.",
     connectionTimeout: "Connection timeout. Please try again.",
     serverError: "Server error. Please try again later.",
+    restoringSession: "Restoring your secure session...",
     forgotPassword: "Forgot Password?",
     rememberMe: "Remember Me",
     signInWithPasskey: "Sign in with passkey",

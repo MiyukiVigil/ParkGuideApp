@@ -169,6 +169,8 @@ export default function Materials() {
           fileId: row.id,
           title: row.original_name || `File ${row.id}`,
           sub: `${(row.content_type || "FILE").toUpperCase()} • ${formatBytes(row.size)}`,
+          category: row.category || row.file_category || row.tags?.[0] || "All",
+          tags: Array.isArray(row.tags) ? row.tags : [],
           url: row.download_url || null,
           apiDownloadUrl: `${api.defaults.baseURL}/secure-files/files/${row.id}/download/`,
           uploadedAt: row.uploaded_at || null,
@@ -206,10 +208,19 @@ export default function Materials() {
     return studyMaterials.filter((item) => {
       const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
       const matchesCategory =
-        activeCategory === "All" || item.category === activeCategory;
+        activeCategory === "All" || item.category === activeCategory || item.tags?.includes(activeCategory);
       return matchesQuery && matchesCategory;
     });
   }, [query, activeCategory, studyMaterials]);
+
+  const categories = useMemo(() => {
+    const tagSet = new Set(["All"]);
+    studyMaterials.forEach((item) => {
+      if (item.category && item.category !== "All") tagSet.add(item.category);
+      item.tags?.forEach((tag) => tagSet.add(tag));
+    });
+    return Array.from(tagSet);
+  }, [studyMaterials]);
 
   useScreenSpeech(
     loadingMaterials
@@ -594,11 +605,8 @@ export default function Materials() {
         />
 
         <View style={styles.chipRow}>
-          {[
-            { key: "All", label: t("categoryAll") },
-            { key: "Guide", label: t("categoryGuide") },
-            { key: "Policy", label: t("categoryPolicy") },
-          ].map(({ key, label }) => {
+          {categories.map((key) => {
+            const label = key === "All" ? t("categoryAll") : t(`category${key}`, key);
             const selected = activeCategory === key;
             return (
               <Chip

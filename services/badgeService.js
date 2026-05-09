@@ -5,33 +5,51 @@
 
 import CONFIG from '../constants/config';
 import { getAccessToken } from '../utils/tokenStorage';
+import { ensureFreshSession } from '../utils/api';
 
 const API_URL = CONFIG.API_BASE_URL;
 
 // Helper function to make authenticated requests
 const authenticatedFetch = async (endpoint, options = {}) => {
-  const token = await getAccessToken();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
+  const buildHeaders = async () => {
+    const token = await getAccessToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const fullUrl = `${API_URL}${endpoint}`;
-  console.log(`[badgeService] Fetching: ${fullUrl}`);
-
-  try {
-    const response = await fetch(fullUrl, {
+  const performRequest = async () => {
+    const headers = await buildHeaders();
+    console.log(`[badgeService] Fetching: ${fullUrl}`);
+    return fetch(fullUrl, {
       ...options,
       headers,
     });
+  };
+
+  try {
+    let response = await performRequest();
+
+    if (response.status === 401) {
+      const refreshed = await ensureFreshSession();
+      if (refreshed) {
+        response = await performRequest();
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[badgeService] API Error: ${response.status} ${response.statusText}`, errorText);
+      if (response.status !== 401) {
+        console.error(`[badgeService] API Error: ${response.status} ${response.statusText}`, errorText);
+      }
       
       const error = new Error(`API Error: ${response.status} ${response.statusText}`);
       error.status = response.status;
@@ -41,7 +59,9 @@ const authenticatedFetch = async (endpoint, options = {}) => {
 
     return response.json();
   } catch (error) {
-    console.error(`[badgeService] Network error for ${fullUrl}:`, error.message);
+    if (error.status !== 401) {
+      console.error(`[badgeService] Network error for ${fullUrl}:`, error.message);
+    }
     throw error;
   }
 };
@@ -51,21 +71,36 @@ export const badgeService = {
    * Get all available badges
    */
   getAllBadges: async () => {
-    return authenticatedFetch('/user-progress/badges/');
+    return authenticatedFetch(`/user-progress/badges/?_=${Date.now()}`, {
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
   },
 
   /**
    * Get user's badge progress
    */
   getUserBadges: async () => {
-    return authenticatedFetch('/user-progress/my-badges/');
+    return authenticatedFetch(`/user-progress/my-badges/?_=${Date.now()}`, {
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
   },
 
   /**
    * Get single badge details
    */
   getBadge: async (badgeId) => {
-    return authenticatedFetch(`/user-progress/badges/${badgeId}/`);
+    return authenticatedFetch(`/user-progress/badges/${badgeId}/?_=${Date.now()}`, {
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
   },
 
   /**
@@ -73,7 +108,7 @@ export const badgeService = {
    */
   getGrantedBadges: async () => {
     try {
-      const allBadges = await authenticatedFetch('/user-progress/badges/');
+      const allBadges = await badgeService.getAllBadges();
       // Filter for granted/earned badges
       if (Array.isArray(allBadges)) {
         return allBadges.filter(badge => badge.earned === true || badge.status === 'granted');
@@ -94,7 +129,7 @@ export const badgeService = {
    */
   getPendingBadges: async () => {
     try {
-      const allBadges = await authenticatedFetch('/user-progress/badges/');
+      const allBadges = await badgeService.getAllBadges();
       // Filter for pending badges
       if (Array.isArray(allBadges)) {
         return allBadges.filter(badge => badge.pending === true || badge.status === 'pending');
@@ -115,7 +150,7 @@ export const badgeService = {
    */
   getAchievementBadges: async () => {
     try {
-      const allBadges = await authenticatedFetch('/user-progress/badges/');
+      const allBadges = await badgeService.getAllBadges();
       // Filter for major/achievement badges
       if (Array.isArray(allBadges)) {
         return allBadges.filter(badge => badge.is_major_badge === true && (badge.earned === true || badge.status === 'granted'));
@@ -136,7 +171,7 @@ export const badgeService = {
    */
   getBadgeStatistics: async () => {
     try {
-      const userBadges = await authenticatedFetch('/user-progress/badges/');
+      const userBadges = await badgeService.getAllBadges();
       
       const stats = {
         total: 0,
