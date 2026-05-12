@@ -73,6 +73,111 @@ const parseMaybeJson = (value) => {
   }
 };
 
+const BADGE_ARRAY_FALLBACK_TRANSLATIONS = {
+  ms: {
+    'Orangutan Behaviour Basics': 'Asas Tingkah Laku Orang Utan',
+    'AR Wildlife Safety Practice': 'Latihan Keselamatan Hidupan Liar AR',
+    'Visitor Etiquette Coaching': 'Bimbingan Etika Pelawat',
+    'Movement and feeding cues': 'Petunjuk pergerakan dan pemakanan',
+    'Stress signs': 'Tanda tekanan',
+    'Mother-infant sensitivity': 'Kepekaan ibu dan anak',
+    'Scenario briefing': 'Taklimat senario',
+    'Launch AR response drill': 'Lancarkan latihan respons AR',
+    'Decision debrief': 'Ulasan keputusan',
+    'Silence and stillness': 'Senyap dan tenang',
+    'Camera behaviour': 'Tingkah laku kamera',
+  },
+  zh: {
+    'Orangutan Behaviour Basics': '红毛猩猩行为基础',
+    'AR Wildlife Safety Practice': 'AR 野生动物安全练习',
+    'Visitor Etiquette Coaching': '游客礼仪指导',
+    'Movement and feeding cues': '移动与进食线索',
+    'Stress signs': '压力迹象',
+    'Mother-infant sensitivity': '母婴敏感性',
+    'Scenario briefing': '场景简报',
+    'Launch AR response drill': '启动 AR 应对演练',
+    'Decision debrief': '决策复盘',
+    'Silence and stillness': '安静与静止',
+    'Camera behaviour': '拍摄行为',
+  },
+};
+
+const normalizeBadgeStatus = (badge) => String(
+  badge?.status ||
+  badge?.user_badge_status ||
+  badge?.progress_status ||
+  badge?.badge_status ||
+  badge?.user_badge?.status ||
+  ''
+).toLowerCase();
+
+const isBadgeRequirementComplete = (badge) => {
+  const explicitProgress = Number(
+    badge?.progress_percentage ??
+    badge?.completion_percentage ??
+    badge?.progress
+  );
+  if (Number.isFinite(explicitProgress) && explicitProgress >= 100) return true;
+
+  const requiredModules = Number(badge?.required_completed_modules || 0);
+  const completedModules = Number(badge?.completed_modules || 0);
+  if (requiredModules > 0 && completedModules >= requiredModules) return true;
+
+  const requiredBadges = Number(badge?.required_badges_count || 0);
+  const completedBadges = Number(badge?.completed_badges || 0);
+  if (requiredBadges > 0 && completedBadges >= requiredBadges) return true;
+
+  return false;
+};
+
+const badgeHasAnyDate = (badge, fields) => fields.some((field) => Boolean(badge?.[field] || badge?.user_badge?.[field]));
+
+const isBadgeEarned = (badge) => {
+  const status = normalizeBadgeStatus(badge);
+  return Boolean(
+    badge?.earned ||
+    badge?.granted ||
+    badge?.is_granted ||
+    badge?.is_earned ||
+    badge?.obtained ||
+    badge?.approved ||
+    ['granted', 'earned', 'obtained', 'awarded', 'approved', 'completed'].includes(status) ||
+    badgeHasAnyDate(badge, ['earned_at', 'granted_at', 'awarded_at', 'approved_at', 'obtained_at'])
+  );
+};
+
+const isBadgePending = (badge) => {
+  const status = normalizeBadgeStatus(badge);
+  return Boolean(
+    badge?.pending ||
+    badge?.is_pending ||
+    ['pending', 'pending_approval', 'waiting_approval', 'submitted', 'requested'].includes(status)
+  );
+};
+
+const isBadgeReadyForReview = (badge) => {
+  const status = normalizeBadgeStatus(badge);
+  return Boolean(
+    badge?.eligible ||
+    badge?.is_eligible ||
+    ['eligible', 'ready', 'ready_for_review', 'in_progress'].includes(status) ||
+    isBadgeRequirementComplete(badge)
+  );
+};
+
+const getNestedTranslation = (translations, language, field) => {
+  const parsed = parseMaybeJson(translations);
+  if (!parsed || typeof parsed !== 'object') return '';
+
+  const languageValue = parsed[language] || parsed.en || parsed.ms || parsed.zh;
+  if (typeof languageValue === 'string') return languageValue;
+  if (languageValue && typeof languageValue === 'object') {
+    return languageValue[field] || languageValue.name || languageValue.title || languageValue.description || '';
+  }
+
+  return parsed[field]?.[language] || parsed[field]?.en || '';
+};
+
 export default function Certification() {
   const theme = useTheme();
   const { t, i18n } = useTranslation();
@@ -270,33 +375,72 @@ export default function Certification() {
     outputRange: [3, 0, -3],
   }), [caseTiltX]);
 
-  const isEarnedBadge = useCallback((badge) => badge.earned || badge.status === 'granted', []);
-  const isPendingBadge = useCallback((badge) => badge.pending || badge.status === 'pending', []);
+  const isEarnedBadge = useCallback(isBadgeEarned, []);
+  const isPendingBadge = useCallback(isBadgePending, []);
+  const isReadyBadge = useCallback((badge) => !isBadgeEarned(badge) && !isBadgePending(badge) && isBadgeReadyForReview(badge), []);
   const activeLanguage = useMemo(() => normalizeLanguageCode(i18n.resolvedLanguage || i18n.language), [i18n.language, i18n.resolvedLanguage]);
   const getLocalizedObjectText = useCallback((value, fallback = '') => {
     const parsed = parseMaybeJson(value);
     if (!parsed) return fallback;
     if (typeof parsed === 'string') return parsed;
     if (typeof parsed === 'object') {
-      return parsed[activeLanguage] || parsed.en || parsed.ms || parsed.zh || fallback;
+      const localized = parsed[activeLanguage] || parsed.en || parsed.ms || parsed.zh;
+      if (typeof localized === 'string') return localized;
+      if (localized && typeof localized === 'object') {
+        return localized.name || localized.title || localized.description || fallback;
+      }
+      return fallback;
     }
     return fallback;
   }, [activeLanguage]);
+
+  const translateBadgeArrayItem = useCallback((value) => {
+    const localized = getLocalizedObjectText(value);
+    if (!localized) return '';
+    return BADGE_ARRAY_FALLBACK_TRANSLATIONS[activeLanguage]?.[localized] || localized;
+  }, [activeLanguage, getLocalizedObjectText]);
+
   const getLocalizedBadgeText = useCallback((badge, field) => {
     const directValue = badge?.[field] || badge?.[`badge_${field}`];
 
-    const translations =
-      badge?.[`${field}_translations`] ||
-      badge?.[`badge_${field}_translations`] ||
-      badge?.translations?.[field] ||
-      badge?.badge?.[`${field}_translations`] ||
-      badge?.badge?.[`badge_${field}_translations`];
+    const translationCandidates = [
+      badge?.[`${field}_translations`],
+      badge?.[`badge_${field}_translations`],
+      badge?.translations?.[field],
+      badge?.translations?.[activeLanguage]?.[field],
+      badge?.badge?.[`${field}_translations`],
+      badge?.badge?.[`badge_${field}_translations`],
+      badge?.badge?.translations?.[field],
+      badge?.badge?.translations?.[activeLanguage]?.[field],
+    ].filter(Boolean);
 
-    const translated = getLocalizedObjectText(translations);
-    if (translated) return translated;
+    for (const translations of translationCandidates) {
+      const translated = getNestedTranslation(translations, activeLanguage, field) || getLocalizedObjectText(translations);
+      if (translated) return translated;
+    }
+
+    if (field === 'name') {
+      const courseTitle = getLocalizedObjectText(
+        badge?.course_title_translations ||
+          badge?.badge_course_title_translations ||
+          badge?.course?.title ||
+          badge?.course?.title_translations
+      );
+      if (courseTitle && activeLanguage !== 'en') return t('badgeNameForCourse', { course: courseTitle });
+    }
+
+    if (field === 'description') {
+      const courseTitle = getLocalizedObjectText(
+        badge?.course_title_translations ||
+          badge?.badge_course_title_translations ||
+          badge?.course?.title ||
+          badge?.course?.title_translations
+      );
+      if (courseTitle && activeLanguage !== 'en') return t('badgeDescriptionForCourse', { course: courseTitle });
+    }
 
     return getLocalizedObjectText(directValue);
-  }, [getLocalizedObjectText]);
+  }, [activeLanguage, getLocalizedObjectText, t]);
 
   const getLocalizedBadgeCourseTitle = useCallback((badge) => {
     return getLocalizedObjectText(
@@ -316,32 +460,32 @@ export default function Certification() {
     );
 
     if (Array.isArray(translatedItems) && translatedItems.length > 0) {
-      return translatedItems.map((item) => getLocalizedObjectText(item)).filter(Boolean);
+      return translatedItems.map(translateBadgeArrayItem).filter(Boolean);
     }
 
     const fallbackItems = parseMaybeJson(badge?.[field] || badge?.[`badge_${field}`]);
 
     if (Array.isArray(fallbackItems)) {
-      return fallbackItems.map((item) => getLocalizedObjectText(item)).filter(Boolean);
+      return fallbackItems.map(translateBadgeArrayItem).filter(Boolean);
     }
 
     return [];
-  }, [getLocalizedObjectText]);
+  }, [translateBadgeArrayItem]);
 
   const getBadgeStatusLabel = useCallback((badge) => {
     if (isEarnedBadge(badge)) return t('badgeStatusObtained');
     if (isPendingBadge(badge)) return t('badgeStatusPendingApproval');
-    if (badge.eligible) return t('badgeStatusReadyForReview');
+    if (isReadyBadge(badge)) return t('badgeStatusReadyForReview');
     if (badge.rejected || badge.status === 'rejected') return t('badgeStatusRetryNeeded');
     return t('badgeStatusLocked');
-  }, [isEarnedBadge, isPendingBadge, t]);
+  }, [isEarnedBadge, isPendingBadge, isReadyBadge, t]);
 
   const getBadgeStatusTone = useCallback((badge) => {
     if (isEarnedBadge(badge)) return { chip: theme.colors.primary, text: theme.colors.onPrimary, progress: palette.progressEarned };
     if (isPendingBadge(badge)) return { chip: '#8D7344', text: '#FFF7E6', progress: palette.progressPending };
-    if (badge.eligible) return { chip: withAlpha(theme.colors.primary, 0.8), text: theme.colors.onPrimary, progress: withAlpha(theme.colors.primary, 0.8) };
+    if (isReadyBadge(badge)) return { chip: withAlpha(theme.colors.primary, 0.8), text: theme.colors.onPrimary, progress: withAlpha(theme.colors.primary, 0.8) };
     return { chip: withAlpha(theme.colors.onSurfaceVariant || theme.colors.onSurface, 0.7), text: theme.colors.surface, progress: palette.progressLocked };
-  }, [isEarnedBadge, isPendingBadge, palette.progressEarned, palette.progressLocked, palette.progressPending, theme.colors]);
+  }, [isEarnedBadge, isPendingBadge, isReadyBadge, palette.progressEarned, palette.progressLocked, palette.progressPending, theme.colors]);
 
   const getBadgeImageUri = useCallback((badge) => {
     if (badge?.badge_image_url) return badge.badge_image_url;
@@ -352,6 +496,17 @@ export default function Certification() {
   }, []);
 
   const getBadgeProgressValue = useCallback((badge) => {
+    if (isEarnedBadge(badge) || isBadgeRequirementComplete(badge)) return 1;
+
+    const explicitProgress = Number(
+      badge?.progress_percentage ??
+      badge?.completion_percentage ??
+      badge?.progress
+    );
+    if (Number.isFinite(explicitProgress) && explicitProgress > 0) {
+      return Math.min(1, explicitProgress / 100);
+    }
+
     if (badge?.is_major_badge) {
       const required = Number(badge?.required_badges_count || 0);
       const completed = Number(badge?.completed_badges || 0);
@@ -363,13 +518,13 @@ export default function Certification() {
     const completed = Number(badge?.completed_modules || 0);
     if (required <= 0) return completed > 0 ? 1 : 0;
     return Math.min(1, completed / required);
-  }, []);
+  }, [isEarnedBadge]);
 
   const badgeSummary = useMemo(() => {
     const earned = allBadges.filter((badge) => isEarnedBadge(badge)).length;
     const pending = allBadges.filter((badge) => isPendingBadge(badge)).length;
-    const locked = allBadges.filter((badge) => !isEarnedBadge(badge) && !isPendingBadge(badge) && !badge.eligible).length;
-    const ready = allBadges.filter((badge) => !isEarnedBadge(badge) && badge.eligible && !isPendingBadge(badge)).length;
+    const locked = allBadges.filter((badge) => !isEarnedBadge(badge) && !isPendingBadge(badge) && !isReadyBadge(badge)).length;
+    const ready = allBadges.filter((badge) => isReadyBadge(badge)).length;
 
     return {
       total: allBadges.length,
@@ -378,7 +533,7 @@ export default function Certification() {
       locked,
       ready,
     };
-  }, [allBadges, isEarnedBadge, isPendingBadge]);
+  }, [allBadges, isEarnedBadge, isPendingBadge, isReadyBadge]);
 
   const displayBadges = useMemo(() => {
     return [...allBadges].sort((a, b) => {
@@ -428,6 +583,7 @@ export default function Certification() {
   const renderBadgeTile = useCallback((badge) => {
     const earned = isEarnedBadge(badge);
     const pending = isPendingBadge(badge);
+    const ready = isReadyBadge(badge);
     const imageUri = getBadgeImageUri(badge);
     const progress = getBadgeProgressValue(badge);
     const tone = getBadgeStatusTone(badge);
@@ -456,19 +612,19 @@ export default function Certification() {
               style={[
                 styles.badgeEmblemFrame,
                 {
-                  borderColor: earned ? palette.caseFrameBorder : pending ? palette.badgePending : palette.badgeLockedBorder,
-                  backgroundColor: earned ? palette.badgeEarned : pending ? palette.badgePending : palette.badgeLocked,
-                  opacity: earned ? 1 : pending ? 0.88 : 0.58,
+                  borderColor: earned ? palette.caseFrameBorder : pending || ready ? palette.badgePending : palette.badgeLockedBorder,
+                  backgroundColor: earned ? palette.badgeEarned : pending || ready ? palette.badgePending : palette.badgeLocked,
+                  opacity: earned ? 1 : pending || ready ? 0.88 : 0.58,
                 },
               ]}
             >
               <Image
                 source={{ uri: imageUri }}
-                style={[styles.badgeEmblem, !earned && styles.badgeEmblemMuted]}
+                style={[styles.badgeEmblem, !earned && !pending && !ready && styles.badgeEmblemMuted]}
               />
               {!earned ? (
                 <View style={[styles.lockBadgePill, { backgroundColor: palette.overlay }]}>
-                  <Text style={styles.lockBadgePillText}>{pending ? t('badgePillPending') : t('badgePillLocked')}</Text>
+                  <Text style={styles.lockBadgePillText}>{pending ? t('badgePillPending') : ready ? t('badgePillReady') : t('badgePillLocked')}</Text>
                 </View>
               ) : null}
             </View>
@@ -484,7 +640,7 @@ export default function Certification() {
         </View>
       </TouchableOpacity>
     );
-  }, [badgeRotateX, badgeRotateY, badgeShiftX, badgeShiftY, badgeTiltEnabled, getBadgeImageUri, getBadgeProgressValue, getBadgeStatusTone, handleBadgePress, isEarnedBadge, isPendingBadge, palette, t]);
+  }, [badgeRotateX, badgeRotateY, badgeShiftX, badgeShiftY, badgeTiltEnabled, getBadgeImageUri, getBadgeProgressValue, getBadgeStatusTone, handleBadgePress, isEarnedBadge, isPendingBadge, isReadyBadge, palette, t]);
 
   return (
     <ScrollView
@@ -637,7 +793,9 @@ export default function Certification() {
                   ? t('badgeProgressEarned', { count: selectedBadge.completed_modules || selectedBadge.completed_badges || 0 })
                   : isPendingBadge(selectedBadge)
                     ? t('badgeProgressPending')
-                    : t('badgeProgressCurrent', { completed: selectedBadge.completed_modules || selectedBadge.completed_badges || 0, total: selectedBadge.required_completed_modules || selectedBadge.required_badges_count || 1 })}
+                    : isReadyBadge(selectedBadge)
+                      ? t('badgeProgressReady')
+                      : t('badgeProgressCurrent', { completed: selectedBadge.completed_modules || selectedBadge.completed_badges || 0, total: selectedBadge.required_completed_modules || selectedBadge.required_badges_count || 1 })}
               </Text>
               <ProgressBar
                 progress={getBadgeProgressValue(selectedBadge)}

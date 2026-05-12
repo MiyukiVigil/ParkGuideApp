@@ -22,6 +22,56 @@ const getMediaTitle = (item, fallback) => {
   return item.title?.en || item.name || fallback;
 };
 
+const getTextParts = (value) => {
+  if (!value) return [];
+  if (typeof value === "string") return [value];
+  return [value.en, value.ms, value.zh, value.code, value.scenario_type].filter(Boolean);
+};
+
+const getLessonSearchText = (lesson) => [
+  lesson?.code,
+  ...getTextParts(lesson?.title),
+  ...getTextParts(lesson?.content_text),
+  ...getTextParts(lesson?.description),
+  lesson?.ar_scenario,
+  lesson?.ar_scenario_info?.code,
+  lesson?.ar_scenario_info?.scenario_type,
+]
+  .filter(Boolean)
+  .join(" ")
+  .toLowerCase()
+  .replace(/[-_/]+/g, " ");
+
+const isArLaunchLesson = (lesson) => {
+  const text = getLessonSearchText(lesson);
+  return Boolean(
+    lesson?.ar_scenario_info ||
+    lesson?.ar_scenario ||
+    /\bar\b/.test(text) ||
+    text.includes("immersive") ||
+    text.includes("360")
+  );
+};
+
+const inferScenarioType = (lesson) => {
+  const text = getLessonSearchText(lesson);
+  if (text.includes("wildlife") || text.includes("orangutan") || text.includes("hidupan liar") || text.includes("野生")) {
+    return "wildlife";
+  }
+  if (text.includes("eco") || text.includes("tour") || text.includes("visitor") || text.includes("pelawat") || text.includes("游客")) {
+    return "ecotourism";
+  }
+  if (text.includes("conservation") || text.includes("pemuliharaan") || text.includes("保护")) {
+    return "conservation";
+  }
+  if (text.includes("guide") || text.includes("pemandu") || text.includes("导游")) {
+    return "guiding";
+  }
+  return "biodiversity";
+};
+
+const getFallbackScenarioId = (scenarioType) => `offline-${scenarioType === "ecotourism" ? "ecotourism" : scenarioType}`;
+
 export default function LessonView() {
   const theme = useTheme();
   const router = useRouter();
@@ -47,7 +97,9 @@ export default function LessonView() {
   };
 
   const isCompleted = lesson?.is_completed || (lesson?.progress?.completed) || false;
-  const arScenario = lesson?.ar_scenario_info;
+  const arScenario = lesson?.ar_scenario_info || lesson?.ar_scenario;
+  const hasArScenario = isArLaunchLesson(lesson);
+  const fallbackScenarioType = inferScenarioType(lesson);
 
   const speechText = loading
     ? [t('lesson'), t('loadingLessons')].join('. ')
@@ -169,6 +221,31 @@ export default function LessonView() {
             {getLocalizedText(lesson.title)}
           </Text>
 
+          {hasArScenario ? (
+            <View
+              style={[
+                styles.arTitleBanner,
+                {
+                  backgroundColor: theme.colors.primaryContainer,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+            >
+              <Text
+                variant="labelMedium"
+                style={{ color: theme.colors.onPrimaryContainer, fontWeight: '800' }}
+              >
+                {t('arScenarioLesson')}
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onPrimaryContainer, lineHeight: 20 }}
+              >
+                {t('arLessonExplainer')}
+              </Text>
+            </View>
+          ) : null}
+
           {isCompleted && (
             <View
               style={[
@@ -285,7 +362,7 @@ export default function LessonView() {
             </View>
           )}
 
-          {arScenario ? (
+          {hasArScenario ? (
             <View
               style={[
                 styles.arBox,
@@ -312,17 +389,30 @@ export default function LessonView() {
                   marginBottom: 12,
                 }}
               >
-                {getLocalizedText(arScenario.title) || arScenario.code}
+                {typeof arScenario === 'string'
+                  ? t('arScenarioReady')
+                  : getLocalizedText(arScenario?.title) || arScenario?.code || t('arScenarioReady')}
               </Text>
               <Button
                 mode="contained"
                 icon="cube-scan"
                 onPress={() => {
+                  const scenarioType = typeof arScenario === 'object' && arScenario?.scenario_type
+                    ? arScenario.scenario_type
+                    : fallbackScenarioType;
+                  const scenarioId = typeof arScenario === 'string'
+                    ? arScenario
+                    : arScenario?.id
+                      ? String(arScenario.id)
+                      : getFallbackScenarioId(scenarioType);
                   const params = new URLSearchParams({
-                    scenarioId: String(arScenario.id),
-                    scenario: arScenario.scenario_type || 'biodiversity',
+                    scenarioId,
+                    scenario: scenarioType,
+                    lessonId: String(id),
                   });
-                  const image = arScenario.initial_panorama_url || arScenario.thumbnail;
+                  const image = typeof arScenario === 'object' && arScenario
+                    ? arScenario.initial_panorama_url || arScenario.thumbnail
+                    : null;
                   if (image) params.set('image', image);
                   router.push(`/ar-training/forest-biodiversity?${params.toString()}`);
                 }}
@@ -437,6 +527,13 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
+  },
+  arTitleBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+    marginBottom: 16,
+    padding: 12,
   },
   imageContainer: {
     height: 200,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
-import { useTheme, Surface, Text, Button, ActivityIndicator, ProgressBar } from 'react-native-paper';
+import { useTheme, Surface, Text, Button, ActivityIndicator, ProgressBar, Chip } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
@@ -39,6 +39,22 @@ const getChapterProgress = (chapter) => {
   };
 };
 
+const hasArMarker = (value) => {
+  if (!value) return false;
+  const text = typeof value === 'string'
+    ? value
+    : [value.en, value.ms, value.zh, value.code, value.scenario_type].filter(Boolean).join(' ');
+  const normalized = text.toLowerCase().replace(/[-_/]+/g, ' ');
+  return /\bar\b/.test(normalized) || normalized.includes('immersive') || normalized.includes('360');
+};
+
+const isArLesson = (lesson) => Boolean(
+  lesson?.ar_scenario_info ||
+  lesson?.ar_scenario ||
+  hasArMarker(lesson?.title) ||
+  hasArMarker(lesson?.code)
+);
+
 export default function ChapterView() {
   const theme = useTheme();
   const router = useRouter();
@@ -63,6 +79,8 @@ export default function ChapterView() {
   const cardRadius = isSimpleMode || highContrast ? 16 : 24;
 
   const lessons = chapter?.lessons || [];
+  const arLessonsCount = lessons.filter(isArLesson).length;
+  const hasArLessons = arLessonsCount > 0;
   const chapterProgress = chapter ? getChapterProgress(chapter) : { totalLessons: 0, completedLessons: 0, progressPercentage: 0 };
   const progress = chapterProgress.progressPercentage || 0;
 
@@ -198,6 +216,28 @@ export default function ChapterView() {
             </Text>
           ) : null}
 
+          {hasArLessons ? (
+            <View
+              style={[
+                styles.arChapterBanner,
+                {
+                  backgroundColor: theme.colors.primaryContainer,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+            >
+              <Chip icon="cube-scan" compact style={styles.arChip}>
+                {t('arIntegratedChapter')}
+              </Chip>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onPrimaryContainer, lineHeight: 20 }}
+              >
+                {t('arChapterExplainer')}
+              </Text>
+            </View>
+          ) : null}
+
           {/* Progress */}
           <View style={{ marginBottom: 16 }}>
             <View
@@ -325,6 +365,8 @@ function LessonCard({
   getLocalizedText,
 }) {
   const isCompleted = isLessonCompleted(lesson);
+  const arScenario = lesson?.ar_scenario_info || lesson?.ar_scenario;
+  const hasAr = isArLesson(lesson);
 
   return (
     <Surface
@@ -397,27 +439,43 @@ function LessonCard({
             )}
           </View>
 
-          {lesson.time_estimate && (
-            <Text
-              variant="bodySmall"
-              style={{
-                color: theme.colors.onSurfaceVariant,
-                marginLeft: 32,
-              }}
-            >
-              {lesson.time_estimate} {t('minutes')}
-            </Text>
-          )}
+          <View style={styles.lessonMetaRow}>
+            {lesson.time_estimate ? (
+              <Text
+                variant="bodySmall"
+                style={{
+                  color: theme.colors.onSurfaceVariant,
+                }}
+              >
+                {lesson.time_estimate} {t('minutes')}
+              </Text>
+            ) : null}
+            {hasAr ? (
+              <Text
+                variant="labelSmall"
+                style={[
+                  styles.arInlineBadge,
+                  {
+                    color: theme.colors.onPrimaryContainer,
+                    backgroundColor: theme.colors.primaryContainer,
+                  },
+                ]}
+              >
+                {t('integratedARLesson')}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </View>
 
       <Button
-        mode="outlined"
+        mode={hasAr ? "contained-tonal" : "outlined"}
+        icon={hasAr ? "cube-scan" : undefined}
         size="small"
         onPress={onPress}
         style={{ marginTop: 12 }}
       >
-        {isCompleted ? t('review') : t('start')}
+        {hasAr ? t('launchARLesson') : isCompleted ? t('review') : t('start')}
       </Button>
     </Surface>
   );
@@ -516,11 +574,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
+  arChapterBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: 16,
+    padding: 12,
+  },
+  arChip: {
+    alignSelf: 'flex-start',
+  },
   lessonCard: {
     padding: 16,
     borderWidth: 1,
     borderRadius: 12,
     marginBottom: 12,
+  },
+  lessonMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginLeft: 32,
+  },
+  arInlineBadge: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    fontWeight: '800',
   },
   lessonNumber: {
     width: 32,

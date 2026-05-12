@@ -20,6 +20,24 @@ const isParkSpecificCourse = (course) => (
   (course?.prerequisites_info || []).length > 0
 );
 
+const isArCourse = (course) => {
+  const source = [
+    course?.course_type,
+    course?.code,
+    ...(Array.isArray(course?.tags) ? course.tags : []),
+    course?.title?.en,
+    course?.title?.ms,
+    course?.title?.zh,
+    course?.description?.en,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  const normalized = source.replace(/[-_/]+/g, ' ');
+  return /\bar\b/.test(normalized) || normalized.includes('immersive') || normalized.includes('360');
+};
+
 const getParkCategory = (course) => {
   const source = [
     ...(Array.isArray(course?.tags) ? course.tags : []),
@@ -134,10 +152,11 @@ export default function CourseCatalog() {
 
   useScreenSpeech(speechText, { priority: 100 });
 
-  const generalCourses = courses.filter((course) => !isParkSpecificCourse(course));
-  const parkSpecificCourses = courses.filter(isParkSpecificCourse);
+  const arCourses = courses.filter(isArCourse);
+  const generalCourses = courses.filter((course) => !isParkSpecificCourse(course) && !isArCourse(course));
+  const parkSpecificCourses = courses.filter((course) => isParkSpecificCourse(course) && !isArCourse(course));
   const generalCoursesComplete = generalCourses.length === 0 || generalCourses.every(isCourseCompleted);
-  const displayedCourses = activeTab === 'general' ? generalCourses : parkSpecificCourses;
+  const displayedCourses = activeTab === 'general' ? generalCourses : activeTab === 'ar' ? arCourses : parkSpecificCourses;
   const activeTabLocked = activeTab === 'park' && !generalCoursesComplete;
   const parkCourseGroups = [
     {
@@ -203,12 +222,17 @@ export default function CourseCatalog() {
           buttons={[
             {
               value: 'general',
-              label: `${t('generalCourses')} (${generalCourses.length})`,
+              label: `${t('generalCoursesShort')} (${generalCourses.length})`,
               icon: 'book-open-page-variant',
             },
             {
+              value: 'ar',
+              label: `${t('arClasses')} (${arCourses.length})`,
+              icon: 'cube-scan',
+            },
+            {
               value: 'park',
-              label: `${t('parkSpecificCourses')} (${parkSpecificCourses.length})`,
+              label: `${t('parkSpecificCoursesShort')} (${parkSpecificCourses.length})`,
               icon: generalCoursesComplete ? 'map-marker-radius' : 'lock-outline',
             },
           ]}
@@ -230,8 +254,25 @@ export default function CourseCatalog() {
           </View>
         ) : displayedCourses.length === 0 ? (
           <View style={styles.centerContainer}>
-            <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{t('noCourses')}</Text>
+            <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>
+              {activeTab === 'ar' ? t('noArClasses') : t('noCourses')}
+            </Text>
           </View>
+        ) : activeTab === 'ar' ? (
+          <CourseSection
+            title={t('arClasses')}
+            subtitle={t('arClassesSubtitle')}
+            courses={displayedCourses}
+            theme={theme}
+            isSimpleMode={isSimpleMode}
+            highContrast={highContrast}
+            cardRadius={cardRadius}
+            onPress={handleCoursePress}
+            onEnroll={handleEnroll}
+            onLockedPress={showParkLockedAlert}
+            t={t}
+            getLocalizedText={getLocalizedText}
+          />
         ) : activeTab === 'park' && !selectedParkGroup ? (
           <View>
             <View style={styles.parkIntro}>

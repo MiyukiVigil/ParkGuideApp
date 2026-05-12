@@ -9,6 +9,32 @@ import { ensureFreshSession } from '../utils/api';
 
 const API_URL = CONFIG.API_BASE_URL;
 
+const getBadgeStatus = (badge) => String(
+  badge?.status ||
+  badge?.user_badge_status ||
+  badge?.progress_status ||
+  badge?.badge_status ||
+  badge?.user_badge?.status ||
+  ''
+).toLowerCase();
+
+const isGrantedBadge = (badge) => (
+  badge?.earned === true ||
+  badge?.granted === true ||
+  badge?.is_granted === true ||
+  badge?.is_earned === true ||
+  badge?.obtained === true ||
+  badge?.approved === true ||
+  ['granted', 'earned', 'obtained', 'awarded', 'approved', 'completed'].includes(getBadgeStatus(badge)) ||
+  Boolean(badge?.earned_at || badge?.granted_at || badge?.awarded_at || badge?.approved_at || badge?.obtained_at)
+);
+
+const isPendingBadge = (badge) => (
+  badge?.pending === true ||
+  badge?.is_pending === true ||
+  ['pending', 'pending_approval', 'waiting_approval', 'submitted', 'requested'].includes(getBadgeStatus(badge))
+);
+
 // Helper function to make authenticated requests
 const authenticatedFetch = async (endpoint, options = {}) => {
   const buildHeaders = async () => {
@@ -71,7 +97,7 @@ export const badgeService = {
    * Get all available badges
    */
   getAllBadges: async () => {
-    return authenticatedFetch(`/user-progress/badges/?_=${Date.now()}`, {
+    return authenticatedFetch(`/user-progress/badges/?sync=1&_=${Date.now()}`, {
       headers: {
         'Cache-Control': 'no-cache',
         Pragma: 'no-cache',
@@ -111,11 +137,11 @@ export const badgeService = {
       const allBadges = await badgeService.getAllBadges();
       // Filter for granted/earned badges
       if (Array.isArray(allBadges)) {
-        return allBadges.filter(badge => badge.earned === true || badge.status === 'granted');
+        return allBadges.filter(isGrantedBadge);
       }
       // Handle paginated response
       if (allBadges.results) {
-        return allBadges.results.filter(badge => badge.earned === true || badge.status === 'granted');
+        return allBadges.results.filter(isGrantedBadge);
       }
       return [];
     } catch (error) {
@@ -132,11 +158,11 @@ export const badgeService = {
       const allBadges = await badgeService.getAllBadges();
       // Filter for pending badges
       if (Array.isArray(allBadges)) {
-        return allBadges.filter(badge => badge.pending === true || badge.status === 'pending');
+        return allBadges.filter(isPendingBadge);
       }
       // Handle paginated response
       if (allBadges.results) {
-        return allBadges.results.filter(badge => badge.pending === true || badge.status === 'pending');
+        return allBadges.results.filter(isPendingBadge);
       }
       return [];
     } catch (error) {
@@ -153,11 +179,11 @@ export const badgeService = {
       const allBadges = await badgeService.getAllBadges();
       // Filter for major/achievement badges
       if (Array.isArray(allBadges)) {
-        return allBadges.filter(badge => badge.is_major_badge === true && (badge.earned === true || badge.status === 'granted'));
+        return allBadges.filter(badge => badge.is_major_badge === true && isGrantedBadge(badge));
       }
       // Handle paginated response
       if (allBadges.results) {
-        return allBadges.results.filter(badge => badge.is_major_badge === true && (badge.earned === true || badge.status === 'granted'));
+        return allBadges.results.filter(badge => badge.is_major_badge === true && isGrantedBadge(badge));
       }
       return [];
     } catch (error) {
@@ -186,11 +212,11 @@ export const badgeService = {
 
       badges.forEach(badge => {
         stats.total++;
-        if (badge.earned || badge.status === 'granted') stats.earned++;
-        if (badge.pending || badge.status === 'pending') stats.pending++;
+        if (isGrantedBadge(badge)) stats.earned++;
+        if (isPendingBadge(badge)) stats.pending++;
         if (badge.in_progress || badge.status === 'in_progress') stats.inProgress++;
         if (badge.rejected || badge.status === 'rejected') stats.rejected++;
-          if (badge.is_major_badge && (badge.earned || badge.status === 'granted')) stats.achievements++;
+          if (badge.is_major_badge && isGrantedBadge(badge)) stats.achievements++;
       });
 
       return stats;

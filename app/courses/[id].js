@@ -37,6 +37,34 @@ const getChapterProgress = (chapter) => {
   };
 };
 
+const hasArMarker = (value) => {
+  if (!value) return false;
+  const text = typeof value === 'string'
+    ? value
+    : [value.en, value.ms, value.zh, value.code, value.scenario_type].filter(Boolean).join(' ');
+  const normalized = text.toLowerCase().replace(/[-_/]+/g, ' ');
+  return /\bar\b/.test(normalized) || normalized.includes('immersive') || normalized.includes('360');
+};
+
+const isArLesson = (lesson) => Boolean(
+  lesson?.ar_scenario_info ||
+  lesson?.ar_scenario ||
+  hasArMarker(lesson?.title) ||
+  hasArMarker(lesson?.code)
+);
+
+const getArLessons = (course) => (
+  (course?.chapters || []).flatMap((chapter) => chapter.lessons || []).filter(isArLesson)
+);
+
+const isArCourse = (course) => Boolean(
+  getArLessons(course).length ||
+  hasArMarker(course?.course_type) ||
+  hasArMarker(course?.code) ||
+  hasArMarker(course?.title) ||
+  (Array.isArray(course?.tags) && course.tags.some(hasArMarker))
+);
+
 export default function CourseDetail() {
   const theme = useTheme();
   const router = useRouter();
@@ -121,6 +149,8 @@ export default function CourseDetail() {
   const prerequisites = course?.prerequisites_info || [];
   const allPrerequisitesMet = prerequisites.length === 0 || prerequisites.every(p => p.is_completed);
   const canEnroll = !isEnrolled && allPrerequisitesMet;
+  const arLessons = getArLessons(course);
+  const isArTrainingCourse = isArCourse(course);
 
   const chapterText = (course?.chapters || []).flatMap((chapter, index) => {
     const chapterTitle = getLocalizedText(chapter.title) || `${t('chapter')} ${index + 1}`;
@@ -223,6 +253,28 @@ export default function CourseDetail() {
             </View>
           )}
 
+          {isArTrainingCourse ? (
+            <View
+              style={[
+                styles.arCourseBanner,
+                {
+                  backgroundColor: theme.colors.primaryContainer,
+                  borderColor: theme.colors.outlineVariant,
+                },
+              ]}
+            >
+              <Chip icon="cube-scan" compact style={styles.arChip}>
+                {t('arIntegratedCourse')}
+              </Chip>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onPrimaryContainer, lineHeight: 20 }}
+              >
+                {t('arCourseExplainer', { count: arLessons.length })}
+              </Text>
+            </View>
+          ) : null}
+
           <Text
             variant="bodyMedium"
             style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}
@@ -323,10 +375,15 @@ export default function CourseDetail() {
               {t('completed')}
             </Button>
           ) : isEnrolled ? (
-            <Button mode="contained" onPress={handleStartCourse} style={{ marginTop: 16 }}>
+            <Button
+              mode="contained"
+              icon={isArTrainingCourse ? 'cube-scan' : undefined}
+              onPress={handleStartCourse}
+              style={{ marginTop: 16 }}
+            >
               {enrollmentData?.progress_percentage > 0
                 ? t('continueCourse')
-                : t('startCourse')}
+                : isArTrainingCourse ? t('startArTraining') : t('startCourse')}
             </Button>
           ) : null}
         </Surface>
@@ -349,6 +406,7 @@ export default function CourseDetail() {
               <ChapterCard
                 key={chapter.id}
                 chapter={chapter}
+                arLessonsCount={(chapter.lessons || []).filter(isArLesson).length}
                 theme={theme}
                 isSimpleMode={isSimpleMode}
                 highContrast={highContrast}
@@ -370,6 +428,7 @@ export default function CourseDetail() {
 
 function ChapterCard({
   chapter,
+  arLessonsCount,
   theme,
   isSimpleMode,
   highContrast,
@@ -382,6 +441,7 @@ function ChapterCard({
   const lessonsCount = chapter.lessons?.length || 0;
   const chapterProgress = getChapterProgress(chapter);
   const progress = chapterProgress.progressPercentage || 0;
+  const hasArLessons = arLessonsCount > 0;
 
   return (
     <Surface
@@ -423,8 +483,35 @@ function ChapterCard({
           >
             {getLocalizedText(chapter.title)}
           </Text>
+          {hasArLessons ? (
+            <Text
+              variant="labelSmall"
+              style={{ color: theme.colors.primary, fontWeight: '700', marginTop: 4 }}
+            >
+              {t('arLessonsCount', { count: arLessonsCount })}
+            </Text>
+          ) : null}
         </View>
       </View>
+
+      {hasArLessons ? (
+        <View
+          style={[
+            styles.arChapterNotice,
+            {
+              backgroundColor: theme.colors.primaryContainer,
+              borderColor: theme.colors.outlineVariant,
+            },
+          ]}
+        >
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onPrimaryContainer, lineHeight: 18 }}
+          >
+            {t('arChapterExplainer')}
+          </Text>
+        </View>
+      ) : null}
 
       <Text
         variant="bodySmall"
@@ -450,7 +537,7 @@ function ChapterCard({
           onPress={onPress}
           style={{ marginTop: 12 }}
         >
-          {progress > 0 ? t('continue') : t('start')}
+          {hasArLessons ? t('openArLessons') : progress > 0 ? t('continue') : t('start')}
         </Button>
       )}
     </Surface>
@@ -489,6 +576,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
+  },
+  arCourseBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: 16,
+    padding: 12,
+  },
+  arChip: {
+    alignSelf: 'flex-start',
+  },
+  arChapterNotice: {
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 10,
   },
   chapterCard: {
     padding: 16,

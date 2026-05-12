@@ -7,9 +7,18 @@ import CONFIG from '../constants/config';
 import { getAccessToken } from '../utils/tokenStorage';
 import { ensureFreshSession } from '../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  AR_CHAPTER_ID,
+  AR_COURSE_ID,
+  buildArTrainingCourse,
+  isLocalArChapterId,
+  isLocalArCourseId,
+  isLocalArLessonId,
+} from '../constants/arCourse';
 
 const API_URL = CONFIG.API_BASE_URL;
 const CACHE_PREFIX = 'courseServiceCache:';
+const LOCAL_AR_COMPLETED_KEY = 'courseServiceLocalArCompletedLessons';
 
 const readCache = async (key) => {
   const cached = await AsyncStorage.getItem(`${CACHE_PREFIX}${key}`);
@@ -18,6 +27,75 @@ const readCache = async (key) => {
 
 const writeCache = async (key, data) => {
   await AsyncStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(data));
+};
+
+const readLocalArCompletedLessonIds = async () => {
+  try {
+    const raw = await AsyncStorage.getItem(LOCAL_AR_COMPLETED_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalArCompletedLessonIds = async (ids) => {
+  await AsyncStorage.setItem(LOCAL_AR_COMPLETED_KEY, JSON.stringify([...new Set(ids)]));
+};
+
+const getLocalArCourse = async () => buildArTrainingCourse(await readLocalArCompletedLessonIds());
+
+const getLocalizedSearchText = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return [value.en, value.ms, value.zh].filter(Boolean).join(' ');
+};
+
+const isArBackedCourse = (course) => {
+  const text = [
+    course?.code,
+    ...(Array.isArray(course?.tags) ? course.tags : []),
+    getLocalizedSearchText(course?.title),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return text.includes('ar') || text.includes('immersive');
+};
+
+const appendLocalArCourse = async (data, search = '') => {
+  const localCourse = await getLocalArCourse();
+  const normalizedSearch = String(search || '').trim().toLowerCase();
+  const localSearchText = [
+    localCourse.code,
+    getLocalizedSearchText(localCourse.title),
+    getLocalizedSearchText(localCourse.description),
+    ...(localCourse.tags || []),
+  ].join(' ').toLowerCase();
+  const shouldIncludeLocalCourse = !normalizedSearch || localSearchText.includes(normalizedSearch);
+
+  if (Array.isArray(data)) {
+    const withoutDuplicate = data.filter((course) => course?.id !== AR_COURSE_ID && course?.code !== localCourse.code);
+    if (withoutDuplicate.some(isArBackedCourse)) return withoutDuplicate;
+    return shouldIncludeLocalCourse ? [localCourse, ...withoutDuplicate] : withoutDuplicate;
+  }
+
+  const results = Array.isArray(data?.results) ? data.results : [];
+  const withoutDuplicate = results.filter((course) => course?.id !== AR_COURSE_ID && course?.code !== localCourse.code);
+  if (withoutDuplicate.some(isArBackedCourse)) {
+    return {
+      ...data,
+      results: withoutDuplicate,
+    };
+  }
+
+  const nextResults = shouldIncludeLocalCourse ? [localCourse, ...withoutDuplicate] : withoutDuplicate;
+  return {
+    ...data,
+    count: typeof data?.count === 'number' && shouldIncludeLocalCourse && results.length === withoutDuplicate.length ? data.count + 1 : data?.count,
+    results: nextResults,
+  };
 };
 
 // Helper function to make authenticated requests
@@ -134,13 +212,24 @@ export const courseService = {
       url += `?${params.toString()}`;
     }
 
-    return withOfflineCache(`courses:${params.toString()}`, () => authenticatedFetch(url));
+    try {
+      const data = await withOfflineCache(`courses:${params.toString()}`, () => authenticatedFetch(url));
+      return appendLocalArCourse(data, filters.search);
+    } catch (error) {
+      const localOnly = await appendLocalArCourse([], filters.search);
+      localOnly._fromCache = true;
+      return localOnly;
+    }
   },
 
   /**
    * Get course details with chapters and enrollment status
    */
   getCourseDetails: async (courseId) => {
+    if (isLocalArCourseId(courseId)) {
+      return getLocalArCourse();
+    }
+
     const data = await withOfflineCache(`course:${courseId}`, () => authenticatedFetch(`/courses/${courseId}/`));
     console.log(`[courseService] getCourseDetails response for course ${courseId}:`, {
       hasChapters: !!data.chapters,
@@ -155,6 +244,10 @@ export const courseService = {
    * Enroll in a course
    */
   enrollCourse: async (courseId) => {
+    if (isLocalArCourseId(courseId)) {
+      return (await getLocalArCourse()).enrollment_status;
+    }
+
     return authenticatedFetch(`/courses/${courseId}/enroll/`, {
       method: 'POST',
       body: JSON.stringify({}),
@@ -165,13 +258,26 @@ export const courseService = {
    * Get user's course enrollments
    */
   getUserEnrollments: async () => {
-    const response = await authenticatedFetch(`/enrollments/?_=${Date.now()}`, {
-      headers: {
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    });
-    return Array.isArray(response) ? response : (response?.results || []);
+    const localCourse = await getLocalArCourse();
+    const localEnrollment = {
+      ...localCourse.enrollment_status,
+      course_code: localCourse.code,
+      course_type: localCourse.course_type,
+      course_title: localCourse.title,
+    };
+
+    try {
+      const response = await authenticatedFetch(`/enrollments/?_=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      });
+      const rows = Array.isArray(response) ? response : (response?.results || []);
+      return [localEnrollment, ...rows.filter((item) => item?.course !== AR_COURSE_ID && item?.course_code !== localCourse.code)];
+    } catch (error) {
+      return [localEnrollment];
+    }
   },
 
   /**
@@ -191,6 +297,11 @@ export const courseService = {
    * Get chapter details
    */
   getChapter: async (chapterId) => {
+    if (isLocalArChapterId(chapterId)) {
+      const course = await getLocalArCourse();
+      return course.chapters.find((chapter) => chapter.id === AR_CHAPTER_ID);
+    }
+
     return authenticatedFetch(`/chapters/${chapterId}/`);
   },
 
@@ -198,6 +309,13 @@ export const courseService = {
    * Get lesson content
    */
   getLesson: async (lessonId) => {
+    if (isLocalArLessonId(lessonId)) {
+      const course = await getLocalArCourse();
+      const lessons = course.chapters.flatMap((chapter) => chapter.lessons || []);
+      const lesson = lessons.find((item) => String(item.id) === String(lessonId));
+      if (lesson) return lesson;
+    }
+
     return withOfflineCache(`lesson:${lessonId}`, () => authenticatedFetch(`/lessons/${lessonId}/`));
   },
 
@@ -205,6 +323,16 @@ export const courseService = {
    * Mark lesson as complete
    */
   markLessonComplete: async (lessonId) => {
+    if (isLocalArLessonId(lessonId)) {
+      const completedIds = await readLocalArCompletedLessonIds();
+      await writeLocalArCompletedLessonIds([...completedIds, String(lessonId)]);
+      return {
+        id: `${lessonId}-progress`,
+        completed: true,
+        completed_at: new Date().toISOString(),
+      };
+    }
+
     return authenticatedFetch(`/lessons/${lessonId}/mark_complete/`, {
       method: 'POST',
       body: JSON.stringify({}),

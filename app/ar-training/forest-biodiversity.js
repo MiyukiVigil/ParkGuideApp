@@ -20,6 +20,8 @@ import AppHeader from "../../components/AppHeader";
 import ThemedBackground from "../../components/ThemedBackground";
 import { useThemeContext } from "../../contexts/ThemeContext";
 import arTrainingService from "../../services/arTrainingService";
+import courseService from "../../services/courseService";
+import { AR_TRAINING_SCENARIOS } from "../../constants/arCourse";
 
 const deepRavinePanorama =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/A_panoramic_example_of_the_deep_ravine_forest_ecosystem._%2831018541-539e-49b5-be18-dd6123962a3a%29.JPG/3840px-A_panoramic_example_of_the_deep_ravine_forest_ecosystem._%2831018541-539e-49b5-be18-dd6123962a3a%29.JPG";
@@ -29,95 +31,103 @@ const PHONE_LOOK_RANGE = 900;
 const PHONE_LOOK_SMOOTHING = 0.18;
 
 const scenarioMeta = {
-  biodiversity: { icon: "leaf", label: "Biodiversity", color: "#2E7D32" },
-  ecotourism: { icon: "walk", label: "Eco-tourism", color: "#00897B" },
-  wildlife: { icon: "paw", label: "Wildlife", color: "#D84315" },
-  conservation: { icon: "shield-leaf", label: "Conservation", color: "#5E35B1" },
-  guiding: { icon: "account-voice", label: "Guide Skills", color: "#1565C0" },
+  biodiversity: { icon: "leaf", labelKey: "arBiodiversity", color: "#2E7D32" },
+  ecotourism: { icon: "walk", labelKey: "arEcotourism", color: "#00897B" },
+  wildlife: { icon: "paw", labelKey: "arWildlife", color: "#D84315" },
+  conservation: { icon: "shield-leaf", labelKey: "arConservation", color: "#5E35B1" },
+  guiding: { icon: "account-voice", labelKey: "arGuideSkills", color: "#1565C0" },
 };
 
 const offlineScenario = {
   id: "offline",
   code: "offline-forest-vr",
   scenario_type: "biodiversity",
-  title: { en: "Forest 360 VR Guide Training" },
+  title: {
+    en: "Forest 360 VR Guide Training",
+    ms: "Latihan Panduan VR 360 Hutan",
+    zh: "森林 360 VR 导览培训",
+  },
   description: {
     en: "Explore a 360 forest panorama, focus on training hotspots, and practise guide responses.",
+    ms: "Terokai panorama hutan 360, fokus pada hotspot latihan, dan latih respons pemandu.",
+    zh: "探索 360 森林全景，聚焦训练热点，并练习导览员回应。",
   },
   field_brief: {
     en: "A visitor group has paused inside a sensitive forest ecosystem. Use the 360 view to identify teaching moments and practise confident guide responses.",
+    ms: "Sekumpulan pelawat berhenti di dalam ekosistem hutan yang sensitif. Gunakan paparan 360 untuk mengenal pasti peluang penerangan dan melatih respons pemandu yang yakin.",
+    zh: "一组游客停留在敏感的森林生态系统中。使用 360 视图识别讲解时机，并练习自信的导览回应。",
   },
   learning_objectives: [
-    { en: "Identify biodiversity teaching points inside a realistic 360 scene." },
-    { en: "Practise low-impact visitor management." },
-    { en: "Explain wildlife and habitat concepts using visible field evidence." },
+    { en: "Identify biodiversity teaching points inside a realistic 360 scene.", ms: "Kenal pasti titik penerangan biodiversiti dalam adegan 360 yang realistik.", zh: "在真实的 360 场景中识别生物多样性讲解点。" },
+    { en: "Practise low-impact visitor management.", ms: "Latih pengurusan pelawat berimpak rendah.", zh: "练习低影响游客管理。" },
+    { en: "Explain wildlife and habitat concepts using visible field evidence.", ms: "Terangkan konsep hidupan liar dan habitat menggunakan bukti medan yang kelihatan.", zh: "使用可见现场证据解释野生动物和栖息地概念。" },
   ],
   success_criteria: [
-    { en: "Open every 360 hotspot." },
-    { en: "Review each visitor prompt and guide response." },
-    { en: "Pass the field decision check with at least 70%." },
+    { en: "Open every 360 hotspot.", ms: "Buka setiap hotspot 360.", zh: "打开每个 360 热点。" },
+    { en: "Review each visitor prompt and guide response.", ms: "Semak setiap prompt pelawat dan respons pemandu.", zh: "查看每个游客提示和导览回应。" },
+    { en: "Pass the field decision check with at least 70%.", ms: "Lulus semakan keputusan medan dengan sekurang-kurangnya 70%.", zh: "现场决策检查至少达到 70% 即为通过。" },
   ],
   initial_panorama_url: deepRavinePanorama,
   panoramas: [
     {
       id: "offline-panorama",
-      name: "Forest 360 training stop",
+      name: { en: "Forest 360 training stop", ms: "Hentian latihan hutan 360", zh: "森林 360 训练点" },
       panorama_url: deepRavinePanorama,
       hotspots: [
         {
           id: "canopy",
           hotspot_id: "canopy",
-          title: { en: "Canopy Habitat" },
+          title: { en: "Canopy Habitat", ms: "Habitat Kanopi", zh: "树冠栖息地" },
           icon_type: "tree",
           color_hint: "#2E7D32",
           position_yaw: 42,
           position_pitch: 24,
           content: {
-            description: { en: "Use the canopy to explain layers, shelter, food sources, and species niches." },
-            visitor_prompt: { en: 'A visitor asks: "Why does the forest look layered instead of all the same height?"' },
-            guide_action: { en: "Explain canopy, understory, and forest floor roles while asking visitors to observe without touching plants." },
+            description: { en: "Use the canopy to explain layers, shelter, food sources, and species niches.", ms: "Gunakan kanopi untuk menerangkan lapisan, perlindungan, sumber makanan, dan niche spesies.", zh: "用树冠解释森林层次、庇护、食物来源和物种生态位。" },
+            visitor_prompt: { en: 'A visitor asks: "Why does the forest look layered instead of all the same height?"', ms: 'Pelawat bertanya: "Mengapa hutan nampak berlapis dan bukan sama tinggi?"', zh: "游客问：为什么森林看起来有层次，而不是一样高？" },
+            guide_action: { en: "Explain canopy, understory, and forest floor roles while asking visitors to observe without touching plants.", ms: "Terangkan peranan kanopi, bawah kanopi, dan lantai hutan sambil meminta pelawat memerhati tanpa menyentuh tumbuhan.", zh: "解释树冠、林下层和森林地面的作用，同时提醒游客观察但不要触摸植物。" },
           },
         },
         {
           id: "trail-edge",
           hotspot_id: "trail-edge",
-          title: { en: "Trail Edge Regeneration" },
+          title: { en: "Trail Edge Regeneration", ms: "Pemulihan Tepi Laluan", zh: "步道边缘再生" },
           icon_type: "sprout",
           color_hint: "#43A047",
           position_yaw: 156,
           position_pitch: -2,
           content: {
-            description: { en: "Seedlings and low plants show how trampling can slow forest recovery." },
-            visitor_prompt: { en: "A visitor steps off the trail to get a closer photo." },
-            guide_action: { en: "Bring them back calmly and explain how staying on the trail protects young plants." },
+            description: { en: "Seedlings and low plants show how trampling can slow forest recovery.", ms: "Anak pokok dan tumbuhan rendah menunjukkan bagaimana pijakan boleh melambatkan pemulihan hutan.", zh: "幼苗和低矮植物说明踩踏会减慢森林恢复。" },
+            visitor_prompt: { en: "A visitor steps off the trail to get a closer photo.", ms: "Seorang pelawat keluar dari laluan untuk mengambil gambar lebih dekat.", zh: "一名游客离开步道想拍近照。" },
+            guide_action: { en: "Bring them back calmly and explain how staying on the trail protects young plants.", ms: "Bawa mereka kembali dengan tenang dan terangkan bagaimana kekal di laluan melindungi tumbuhan muda.", zh: "平静地请他们回到步道，并说明留在步道上如何保护幼苗。" },
           },
         },
         {
           id: "forest-floor",
           hotspot_id: "forest-floor",
-          title: { en: "Forest Floor Cycle" },
+          title: { en: "Forest Floor Cycle", ms: "Kitaran Lantai Hutan", zh: "森林地面循环" },
           icon_type: "mushroom",
           color_hint: "#795548",
           position_yaw: 258,
           position_pitch: -24,
           content: {
-            description: { en: "Leaf litter, fungi, and fallen wood return nutrients and create microhabitats." },
-            visitor_prompt: { en: "A visitor asks why the park does not remove all fallen branches." },
-            guide_action: { en: "Explain nutrient cycling and distinguish natural debris from safety hazards." },
+            description: { en: "Leaf litter, fungi, and fallen wood return nutrients and create microhabitats.", ms: "Serasah daun, kulat, dan kayu tumbang mengembalikan nutrien serta mewujudkan mikrohabitat.", zh: "落叶、真菌和倒木回收养分并形成微栖息地。" },
+            visitor_prompt: { en: "A visitor asks why the park does not remove all fallen branches.", ms: "Pelawat bertanya mengapa taman tidak membuang semua dahan tumbang.", zh: "游客问为什么公园不清除所有倒下的树枝。" },
+            guide_action: { en: "Explain nutrient cycling and distinguish natural debris from safety hazards.", ms: "Terangkan kitaran nutrien dan bezakan bahan semula jadi daripada bahaya keselamatan.", zh: "解释养分循环，并区分自然残枝与安全隐患。" },
           },
         },
         {
           id: "wildlife-buffer",
           hotspot_id: "wildlife-buffer",
-          title: { en: "Wildlife Buffer" },
+          title: { en: "Wildlife Buffer", ms: "Zon Penampan Hidupan Liar", zh: "野生动物缓冲区" },
           icon_type: "paw",
           color_hint: "#D84315",
           position_yaw: 318,
           position_pitch: 4,
           content: {
-            description: { en: "Dense vegetation can hide wildlife. Guides should manage distance, noise, and food." },
-            visitor_prompt: { en: "A visitor hears movement and wants to move closer." },
-            guide_action: { en: "Keep the group together, lower voices, secure food, and maintain a respectful distance." },
+            description: { en: "Dense vegetation can hide wildlife. Guides should manage distance, noise, and food.", ms: "Tumbuhan tebal boleh menyembunyikan hidupan liar. Pemandu perlu mengawal jarak, bunyi, dan makanan.", zh: "茂密植被可能隐藏野生动物。导览员应管理距离、音量和食物。" },
+            visitor_prompt: { en: "A visitor hears movement and wants to move closer.", ms: "Pelawat terdengar pergerakan dan ingin mendekati.", zh: "游客听到动静并想靠近。" },
+            guide_action: { en: "Keep the group together, lower voices, secure food, and maintain a respectful distance.", ms: "Kekalkan kumpulan bersama, rendahkan suara, simpan makanan, dan jaga jarak hormat.", zh: "让团队保持在一起，降低音量，收好食物，并保持尊重距离。" },
           },
         },
       ],
@@ -126,7 +136,7 @@ const offlineScenario = {
   quizzes: [
     {
       id: "offline-q1",
-      question_text: { en: "A visitor steps off the trail for a photo near seedlings. What should the guide do?" },
+      question_text: { en: "A visitor steps off the trail for a photo near seedlings. What should the guide do?", ms: "Seorang pelawat keluar dari laluan untuk bergambar dekat anak pokok. Apa yang perlu pemandu lakukan?", zh: "游客离开步道到幼苗旁拍照。导览员应该怎么做？" },
       options: {
         en: [
           "Bring them back politely and explain trampling damage.",
@@ -134,10 +144,22 @@ const offlineScenario = {
           "Pick up a seedling and show it to the group.",
           "Ignore it to avoid interrupting the tour.",
         ],
+        ms: [
+          "Minta mereka kembali dengan sopan dan terangkan kerosakan akibat pijakan.",
+          "Benarkan jika mereka keluar sebentar sahaja.",
+          "Cabut anak pokok dan tunjukkan kepada kumpulan.",
+          "Abaikan supaya lawatan tidak terganggu.",
+        ],
+        zh: [
+          "礼貌地请他们回来，并解释踩踏造成的伤害。",
+          "如果只是短暂停留就允许。",
+          "拔起一株幼苗给团队看。",
+          "忽略它以免打断行程。",
+        ],
       },
       correct_option_index: 0,
-      correct_explanation: { en: "Correct. The guide protects the site and turns the moment into learning." },
-      incorrect_explanation: { en: "The best answer combines visitor care, habitat protection, and a short explanation." },
+      correct_explanation: { en: "Correct. The guide protects the site and turns the moment into learning.", ms: "Betul. Pemandu melindungi kawasan dan menjadikan situasi itu sebagai pembelajaran.", zh: "正确。导览员保护现场，并把这一刻转化为学习机会。" },
+      incorrect_explanation: { en: "The best answer combines visitor care, habitat protection, and a short explanation.", ms: "Jawapan terbaik menggabungkan penjagaan pelawat, perlindungan habitat, dan penerangan ringkas.", zh: "最佳答案应结合游客照顾、栖息地保护和简短解释。" },
     },
   ],
 };
@@ -174,18 +196,35 @@ const getOptions = (quiz, language) => {
 
 const getHotspotId = (hotspot) => String(hotspot.hotspot_id || hotspot.id);
 
-const getCueDescription = (hotspot, language) =>
+const buildLocalScenario = (scenarioId) => {
+  const matched = AR_TRAINING_SCENARIOS.find((item) => String(item.id) === String(scenarioId));
+  if (!matched) return offlineScenario;
+  return {
+    ...offlineScenario,
+    ...matched,
+    id: matched.id,
+    panoramas: [
+      {
+        ...offlineScenario.panoramas[0],
+        panorama_url: matched.initial_panorama_url || offlineScenario.panoramas[0].panorama_url,
+      },
+    ],
+    quizzes: offlineScenario.quizzes,
+  };
+};
+
+const getCueDescription = (hotspot, language, fallback) =>
   getLocalizedText(
     hotspot?.content?.description || hotspot?.content?.guide_script || hotspot?.content,
     language,
-    "Review this hotspot and decide how you would explain it to visitors."
+    fallback
   );
 
-const getCuePrompt = (hotspot, language) =>
-  getLocalizedText(hotspot?.content?.visitor_prompt, language, "What should the guide do here?");
+const getCuePrompt = (hotspot, language, fallback) =>
+  getLocalizedText(hotspot?.content?.visitor_prompt, language, fallback);
 
-const getCueAction = (hotspot, language) =>
-  getLocalizedText(hotspot?.content?.guide_action, language, "Give a calm explanation and manage visitor impact.");
+const getCueAction = (hotspot, language, fallback) =>
+  getLocalizedText(hotspot?.content?.guide_action, language, fallback);
 
 const getHotspotPosition = (hotspot, panoramaWidth, sceneHeight) => {
   const yaw = ((Number(hotspot.position_yaw || 0) % 360) + 360) % 360;
@@ -199,14 +238,15 @@ const getHotspotPosition = (hotspot, panoramaWidth, sceneHeight) => {
 export default function ForestVRTraining() {
   const theme = useTheme();
   const { width, height } = useWindowDimensions();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isSimpleMode, highContrast } = useThemeContext();
-  const { scenarioId, image, scenario: scenarioParam } = useLocalSearchParams();
+  const { scenarioId, image, scenario: scenarioParam, lessonId } = useLocalSearchParams();
   const selectedScenarioId = Array.isArray(scenarioId) ? scenarioId[0] : scenarioId;
   const selectedImage = Array.isArray(image) ? image[0] : image;
   const scenarioTypeParam = Array.isArray(scenarioParam) ? scenarioParam[0] : scenarioParam;
+  const courseLessonId = Array.isArray(lessonId) ? lessonId[0] : lessonId;
 
-  const [scenario, setScenario] = useState(offlineScenario);
+  const [scenario, setScenario] = useState(() => buildLocalScenario(selectedScenarioId));
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(Boolean(selectedScenarioId && !String(selectedScenarioId).startsWith("offline")));
   const [imageFailed, setImageFailed] = useState(false);
@@ -226,6 +266,7 @@ export default function ForestVRTraining() {
 
   const loadScenario = useCallback(async () => {
     if (!selectedScenarioId || String(selectedScenarioId).startsWith("offline")) {
+      setScenario(buildLocalScenario(selectedScenarioId));
       setLoading(false);
       return;
     }
@@ -241,7 +282,7 @@ export default function ForestVRTraining() {
       }
     } catch (error) {
       console.log("Unable to load VR scenario", error.response?.data || error.message);
-      Alert.alert("Offline VR", "Backend scenario could not load, so a local 360 training view is shown.");
+      Alert.alert(t("arOfflineTitle"), t("arOfflineMessage"));
     } finally {
       setLoading(false);
     }
@@ -256,7 +297,8 @@ export default function ForestVRTraining() {
   const quizzes = scenario.quizzes?.length ? scenario.quizzes : offlineScenario.quizzes;
   const scenarioType = scenario.scenario_type || scenarioTypeParam || "biodiversity";
   const meta = scenarioMeta[scenarioType] || scenarioMeta.biodiversity;
-  const title = getLocalizedText(scenario.title, i18n.language, "Forest 360 VR Guide Training");
+  const metaLabel = t(meta.labelKey);
+  const title = getLocalizedText(scenario.title, i18n.language, t("arDefaultTitle"));
   const description = getLocalizedText(scenario.description, i18n.language);
   const successCriteria = getLocalizedList(scenario.success_criteria, i18n.language);
   const candidateImage = panorama.panorama_url || scenario.initial_panorama_url || selectedImage;
@@ -371,7 +413,7 @@ export default function ForestVRTraining() {
 
     const available = await DeviceMotion.isAvailableAsync();
     if (!available) {
-      Alert.alert("Phone look unavailable", "Use swipe or the left/right buttons to explore the 360 view.");
+      Alert.alert(t("arPhoneLookUnavailableTitle"), t("arPhoneLookUnavailableMessage"));
       return;
     }
 
@@ -412,7 +454,7 @@ export default function ForestVRTraining() {
   const submitQuiz = async () => {
     const unanswered = quizzes.some((_, index) => answers[index] === undefined);
     if (unanswered) {
-      Alert.alert("Questions incomplete", "Answer every field decision first.");
+      Alert.alert(t("arQuestionsIncompleteTitle"), t("arQuestionsIncompleteMessage"));
       return;
     }
 
@@ -437,7 +479,7 @@ export default function ForestVRTraining() {
       setQuizResult({ correct, score, passed: score >= 70, feedback });
     } catch (error) {
       console.log("Quiz sync failed", error.response?.data || error.message);
-      Alert.alert("Quiz sync failed", "Please check your connection and try again.");
+      Alert.alert(t("arQuizSyncFailedTitle"), t("arQuizSyncFailedMessage"));
     } finally {
       setSubmitting(false);
     }
@@ -445,11 +487,11 @@ export default function ForestVRTraining() {
 
   const completeTraining = async () => {
     if (visitedHotspotIds.length < cues.length) {
-      Alert.alert("Hotspots remaining", "Open and review every VR hotspot first.");
+      Alert.alert(t("arHotspotsRemainingTitle"), t("arHotspotsRemainingMessage"));
       return;
     }
     if (quizzes.length && !quizResult?.passed) {
-      Alert.alert("Decision check not passed", "Score at least 70% on the field decision questions.");
+      Alert.alert(t("arDecisionCheckFailedTitle"), t("arDecisionCheckFailedMessage"));
       return;
     }
 
@@ -468,17 +510,25 @@ export default function ForestVRTraining() {
       }
     }
 
-    Alert.alert("Training completed", "The 360 VR training is complete and your progress was saved when possible.");
+    if (courseLessonId) {
+      try {
+        await courseService.markLessonComplete(courseLessonId);
+      } catch (error) {
+        console.log("Course lesson completion sync failed", error.message);
+      }
+    }
+
+    Alert.alert(t("arTrainingCompletedTitle"), t("arTrainingCompletedMessage"));
   };
 
   if (loading) {
     return (
       <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
         <ThemedBackground />
-        <AppHeader title="360 VR Training" showBack showHome />
+        <AppHeader title={t("arVrTrainingTitle")} showBack showHome />
         <View style={styles.center}>
           <ActivityIndicator color={theme.colors.primary} size="large" />
-          <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>Loading 360 environment...</Text>
+          <Text style={[styles.loadingText, { color: theme.colors.onSurfaceVariant }]}>{t("arLoadingEnvironment")}</Text>
         </View>
       </View>
     );
@@ -487,15 +537,15 @@ export default function ForestVRTraining() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <ThemedBackground />
-      <AppHeader title={title} subtitle="360 hotspot training" showBack showHome />
+      <AppHeader title={title} subtitle={t("arHotspotTrainingSubtitle")} showBack showHome />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.briefHeader}>
           <Chip icon={meta.icon} compact>
-            {meta.label}
+            {metaLabel}
           </Chip>
           <Chip icon="panorama-horizontal" compact>
-            360 view
+            {t("ar360View")}
           </Chip>
         </View>
 
@@ -546,7 +596,7 @@ export default function ForestVRTraining() {
               <View style={styles.viewerTopBar}>
                 <View style={styles.viewerBadge}>
                   <MaterialCommunityIcons name="virtual-reality" size={18} color="#FFFFFF" />
-                  <Text style={styles.viewerBadgeText}>{phoneLookEnabled ? "Phone look active" : "Drag to look around"}</Text>
+                  <Text style={styles.viewerBadgeText}>{phoneLookEnabled ? t("arPhoneLookActive") : t("arDragToLook")}</Text>
                 </View>
                 <Text style={styles.viewerCounter}>
                   {visitedHotspotIds.length}/{cues.length}
@@ -574,23 +624,23 @@ export default function ForestVRTraining() {
                     </View>
                     <View style={styles.popupTitleWrap}>
                       <Text numberOfLines={1} style={styles.popupTitle}>{selectedCue.title}</Text>
-                      <Text style={styles.popupSub}>{selectedCue.reviewed ? "Reviewed" : "Training hotspot"}</Text>
+                      <Text style={styles.popupSub}>{selectedCue.reviewed ? t("arReviewed") : t("arTrainingHotspot")}</Text>
                     </View>
                     <TouchableOpacity onPress={() => setPopupVisible(false)} style={styles.popupClose}>
                       <MaterialCommunityIcons name="close" size={20} color="#FFFFFF" />
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.popupBody}>{getCueDescription(selectedCue.hotspot, i18n.language)}</Text>
+                  <Text style={styles.popupBody}>{getCueDescription(selectedCue.hotspot, i18n.language, t("arDefaultHotspotDescription"))}</Text>
                   <View style={styles.popupCallout}>
                     <MaterialCommunityIcons name="account-question" size={17} color="#FFFFFF" />
-                    <Text style={styles.popupCalloutText}>{getCuePrompt(selectedCue.hotspot, i18n.language)}</Text>
+                    <Text style={styles.popupCalloutText}>{getCuePrompt(selectedCue.hotspot, i18n.language, t("arDefaultHotspotPrompt"))}</Text>
                   </View>
                   <View style={styles.popupCallout}>
                     <MaterialCommunityIcons name="account-voice" size={17} color="#FFFFFF" />
-                    <Text style={styles.popupCalloutText}>{getCueAction(selectedCue.hotspot, i18n.language)}</Text>
+                    <Text style={styles.popupCalloutText}>{getCueAction(selectedCue.hotspot, i18n.language, t("arDefaultHotspotAction"))}</Text>
                   </View>
                   <Button mode="contained" icon="check" onPress={reviewCue} style={styles.popupButton}>
-                    Mark reviewed
+                    {t("arMarkReviewed")}
                   </Button>
                 </View>
               ) : null}
@@ -601,9 +651,9 @@ export default function ForestVRTraining() {
         <Surface elevation={1} style={[styles.panel, { backgroundColor: theme.colors.surface, borderRadius: cardRadius }]}>
           <View style={styles.rowBetween}>
             <View style={styles.flexCopy}>
-              <Text style={[styles.panelTitle, { color: theme.colors.onSurface }]}>VR Hotspots</Text>
+              <Text style={[styles.panelTitle, { color: theme.colors.onSurface }]}>{t("arVrHotspots")}</Text>
               <Text style={[styles.bodyText, { color: theme.colors.onSurfaceVariant }]}>
-                Tap hotspots in the 360 view. Content opens as a popup inside the viewer.
+                {t("arHotspotsInstructions")}
               </Text>
             </View>
             <Text style={[styles.progressText, { color: theme.colors.primary }]}>{Math.round(progress * 100)}%</Text>
@@ -612,19 +662,19 @@ export default function ForestVRTraining() {
 
           <View style={styles.controlRow}>
             <Button mode={phoneLookEnabled ? "contained" : "outlined"} icon="cellphone-arrow-down" onPress={togglePhoneLook} style={styles.controlButton}>
-              {phoneLookEnabled ? "Phone look on" : "Phone look"}
+              {phoneLookEnabled ? t("arPhoneLookOn") : t("arPhoneLook")}
             </Button>
             <Button mode="outlined" icon="chevron-left" onPress={() => stepPan(1)} style={styles.iconControlButton}>
-              Left
+              {t("arLeft")}
             </Button>
             <Button mode="outlined" icon="chevron-right" onPress={() => stepPan(-1)} style={styles.iconControlButton}>
-              Right
+              {t("arRight")}
             </Button>
             <Button mode="contained" icon="book-open-page-variant" onPress={reviewCue} style={styles.controlButton}>
-              Open popup
+              {t("arOpenPopup")}
             </Button>
             <Button mode="outlined" icon="skip-next" onPress={focusNextCue} style={styles.controlButton}>
-              Next hotspot
+              {t("arNextHotspot")}
             </Button>
           </View>
 
@@ -662,7 +712,7 @@ export default function ForestVRTraining() {
         </Surface>
 
         <Surface elevation={1} style={[styles.panel, { backgroundColor: theme.colors.surface, borderRadius: cardRadius }]}>
-          <Text style={[styles.panelTitle, { color: theme.colors.onSurface }]}>Field Decision Check</Text>
+          <Text style={[styles.panelTitle, { color: theme.colors.onSurface }]}>{t("arFieldDecisionCheck")}</Text>
           {quizzes.map((quiz, questionIndex) => (
             <View key={quiz.id || quiz.question_id || questionIndex} style={styles.questionBlock}>
               <Text style={[styles.questionText, { color: theme.colors.onSurface }]}>
@@ -698,7 +748,7 @@ export default function ForestVRTraining() {
           {quizResult ? (
             <View style={styles.resultBlock}>
               <Text style={[styles.resultText, { color: quizResult.passed ? theme.colors.primary : theme.colors.error }]}>
-                Score: {quizResult.score}% ({quizResult.correct}/{quizzes.length})
+                {t("arScore", { score: quizResult.score, correct: quizResult.correct, total: quizzes.length })}
               </Text>
               {quizResult.feedback?.[0] ? (
                 <Text style={[styles.bodyText, { color: theme.colors.onSurfaceVariant }]}>
@@ -709,17 +759,17 @@ export default function ForestVRTraining() {
           ) : null}
 
           <Button mode="outlined" icon="checkbox-marked-circle-outline" onPress={submitQuiz} loading={submitting} disabled={submitting} style={styles.controlButton}>
-            Check answers
+            {t("arCheckAnswers")}
           </Button>
         </Surface>
 
         <Button mode="contained" icon="clipboard-check" onPress={completeTraining} style={styles.completeButton}>
-          Complete 360 VR Training
+          {t("arCompleteTraining")}
         </Button>
 
         {successCriteria.length ? (
           <Surface elevation={0} style={[styles.criteriaPanel, { backgroundColor: theme.colors.surfaceVariant, borderRadius: cardRadius }]}>
-            <Text style={[styles.criteriaTitle, { color: theme.colors.onSurfaceVariant }]}>Completion Standard</Text>
+            <Text style={[styles.criteriaTitle, { color: theme.colors.onSurfaceVariant }]}>{t("arCompletionStandard")}</Text>
             {successCriteria.map((item, index) => (
               <View key={`${item}-${index}`} style={styles.criteriaRow}>
                 <MaterialCommunityIcons name="check-circle-outline" size={16} color={theme.colors.primary} />
