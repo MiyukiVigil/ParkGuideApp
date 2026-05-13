@@ -28,7 +28,7 @@ module.exports = {
     name: "ParkGuideApp",
     slug: "parkguideapp",
     scheme: "parkguideapp",
-    version: "1.6.0",
+    version: "1.6.2",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
@@ -54,6 +54,7 @@ module.exports = {
     android: {
       package: process.env.PACKAGE_NAME || "com.miyukivigil.parkguideapp",
       googleServicesFile: "./google-services.json",
+      usesCleartextTraffic: true,
       adaptiveIcon: {
         foregroundImage: "./assets/icon.png",
         backgroundColor: "#ffffff",

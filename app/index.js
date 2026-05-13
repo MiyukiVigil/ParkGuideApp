@@ -370,7 +370,7 @@ export default function Login() {
             {t("protectedSession")}
           </Text>
           <Text variant="labelSmall" style={styles.footerSub}>
-            1.6.1
+            1.6.2
           </Text>
         </View>
       </Animated.View>

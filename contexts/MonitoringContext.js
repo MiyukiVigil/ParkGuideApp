@@ -1,10 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { useCameraPermissions } from 'expo-camera';
 
 import * as AlertService from '../services/alertService';
 import * as MonitorEvidenceService from '../services/monitorEvidenceService';
 import * as MonitorService from '../services/monitorService';
+import * as OfflineEvidenceQueue from '../services/offlineEvidenceQueue';
 
 const MonitoringContext = createContext(null);
 
@@ -41,6 +42,7 @@ export function MonitoringProvider({ children }) {
   const monitoringActiveRef = useRef(false);
   const stopRequestedRef = useRef(false);
   const monitorSessionRef = useRef(null);
+  const syncInFlightRef = useRef(false);
   const currentConfigRef = useRef({
     clipDurationSeconds: DEFAULT_CLIP_DURATION_SECONDS,
     clipIntervalMinutes: DEFAULT_CLIP_INTERVAL_MINUTES,
@@ -57,6 +59,7 @@ export function MonitoringProvider({ children }) {
   const [alertCount, setAlertCount] = useState(0);
   const [monitorStatus, setMonitorStatus] = useState(MonitorService.DEFAULT_MONITOR_STATUS);
   const [currentConfig, setCurrentConfig] = useState(currentConfigRef.current);
+  const [queuedEvidenceCount, setQueuedEvidenceCount] = useState(0);
 
   const refreshAlerts = useCallback(async () => {
     try {
@@ -75,6 +78,42 @@ export function MonitoringProvider({ children }) {
       setMonitorStatus(MonitorService.DEFAULT_MONITOR_STATUS);
     }
   }, []);
+
+  const refreshQueuedEvidence = useCallback(async () => {
+    const count = await OfflineEvidenceQueue.getQueuedEvidenceCount();
+    setQueuedEvidenceCount(count);
+    return count;
+  }, []);
+
+  const syncQueuedEvidence = useCallback(async () => {
+    if (syncInFlightRef.current) {
+      return {
+        uploaded: [],
+        failed: [],
+        remaining: queuedEvidenceCount,
+        skipped: true,
+      };
+    }
+
+    syncInFlightRef.current = true;
+    setCaptureState('syncing');
+    setCaptureError(null);
+    try {
+      const result = await OfflineEvidenceQueue.uploadQueuedEvidence({ limit: 2 });
+      await refreshQueuedEvidence();
+      await refreshStatus();
+      await refreshAlerts();
+      setCaptureState(result.failed.length ? 'queued' : 'idle');
+      return result;
+    } catch (error) {
+      setCaptureError(error?.message || 'Unable to sync queued evidence.');
+      setCaptureState('queued');
+      await refreshQueuedEvidence();
+      throw error;
+    } finally {
+      syncInFlightRef.current = false;
+    }
+  }, [queuedEvidenceCount, refreshAlerts, refreshQueuedEvidence, refreshStatus]);
 
   const clearCaptureTimer = useCallback(() => {
     if (captureTimerRef.current) {
@@ -142,18 +181,35 @@ export function MonitoringProvider({ children }) {
     }
 
     setCaptureState('uploading');
+    setCaptureError(null);
     const config = currentConfigRef.current;
-    const result = await MonitorEvidenceService.uploadMonitorEvidence({
+    const evidence = {
       uri: clip.uri,
       name: `monitor-${Date.now()}.mp4`,
       type: 'video/mp4',
       sourceMode: config.sourceMode,
       cameraSource: config.cameraSource,
       guideName: 'Tour guide',
-      location: 'Field monitoring preview',
+      location: config.location || 'Field monitoring preview',
       clipDuration: `${clipDurationSeconds}s`,
       clipIntervalMinutes: config.clipIntervalMinutes,
-    });
+    };
+
+    let result;
+    try {
+      result = await MonitorEvidenceService.uploadMonitorEvidence(evidence);
+    } catch (error) {
+      console.log('[Monitor] Upload failed; queueing clip locally:', error?.message || error);
+      await OfflineEvidenceQueue.queueEvidenceClip({
+        ...evidence,
+        sourceMode: 'phone-offline',
+        cameraSource: config.cameraSource || 'offline-phone-camera',
+        location: config.location || 'Offline field monitoring',
+      });
+      await refreshQueuedEvidence();
+      setCaptureState('queued');
+      return { queued: true };
+    }
 
     console.log('[Monitor] Upload result:', {
       alert: Boolean(result?.alert),
@@ -162,7 +218,7 @@ export function MonitoringProvider({ children }) {
 
     if (result?.alert) await refreshAlerts();
     await refreshStatus();
-  }, [refreshAlerts, refreshStatus]);
+  }, [refreshAlerts, refreshQueuedEvidence, refreshStatus]);
 
   const scheduleNextCapture = useCallback((delayMs) => {
     clearCaptureTimer();
@@ -216,8 +272,8 @@ export function MonitoringProvider({ children }) {
       console.log('[Monitor] Recording completed:', { uri: clip?.uri });
       unmountRecorder();
 
-      await uploadClip(clip, clipDurationSeconds);
-      setCaptureState('idle');
+      const uploadResult = await uploadClip(clip, clipDurationSeconds);
+      setCaptureState(uploadResult?.queued ? 'queued' : 'idle');
 
       if (stopRequestedRef.current) {
         await finishMonitoringStop();
@@ -260,7 +316,39 @@ export function MonitoringProvider({ children }) {
   useEffect(() => {
     refreshStatus();
     refreshAlerts();
-  }, [refreshAlerts, refreshStatus]);
+    refreshQueuedEvidence();
+  }, [refreshAlerts, refreshQueuedEvidence, refreshStatus]);
+
+  useEffect(() => {
+    if (queuedEvidenceCount < 1 || isMonitoring) return;
+
+    syncQueuedEvidence().catch((error) => {
+      console.log('[Monitor] Queued evidence sync waiting:', error?.message || error);
+    });
+  }, [isMonitoring, queuedEvidenceCount, syncQueuedEvidence]);
+
+  useEffect(() => {
+    if (queuedEvidenceCount < 1 || isMonitoring) return undefined;
+
+    const interval = setInterval(() => {
+      syncQueuedEvidence().catch((error) => {
+        console.log('[Monitor] Queued evidence periodic sync waiting:', error?.message || error);
+      });
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [isMonitoring, queuedEvidenceCount, syncQueuedEvidence]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active' || queuedEvidenceCount < 1 || isMonitoring) return;
+      syncQueuedEvidence().catch((error) => {
+        console.log('[Monitor] Queued evidence sync on app resume waiting:', error?.message || error);
+      });
+    });
+
+    return () => subscription.remove();
+  }, [isMonitoring, queuedEvidenceCount, syncQueuedEvidence]);
 
   useEffect(() => () => {
     clearCaptureTimer();
@@ -273,6 +361,7 @@ export function MonitoringProvider({ children }) {
       clipIntervalMinutes: Number(options.clipIntervalMinutes) || DEFAULT_CLIP_INTERVAL_MINUTES,
       sourceMode: options.sourceMode || 'phone',
       cameraSource: options.cameraSource || 'phone-camera',
+      location: options.location || 'Field monitoring preview',
     };
 
     console.log('[Monitor] Starting monitoring:', nextConfig);
@@ -302,12 +391,14 @@ export function MonitoringProvider({ children }) {
     setIsMonitoring(true);
     await refreshStatus();
     await refreshAlerts();
+    await refreshQueuedEvidence();
     scheduleNextCapture(FIRST_CAPTURE_DELAY_MS);
     return session;
   }, [
     clearCaptureTimer,
     permission?.granted,
     refreshAlerts,
+    refreshQueuedEvidence,
     refreshStatus,
     requestPermission,
     scheduleNextCapture,
@@ -360,6 +451,7 @@ export function MonitoringProvider({ children }) {
     isMonitoring,
     monitorSession: monitorSessionRef.current,
     monitorStatus,
+    queuedEvidenceCount,
     recorderMountKey,
     recorderRef,
     recorderVisible,
@@ -368,9 +460,11 @@ export function MonitoringProvider({ children }) {
     handleRecorderUnmount,
     startMonitoring,
     stopMonitoring,
+    syncQueuedEvidence,
     refreshMonitorState: async () => {
       await refreshStatus();
       await refreshAlerts();
+      await refreshQueuedEvidence();
     },
     clipDurationSeconds: currentConfig.clipDurationSeconds,
     clipIntervalMinutes: currentConfig.clipIntervalMinutes,
@@ -383,6 +477,7 @@ export function MonitoringProvider({ children }) {
     isMonitoring,
     monitorStatus,
     permission?.granted,
+    queuedEvidenceCount,
     recorderMountKey,
     recorderVisible,
     handleRecorderMountError,
@@ -392,6 +487,7 @@ export function MonitoringProvider({ children }) {
     refreshStatus,
     startMonitoring,
     stopMonitoring,
+    syncQueuedEvidence,
   ]);
 
   return (

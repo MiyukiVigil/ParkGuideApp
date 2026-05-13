@@ -62,6 +62,7 @@ module.exports = {
       // Use environment variable or fallback to default
       package: process.env.PACKAGE_NAME || "com.miyukivigil.parkguideapp",
       googleServicesFile: "./google-services.json",
+      usesCleartextTraffic: true,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
