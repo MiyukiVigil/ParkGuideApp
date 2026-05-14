@@ -1,17 +1,32 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
-
 import * as MonitorEvidenceService from "./monitorEvidenceService";
 import * as MonitorService from "./monitorService";
+import {ensureDirectoryAsync, encryptFileToUri, decryptFileToUri, deleteSecureFileKey, deleteLocalFile, listDirectoryAsync} from "../utils/secureLocalFileStorage";
 
-const QUEUE_STORAGE_KEY = "parkguide.offlineEvidenceQueue.v1";
-const EVIDENCE_DIR = `${FileSystem.documentDirectory || ""}monitor-evidence/`;
-const ESP32_FRAME_DIR = `${FileSystem.documentDirectory || ""}monitor-esp32-frames/`;
+const QUEUE_INDEX_KEY = "parkguide.offlineEvidenceQueue.index.v2";
+const QUEUE_ITEM_KEY_PREFIX = "parkguide.offlineEvidenceQueue.item.v2.";
+const EVIDENCE_DIR = `${FileSystem.documentDirectory || ""}monitor-evidence-secure/`;
+const ESP32_FRAME_DIR = `${FileSystem.documentDirectory || ""}monitor-esp32-frames-secure/`;
+const TEMP_UPLOAD_DIR = `${FileSystem.cacheDirectory || FileSystem.documentDirectory || ""}monitor-upload-temp/`;
 const MAX_QUEUED_ESP32_FRAMES = 60;
 
-const readQueue = async () => {
+const isSecureQueueSupported = () => Platform.OS !== "web";
+
+const assertSecureQueueSupported = () => {
+  if (!isSecureQueueSupported()) {
+    throw new Error("Offline evidence queue is disabled on web because secure local storage is not available.");
+  }
+};
+
+const getQueueItemKey = (id) => `${QUEUE_ITEM_KEY_PREFIX}${id}`;
+
+const readQueueIds = async () => {
+  if (!isSecureQueueSupported()) return [];
+
   try {
-    const raw = await AsyncStorage.getItem(QUEUE_STORAGE_KEY);
+    const raw = await SecureStore.getItemAsync(QUEUE_INDEX_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -19,24 +34,47 @@ const readQueue = async () => {
   }
 };
 
-const writeQueue = async (items) => {
-  await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(items));
+const writeQueueIds = async (ids) => {
+  assertSecureQueueSupported();
+
+  const uniqueIds = [...new Set((ids || []).filter(Boolean))];
+  await SecureStore.setItemAsync(QUEUE_INDEX_KEY, JSON.stringify(uniqueIds));
 };
 
-const ensureEvidenceDir = async () => {
-  if (!FileSystem.documentDirectory) return;
-  const info = await FileSystem.getInfoAsync(EVIDENCE_DIR);
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(EVIDENCE_DIR, { intermediates: true });
+const readQueue = async () => {
+  if (!isSecureQueueSupported()) return [];
+
+  const ids = await readQueueIds();
+  const items = [];
+
+  for (const id of ids) {
+    try {
+      const raw = await SecureStore.getItemAsync(getQueueItemKey(id));
+      if (raw) {
+        items.push(JSON.parse(raw));
+      }
+    } catch {
+      // Skip corrupted entries.
+    }
   }
+
+  return items;
 };
 
-const ensureEsp32FrameDir = async () => {
-  if (!FileSystem.documentDirectory) return;
-  const info = await FileSystem.getInfoAsync(ESP32_FRAME_DIR);
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(ESP32_FRAME_DIR, { intermediates: true });
-  }
+const appendQueueItem = async (item) => {
+  assertSecureQueueSupported();
+
+  await SecureStore.setItemAsync(getQueueItemKey(item.id), JSON.stringify(item));
+
+  const ids = await readQueueIds();
+  await writeQueueIds([item.id, ...ids.filter((id) => id !== item.id)]);
+};
+
+const removeQueueItemMetadata = async (id) => {
+  if (!isSecureQueueSupported() || !id) return;
+  const ids = await readQueueIds();
+  await writeQueueIds(ids.filter((storedId) => storedId !== id));
+  await SecureStore.deleteItemAsync(getQueueItemKey(id));
 };
 
 const getExtension = (name = "", uri = "") => {
@@ -62,24 +100,26 @@ export const queueEvidenceClip = async ({
   clipDuration = "",
   clipIntervalMinutes = 5,
 }) => {
+  assertSecureQueueSupported();
   if (!uri) {
     throw new Error("Missing clip URI for offline queue.");
   }
-
-  await ensureEvidenceDir();
+  await ensureDirectoryAsync(EVIDENCE_DIR);
   const id = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const extension = getExtension(name, uri);
   const storedName = name || `${id}${extension}`;
-  let storedUri = uri;
-
-  if (FileSystem.documentDirectory) {
-    storedUri = `${EVIDENCE_DIR}${id}${extension}`;
-    await FileSystem.copyAsync({ from: uri, to: storedUri });
-  }
-
+  const encryptedUri = `${EVIDENCE_DIR}${id}${extension}.enc`;
+  const keyId = `evidence-${id}`;
+  await encryptFileToUri({
+    sourceUri: uri,
+    encryptedUri,
+    keyId,
+    deleteSource: true,
+  });
   const item = {
     id,
-    uri: storedUri,
+    encryptedUri,
+    keyId,
     name: storedName,
     type,
     sourceMode,
@@ -90,9 +130,7 @@ export const queueEvidenceClip = async ({
     clipIntervalMinutes,
     createdAt: new Date().toISOString(),
   };
-
-  const queue = await readQueue();
-  await writeQueue([item, ...queue]);
+  await appendQueueItem(item);
   return item;
 };
 
@@ -104,34 +142,41 @@ export const queueEsp32FrameClip = async ({
   fps = 1,
   clipIntervalMinutes = 5,
 }) => {
+  assertSecureQueueSupported();
   if (!frames.length) {
     throw new Error("Missing ESP32 frames for offline queue.");
   }
-
-  await ensureEsp32FrameDir();
+  await ensureDirectoryAsync(ESP32_FRAME_DIR);
   const id = `esp32-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const frameUris = [];
+  const encryptedFrameDir = `${ESP32_FRAME_DIR}${id}/`;
+  const keyId = `esp32-frames-${id}`;
+  await ensureDirectoryAsync(encryptedFrameDir);
   const sourceFrames =
     frames.length > MAX_QUEUED_ESP32_FRAMES
-      ? frames.filter((_, index) => index % Math.ceil(frames.length / MAX_QUEUED_ESP32_FRAMES) === 0).slice(0, MAX_QUEUED_ESP32_FRAMES)
+      ? frames
+          .filter((_, index) => index % Math.ceil(frames.length / MAX_QUEUED_ESP32_FRAMES) === 0)
+          .slice(0, MAX_QUEUED_ESP32_FRAMES)
       : frames;
-
-  if (FileSystem.documentDirectory) {
-    const itemDir = `${ESP32_FRAME_DIR}${id}/`;
-    await FileSystem.makeDirectoryAsync(itemDir, { intermediates: true });
-    for (let index = 0; index < sourceFrames.length; index += 1) {
-      const targetUri = `${itemDir}frame-${String(index + 1).padStart(3, "0")}.jpg`;
-      await FileSystem.copyAsync({ from: sourceFrames[index], to: targetUri });
-      frameUris.push(targetUri);
-    }
-  } else {
-    frameUris.push(...sourceFrames);
+  const selectedFrameSet = new Set(sourceFrames);
+  for (let index = 0; index < sourceFrames.length; index += 1) {
+    const encryptedUri = `${encryptedFrameDir}frame-${String(index + 1).padStart(3, "0")}.jpg.enc`;
+    await encryptFileToUri({
+      sourceUri: sourceFrames[index],
+      encryptedUri,
+      keyId,
+      deleteSource: true,
+    });
   }
-
+  const skippedFrames = frames.filter((uri) => !selectedFrameSet.has(uri));
+  await Promise.all(
+    skippedFrames.map((uri) => deleteLocalFile(uri))
+  );
   const item = {
     id,
     kind: "esp32-firebase-frames",
-    frames: frameUris,
+    encryptedFrameDir,
+    keyId,
+    frameCount: sourceFrames.length,
     baseUrl,
     cameraSource: cameraSource || baseUrl || "RE-CAM-01",
     location,
@@ -139,49 +184,99 @@ export const queueEsp32FrameClip = async ({
     clipIntervalMinutes,
     createdAt: new Date().toISOString(),
   };
-
-  const queue = await readQueue();
-  await writeQueue([item, ...queue]);
+  await appendQueueItem(item);
   return item;
 };
 
 export const removeQueuedEvidence = async (id, { deleteFile = true } = {}) => {
   const queue = await readQueue();
   const target = queue.find((item) => item.id === id);
-  await writeQueue(queue.filter((item) => item.id !== id));
 
-  if (deleteFile && target?.kind === "esp32-firebase-frames") {
-    for (const frameUri of target.frames || []) {
-      if (frameUri?.startsWith(FileSystem.documentDirectory || "file://")) {
-        try {
-          await FileSystem.deleteAsync(frameUri, { idempotent: true });
-        } catch {
-          // The queue entry is already gone; stale frame files should not block sync.
-        }
-      }
-    }
-  } else if (deleteFile && target?.uri?.startsWith(FileSystem.documentDirectory || "file://")) {
-    try {
-      await FileSystem.deleteAsync(target.uri, { idempotent: true });
-    } catch {
-      // The queue entry is already gone; a stale local file should not block sync.
-    }
+  await removeQueueItemMetadata(id);
+
+  if (!target || !deleteFile) return;
+
+  if (target.kind === "esp32-firebase-frames") {
+    await deleteLocalFile(target.encryptedFrameDir);
+  } else {
+    await deleteLocalFile(target.encryptedUri);
   }
+
+  await deleteSecureFileKey(target.keyId);
+};
+
+const decryptQueuedVideoToTempFile = async (item) => {
+  await ensureDirectoryAsync(TEMP_UPLOAD_DIR);
+
+  const extension = getExtension(item.name, item.encryptedUri);
+  const tempUri = `${TEMP_UPLOAD_DIR}${item.id}${extension}`;
+
+  await decryptFileToUri({
+    encryptedUri: item.encryptedUri,
+    outputUri: tempUri,
+    keyId: item.keyId,
+  });
+
+  return tempUri;
+};
+
+const decryptQueuedFramesToTempFiles = async (item) => {
+  await ensureDirectoryAsync(TEMP_UPLOAD_DIR);
+
+  const tempDir = `${TEMP_UPLOAD_DIR}${item.id}/`;
+  await ensureDirectoryAsync(tempDir);
+
+  const encryptedNames = (await listDirectoryAsync(item.encryptedFrameDir))
+    .filter((name) => name.endsWith(".enc"))
+    .sort();
+
+  const frameUris = [];
+
+  for (const encryptedName of encryptedNames) {
+    const encryptedUri = `${item.encryptedFrameDir}${encryptedName}`;
+    const outputName = encryptedName.replace(/\.enc$/i, "");
+    const outputUri = `${tempDir}${outputName}`;
+
+    await decryptFileToUri({
+      encryptedUri,
+      outputUri,
+      keyId: item.keyId,
+    });
+
+    frameUris.push(outputUri);
+  }
+
+  return { tempDir, frameUris };
 };
 
 const uploadQueuedItem = async (item) => {
   if (item.kind === "esp32-firebase-frames") {
-    return MonitorService.uploadEsp32FramesViaFirebase({
-      frames: item.frames || [],
-      baseUrl: item.baseUrl,
-      cameraSource: item.cameraSource,
-      location: item.location,
-      fps: item.fps,
-      clipIntervalMinutes: item.clipIntervalMinutes,
-    });
+    const { tempDir, frameUris } = await decryptQueuedFramesToTempFiles(item);
+
+    try {
+      return await MonitorService.uploadEsp32FramesViaFirebase({
+        frames: frameUris,
+        baseUrl: item.baseUrl,
+        cameraSource: item.cameraSource,
+        location: item.location,
+        fps: item.fps,
+        clipIntervalMinutes: item.clipIntervalMinutes,
+      });
+    } finally {
+      await deleteLocalFile(tempDir);
+    }
   }
 
-  return MonitorEvidenceService.uploadMonitorEvidence(item);
+  const tempUri = await decryptQueuedVideoToTempFile(item);
+
+  try {
+    return await MonitorEvidenceService.uploadMonitorEvidence({
+      ...item,
+      uri: tempUri,
+    });
+  } finally {
+    await deleteLocalFile(tempUri);
+  }
 };
 
 export const uploadQueuedEvidence = async ({ limit = 3 } = {}) => {
