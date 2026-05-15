@@ -1,24 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Alert, ScrollView, useWindowDimensions, Image } from "react-native";
-import {
-  List,
-  Switch,
-  Button,
-  Menu,
-  Surface,
-  Avatar,
-  Text,
-  TouchableRipple,
-  useTheme,
-  TextInput,
-  Portal,
-  Modal,
-  Dialog,
-  ActivityIndicator,
-} from "react-native-paper";
+import { List, Switch, Button, Menu, Surface, Avatar, Text, TouchableRipple, useTheme, TextInput, Portal, Modal, Dialog, ActivityIndicator } from "react-native-paper";
 import { useTranslation } from "react-i18next";
 import i18n from "i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
@@ -26,21 +12,8 @@ import { useThemeContext } from "../contexts/ThemeContext";
 import { clearAuthTokens } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
 import { unregisterPushNotifications } from "../services/notificationService";
-import {
-  disablePasskeys,
-  getFriendlyPasskeyError,
-  getPasskeyStatus,
-  isPasskeySupported,
-  registerPasskey,
-} from "../services/passkeyService";
-import {
-  confirmTwoFactor,
-  disableTwoFactor,
-  getFriendlyTwoFactorError,
-  getTwoFactorQrUrl,
-  getTwoFactorStatus,
-  setupTwoFactor,
-} from "../services/twoFactorService";
+import { disablePasskeys, getFriendlyPasskeyError, getPasskeyStatus, isPasskeySupported, registerPasskey } from "../services/passkeyService";
+import { confirmTwoFactor, disableTwoFactor, getFriendlyTwoFactorError, getTwoFactorQrUrl, getTwoFactorStatus, setupTwoFactor } from "../services/twoFactorService";
 import { useScreenSpeechContext } from "../contexts/ScreenSpeechContext";
 import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 
@@ -220,6 +193,28 @@ export default function Settings() {
     setTwoFactorPassword("");
     setTwoFactorCode("");
     setTwoFactorSetupData(null);
+  };
+
+  const handleCopyTwoFactorSecret = async () => {
+    const secret = String(twoFactorSetupData?.secret || "").trim();
+    if (!secret) {
+      Alert.alert(t("error"), t("somethingWentWrong"));
+      return;
+    }
+    try {
+      await Clipboard.setStringAsync(secret);
+      Alert.alert(
+        t("copied", { defaultValue: "Copied" }),
+        t("secretKeyCopied", { defaultValue: "Authenticator secret key copied to clipboard." })
+      );
+    } catch {
+      Alert.alert(
+        t("error"),
+        t("copySecretFailed", {
+          defaultValue: "Unable to copy the secret key. You can still select and copy it manually.",
+        })
+      );
+    }
   };
 
   const closePasskeyModal = () => {
@@ -755,28 +750,25 @@ export default function Settings() {
 
           {twoFactorSetupData ? (
             <View style={styles.twoFactorSetupBlock}>
-              <Image
-                source={{ uri: getTwoFactorQrUrl(twoFactorSetupData.otpauth_uri) }}
-                style={styles.twoFactorQr}
-              />
-              <Text style={{ color: theme.colors.onSurface, fontWeight: "700", marginBottom: 6 }}>
-                {t("secretKey")}
-              </Text>
-              <Text selectable style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}>
-                {twoFactorSetupData.secret}
-              </Text>
+              <Image source={{ uri: getTwoFactorQrUrl(twoFactorSetupData.otpauth_uri) }} style={styles.twoFactorQr}/>
+              <View style={[ styles.twoFactorSecretBox, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <View style={styles.secretHeader}>
+                  <Text style={[styles.secretLabel, { color: theme.colors.onSurface }]}>
+                    {t("secretKey")}
+                  </Text>
+                  <Button mode="text" compact icon="content-copy" onPress={handleCopyTwoFactorSecret} style={styles.copySecretButton} labelStyle={styles.copySecretButtonLabel}>
+                    {t("copy", { defaultValue: "Copy" })}
+                  </Button>
+                </View>
+                <Text selectable style={[styles.secretValue, { color: theme.colors.onSurfaceVariant }]}>
+                  {twoFactorSetupData.secret}
+                </Text>
+              </View>
             </View>
           ) : null}
 
           {(twoFactorAction === "disable" || twoFactorSetupData) ? (
-            <TextInput
-              label={t("authenticatorCode")}
-              mode="outlined"
-              keyboardType="number-pad"
-              value={twoFactorCode}
-              onChangeText={setTwoFactorCode}
-              style={styles.input}
-            />
+            <TextInput label={t("authenticatorCode")} mode="outlined" keyboardType="number-pad" value={twoFactorCode} onChangeText={setTwoFactorCode} style={styles.input}/>
           ) : null}
 
           <View style={styles.modalActionRow}>
@@ -870,6 +862,35 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 16,
     marginBottom: 12,
+  },
+  twoFactorSecretBox: {
+    width: "100%",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+  },
+  secretHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 6,
+  },
+  secretLabel: {
+    fontWeight: "700",
+    flex: 1,
+  },
+  secretValue: {
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  copySecretButton: {
+    marginVertical: -6,
+    marginRight: -8,
+  },
+  copySecretButtonLabel: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   logout: {
     marginTop: 8,
