@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
-import * as Location from "expo-location";
-import { IconButton, Surface, Text, useTheme } from "react-native-paper";
+import { ActivityIndicator, AppState, Platform, StyleSheet, View } from "react-native";
+import { Button, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import { useTranslation } from "react-i18next";
 import AppHeader from "../components/AppHeader";
 import { getProfile } from "../services/profileService";
+import { isGuideWorkLocationSharingEnabled, startGuideWorkLocationSharing, stopGuideWorkLocationSharing } from "../services/guideLocationTrackingService";
 import api from "../utils/api";
 import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
 
@@ -54,16 +54,12 @@ const normalizeGuide = (guide, index) => {
   };
 };
 
-const roundCoordinate = (value) => Math.round(Number(value) * 1000000) / 1000000;
-
 const spreadOverlappingGuides = (guides) => {
   const seen = new Map();
-
   return guides.map((guide) => {
     const key = `${guide.latitude.toFixed(6)},${guide.longitude.toFixed(6)}`;
     const indexAtPoint = seen.get(key) || 0;
     seen.set(key, indexAtPoint + 1);
-
     if (indexAtPoint === 0) {
       return {
         ...guide,
@@ -71,10 +67,8 @@ const spreadOverlappingGuides = (guides) => {
         markerLongitude: guide.longitude,
       };
     }
-
     const offset = 0.00012;
     const angle = indexAtPoint * (Math.PI / 4);
-
     return {
       ...guide,
       markerLatitude: guide.latitude + Math.sin(angle) * offset,
@@ -118,10 +112,10 @@ export default function GuideMap() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [locationStatus, setLocationStatus] = useState("");
+  const [workTrackingEnabled, setWorkTrackingEnabled] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const guideCount = guides.length;
-
   useScreenSpeech(
     [
       t("map"),
@@ -171,65 +165,68 @@ export default function GuideMap() {
     }
   }, []);
 
-  const publishCurrentLocation = useCallback(async () => {
-    if (Platform.OS === "web") return false;
-
+  const handleStartWorkTracking = useCallback(async () => {
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted") {
-        setLocationStatus("Location permission is needed to share your live position.");
-        return false;
-      }
-
-      const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const { coords } = currentLocation;
-
-      await api.post("/guides/locations/", {
-        latitude: roundCoordinate(coords.latitude),
-        longitude: roundCoordinate(coords.longitude),
-        accuracy: coords.accuracy,
-        heading: coords.heading,
-        speed: coords.speed,
-      });
-
-      setLocationStatus("");
-      return true;
+      await startGuideWorkLocationSharing();
+      setWorkTrackingEnabled(true);
+      setLocationStatus("Work location sharing is active.");
+      await loadGuideLocations({ silent: true });
     } catch (err) {
-      console.log("Failed to publish guide location", err.response?.data || err.message || err);
-      setLocationStatus("Your location could not be shared right now.");
-      return false;
+      console.log("Failed to start work location sharing:", err.message || err);
+      setWorkTrackingEnabled(false);
+      setLocationStatus("Unable to start work location sharing. Please check location permissions.");
     }
-  }, []);
+  }, [loadGuideLocations]);
+
+  const handleStopWorkTracking = useCallback(async () => {
+    try {
+      await stopGuideWorkLocationSharing();
+      setWorkTrackingEnabled(false);
+      setLocationStatus("Work location sharing is disabled.");
+      await loadGuideLocations({ silent: true });
+    } catch (err) {
+      console.log("Failed to stop work location sharing:", err.message || err);
+      setLocationStatus("Unable to stop work location sharing.");
+    }
+  }, [loadGuideLocations]);
 
   useEffect(() => {
     let isMounted = true;
-
-    const loadCurrentProfile = async () => {
+    const refreshTrackingState = async () => {
+      const enabled = await isGuideWorkLocationSharingEnabled();
+      if (isMounted) {
+        setWorkTrackingEnabled(enabled);
+        setLocationStatus(
+          enabled
+            ? "Work location sharing is active."
+            : "Work location sharing is disabled."
+        );
+      }
+    };
+    const loadInitialMapState = async () => {
       const profile = await getProfile();
       if (isMounted) {
         setCurrentUserId(profile?.id ?? null);
       }
+      await refreshTrackingState();
+      await loadGuideLocations();
     };
-
-    const refreshMap = async ({ silent = false } = {}) => {
-      await publishCurrentLocation();
-      await loadGuideLocations({ silent });
-    };
-
-    loadCurrentProfile();
-    refreshMap();
-
+    loadInitialMapState();
+    const appStateSubscription = AppState.addEventListener("change", async (state) => {
+      if (state === "active") {
+        await refreshTrackingState();
+        await loadGuideLocations({ silent: true });
+      }
+    });
     const intervalId = setInterval(() => {
-      refreshMap({ silent: true });
+      loadGuideLocations({ silent: true });
     }, 30000);
-
     return () => {
       isMounted = false;
       clearInterval(intervalId);
+      appStateSubscription.remove();
     };
-  }, [loadGuideLocations, publishCurrentLocation]);
+  }, [loadGuideLocations]);
 
   useEffect(() => {
     if (!mapRef.current || guides.length === 0) return;
@@ -445,25 +442,29 @@ export default function GuideMap() {
             </View>
 
             <View style={styles.statusActions}>
-              <IconButton
-                icon="crosshairs-gps"
-                size={22}
-                iconColor={theme.colors.primary}
-                onPress={recenterMap}
-              />
+              <IconButton icon="crosshairs-gps" size={22} iconColor={theme.colors.primary} onPress={recenterMap}/>
+
               {loading || refreshing ? (
                 <ActivityIndicator color={theme.colors.primary} />
               ) : (
-                <IconButton
-                  icon="refresh"
-                  size={22}
-                  iconColor={theme.colors.primary}
-                  onPress={async () => {
-                    setRefreshing(true);
-                    await publishCurrentLocation();
-                    await loadGuideLocations({ silent: true });
-                  }}
-                />
+                <>
+                  <Button mode={workTrackingEnabled ? "contained-tonal" : "contained"} compact disabled={loading || refreshing} icon={workTrackingEnabled ? "map-marker-off" : "map-marker-check"} onPress={workTrackingEnabled ? handleStopWorkTracking : handleStartWorkTracking}>
+                    {workTrackingEnabled ? "Stop" : "Start"}
+                  </Button>
+                  <IconButton
+                    icon="refresh"
+                    mode="contained-tonal"
+                    disabled={loading || refreshing}
+                    onPress={async () => {
+                      setRefreshing(true);
+                      try {
+                        await loadGuideLocations({ silent: true });
+                      } finally {
+                        setRefreshing(false);
+                      }
+                    }}
+                  />
+                </>
               )}
             </View>
           </Surface>

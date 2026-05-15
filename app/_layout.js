@@ -19,6 +19,7 @@ import { validateConfig } from "../constants/config";
 import { AppAlertProvider } from "../components/AppAlertProvider";
 import MonitorRecorderHost from "../components/MonitorRecorderHost";
 import { MonitoringProvider } from "../contexts/MonitoringContext";
+import "../services/guideLocationTrackingService";
 
 // Setup Translations
 const supportedLangs = ['en', 'ms', 'zh'];

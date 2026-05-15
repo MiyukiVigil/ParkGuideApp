@@ -44,7 +44,9 @@ module.exports = {
       supportsUpsideDownOrientation: false,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          "This app needs access to your location to show nearby parks.",
+          "This app needs your location while using the app to show your position on the live park map.",
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          "This app needs background location only while you manually enable Work Location Sharing during park duty.",
         NSCameraUsageDescription:
           "This app needs camera access for tour monitoring preview.",
         NSPhotoLibraryUsageDescription:
@@ -122,7 +124,12 @@ module.exports = {
         "expo-location",
         {
           locationWhenInUsePermission:
-            "This app needs access to your location to show park guides on the live map.",
+            "ParkGuide needs your location while using the app to show your position on the live park map.",
+          locationAlwaysAndWhenInUsePermission:
+            "ParkGuide needs background location only while you manually enable Work Location Sharing during park duty.",
+          isIosBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
         },
       ],
       "expo-localization",
