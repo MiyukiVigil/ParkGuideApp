@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Alert, Image, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Button, Divider, Surface, Text, TextInput } from "react-native-paper";
+import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -84,6 +85,28 @@ export default function SecuritySetupScreen() {
       Alert.alert(t("error"), getFriendlyTwoFactorError(error, t("somethingWentWrong")));
     } finally {
       setTwoFactorSubmitting(false);
+    }
+  };
+
+  const handleCopyTwoFactorSecret = async () => {
+    const secret = String(twoFactorSetupData?.secret || "").trim();
+    if (!secret) {
+      Alert.alert(t("error"), t("somethingWentWrong"));
+      return;
+    }
+    try {
+      await Clipboard.setStringAsync(secret);
+      Alert.alert(
+        t("copied", { defaultValue: "Copied" }),
+        t("secretKeyCopied", { defaultValue: "Authenticator secret key copied to clipboard." })
+      );
+    } catch {
+      Alert.alert(
+        t("error"),
+        t("copySecretFailed", {
+          defaultValue: "Unable to copy the secret key. You can still select and copy it manually.",
+        })
+      );
     }
   };
 
@@ -183,25 +206,20 @@ export default function SecuritySetupScreen() {
               <View style={styles.qrBlock}>
                 <Text style={styles.stepTitle}>{t("securitySetupAuthenticatorStepScan")}</Text>
                 <Text style={styles.helperText}>{t("securitySetupEnterCodeAfterScan")}</Text>
-                <Image
-                  source={{ uri: getTwoFactorQrUrl(twoFactorSetupData.otpauth_uri) }}
-                  style={[styles.qrImage, { width: qrSize, height: qrSize }]}
-                />
+                <Image source={{ uri: getTwoFactorQrUrl(twoFactorSetupData.otpauth_uri) }} style={[styles.qrImage, { width: qrSize, height: qrSize }]}/>
                 <View style={styles.secretBox}>
-                  <Text style={styles.secretLabel}>{t("secretKey")}</Text>
+                  <View style={styles.secretHeader}>
+                    <Text style={styles.secretLabel}>{t("secretKey")}</Text>
+                    <Button mode="text" compact icon="content-copy" onPress={handleCopyTwoFactorSecret} textColor="#F5D58E" style={styles.copySecretButton} labelStyle={styles.copySecretButtonLabel}>
+                      {t("copy", { defaultValue: "Copy" })}
+                    </Button>
+                  </View>
                   <Text selectable style={styles.secretValue}>
                     {twoFactorSetupData.secret}
                   </Text>
                   <Text style={styles.secretHelp}>{t("securitySetupAuthenticatorSecretHelp")}</Text>
                 </View>
-                <TextInput
-                  label={t("authenticatorCodeLabel")}
-                  mode="outlined"
-                  keyboardType="number-pad"
-                  value={twoFactorCode}
-                  onChangeText={setTwoFactorCode}
-                  style={styles.input}
-                />
+                <TextInput label={t("authenticatorCodeLabel")} mode="outlined" keyboardType="number-pad" value={twoFactorCode} onChangeText={setTwoFactorCode} style={styles.input}/>
               </View>
             ) : (
               <View style={styles.setupPreview}>
@@ -366,10 +384,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(8, 28, 20, 0.72)",
     marginBottom: 12,
   },
+  secretHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 6,
+  },
   secretLabel: {
     color: "#F4F7F2",
     fontWeight: "700",
-    marginBottom: 6,
+    flex: 1,
+  },
+  copySecretButton: {
+    marginVertical: -6,
+    marginRight: -8,
+  },
+  copySecretButtonLabel: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   secretValue: {
     color: "#F5D58E",

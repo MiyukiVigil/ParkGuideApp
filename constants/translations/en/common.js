@@ -328,4 +328,13 @@ export default {
     deleteRecordedFootageFailed: "Unable to delete recorded footage.",
     deleteFootageTitle: "Delete footage?",
     deleteFootageMessage: "This removes the saved recording from the backend and Firebase storage.",
+    workLocationSharingActive: "Work location sharing is active.",
+    workLocationSharingDisabled: "Work location sharing is disabled.",
+    workLocationSharingStartFailed: "Unable to start work location sharing. Please check location permissions.",
+    workLocationSharingStopFailed: "Unable to stop work location sharing.",
+    workLocationSharingStopPartial: "Work location sharing stopped, but your last location could not be removed from the map.",
+    starting: "Starting",
+    stopping: "Stopping",
+    start: "Start",
+    stop: "Stop",
 }

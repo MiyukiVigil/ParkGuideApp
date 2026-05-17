@@ -45,17 +45,26 @@ export default function Dashboard() {
     bootstrap();
   }, [router]);
 
-  const navigateToLogout = async () => {
-    logoutRequestedRef.current = true;
-
-    if (webViewRef.current) {
-      webViewRef.current.injectJavaScript(`window.location.href = '${DASHBOARD_URL}logout/'; true;`);
-      return;
+  const finishAppLogout = async () => {
+    logoutRequestedRef.current = false;
+    try {
+      await unregisterPushNotifications();
+    } catch (error) {
+      console.warn('Failed to unregister push notifications during logout:', error);
     }
-
-    await unregisterPushNotifications();
+    try {
+      webViewRef.current?.clearCache?.(true);
+      webViewRef.current?.clearHistory?.();
+    } catch (error) {
+      console.warn('Failed to clear WebView cache/history during logout:', error);
+    }
     await clearAuthTokens();
     router.replace('/');
+  };
+
+  const navigateToLogout = async () => {
+    logoutRequestedRef.current = true;
+    await finishAppLogout();
   };
 
   const handleNavigation = async (navState) => {
@@ -65,11 +74,8 @@ export default function Dashboard() {
       return;
     }
 
-    if (currentUrl.includes('/dashboard/login/') || currentUrl.includes('/dashboard/logout/')) {
-      await unregisterPushNotifications();
-      await clearAuthTokens();
-      logoutRequestedRef.current = false;
-      router.replace('/');
+    if (currentUrl.includes('/login/') || currentUrl.includes('/logout/')) {
+      await finishAppLogout();
     }
   };
 

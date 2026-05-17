@@ -328,4 +328,13 @@ export default {
     deleteRecordedFootageFailed: "Tidak dapat memadam rakaman.",
     deleteFootageTitle: "Padam rakaman?",
     deleteFootageMessage: "Ini akan membuang rakaman yang disimpan daripada backend dan storan Firebase.",
+    workLocationSharingActive: "Perkongsian lokasi kerja sedang aktif.",
+    workLocationSharingDisabled: "Perkongsian lokasi kerja dilumpuhkan.",
+    workLocationSharingStartFailed: "Tidak dapat memulakan perkongsian lokasi kerja. Sila semak kebenaran lokasi.",
+    workLocationSharingStopFailed: "Tidak dapat menghentikan perkongsian lokasi kerja.",
+    workLocationSharingStopPartial: "Perkongsian lokasi kerja dihentikan, tetapi lokasi terakhir anda tidak dapat dibuang daripada peta.",
+    starting: "Memulakan",
+    stopping: "Menghentikan",
+    start: "Mula",
+    stop: "Henti",
 }

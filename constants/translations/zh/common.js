@@ -331,4 +331,13 @@ export default {
     deleteRecordedFootageFailed: "无法删除录像。",
     deleteFootageTitle: "删除录像？",
     deleteFootageMessage: "这会从后端和 Firebase 存储中移除已保存的录像。",
+    workLocationSharingActive: "工作位置共享已开启。",
+    workLocationSharingDisabled: "工作位置共享已关闭。",
+    workLocationSharingStartFailed: "无法启动工作位置共享。请检查位置权限。",
+    workLocationSharingStopFailed: "无法停止工作位置共享。",
+    workLocationSharingStopPartial: "工作位置共享已停止，但无法从地图移除您的最后位置。",
+    starting: "启动中",
+    stopping: "停止中",
+    start: "开始",
+    stop: "停止",
 }

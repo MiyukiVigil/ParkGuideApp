@@ -3,11 +3,50 @@
  * Handles API calls for user badge progress and achievements
  */
 
-import CONFIG from '../constants/config';
-import { getAccessToken } from '../utils/tokenStorage';
-import { ensureFreshSession } from '../utils/api';
+import api from '../utils/api';
 
-const API_URL = CONFIG.API_BASE_URL;
+const BADGE_REQUEST_TIMEOUT_MS = 12000;
+const lastGoodBadgeListsByLanguage = {};
+
+const normalizeLanguage = (language) => {
+  const normalized = String(language || 'en').toLowerCase();
+  if (normalized.startsWith('zh')) return 'zh';
+  if (normalized.startsWith('ms')) return 'ms';
+  return 'en';
+};
+
+const normalizeBadge = (badge = {}) => {
+  const status = getBadgeStatus(badge) || 'in_progress';
+  const progressKind = badge.progress_kind || (badge.is_major_badge ? 'badges' : 'modules');
+  const progressCurrent = Number(
+    badge.progress_current ??
+      (progressKind === 'badges' ? badge.completed_badges : badge.completed_modules) ??
+      0
+  );
+  const progressRequired = Number(
+    badge.progress_required ??
+      (progressKind === 'badges' ? badge.required_badges_count : badge.required_completed_modules) ??
+      0
+  );
+
+  return {
+    ...badge,
+    status,
+    progress_kind: progressKind,
+    progress_current: Number.isFinite(progressCurrent) ? progressCurrent : 0,
+    progress_required: Number.isFinite(progressRequired) ? progressRequired : 0,
+    earned: status === 'granted' || badge.earned === true,
+    pending: status === 'pending' || badge.pending === true,
+    rejected: status === 'rejected' || badge.rejected === true,
+    in_progress: status === 'in_progress' || badge.in_progress === true,
+    eligible: Boolean(badge.eligible),
+  };
+};
+
+const normalizeBadgeList = (payload) => {
+  const badges = Array.isArray(payload) ? payload : (payload?.results || []);
+  return badges.map(normalizeBadge);
+};
 
 const getBadgeStatus = (badge) => String(
   badge?.status ||
@@ -35,58 +74,24 @@ const isPendingBadge = (badge) => (
   ['pending', 'pending_approval', 'waiting_approval', 'submitted', 'requested'].includes(getBadgeStatus(badge))
 );
 
-// Helper function to make authenticated requests
-const authenticatedFetch = async (endpoint, options = {}) => {
-  const buildHeaders = async () => {
-    const token = await getAccessToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
-  };
-
-  const fullUrl = `${API_URL}${endpoint}`;
-  const performRequest = async () => {
-    const headers = await buildHeaders();
-    console.log(`[badgeService] Fetching: ${fullUrl}`);
-    return fetch(fullUrl, {
-      ...options,
-      headers,
-    });
-  };
-
+// Helper function to make authenticated requests through the shared API client.
+const authenticatedRequest = async (endpoint, options = {}) => {
   try {
-    let response = await performRequest();
-
-    if (response.status === 401) {
-      const refreshed = await ensureFreshSession();
-      if (refreshed) {
-        response = await performRequest();
-      }
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (response.status !== 401) {
-        console.error(`[badgeService] API Error: ${response.status} ${response.statusText}`, errorText);
-      }
-      
-      const error = new Error(`API Error: ${response.status} ${response.statusText}`);
-      error.status = response.status;
-      error.originalMessage = errorText;
-      throw error;
-    }
-
-    return response.json();
+    console.log(`[badgeService] Fetching: ${endpoint}`);
+    const response = await api.get(endpoint, {
+      timeout: BADGE_REQUEST_TIMEOUT_MS,
+      headers: options.headers,
+    });
+    return response.data;
   } catch (error) {
-    if (error.status !== 401) {
-      console.error(`[badgeService] Network error for ${fullUrl}:`, error.message);
+    if (error.code === 'ECONNABORTED') {
+      error.status = 408;
+      error.message = `Badge request timed out after ${BADGE_REQUEST_TIMEOUT_MS / 1000}s`;
+    }
+
+    const status = error.status || error.response?.status;
+    if (status !== 401) {
+      console.error(`[badgeService] Request failed for ${endpoint}:`, error.response?.data || error.message);
     }
     throw error;
   }
@@ -96,22 +101,64 @@ export const badgeService = {
   /**
    * Get all available badges
    */
-  getAllBadges: async () => {
-    return authenticatedFetch(`/user-progress/badges/?sync=1&_=${Date.now()}`);
+  getAllBadges: async ({ sync = false, language = 'en' } = {}) => {
+    const languageKey = normalizeLanguage(language);
+    const syncParam = sync ? 'sync=1&' : '';
+    const compactParam = 'compact=1&';
+    const languageParam = `lang=${encodeURIComponent(languageKey)}&`;
+    const requestOptions = {
+      headers: {
+        'Accept-Language': languageKey,
+      },
+    };
+
+    try {
+      const payload = await authenticatedRequest(`/user-progress/badges/?${syncParam}${compactParam}${languageParam}_=${Date.now()}`, requestOptions);
+      const badges = normalizeBadgeList(payload);
+      lastGoodBadgeListsByLanguage[languageKey] = badges;
+      return badges;
+    } catch (error) {
+      const status = error.status || error.response?.status;
+      if (!sync || status === 401 || status === 403) {
+        const cachedBadges = lastGoodBadgeListsByLanguage[languageKey] || [];
+        if (cachedBadges.length > 0 && status !== 401 && status !== 403) {
+          console.warn(`[badgeService] Returning cached ${languageKey} badges after request failure.`);
+          return cachedBadges;
+        }
+        throw error;
+      }
+
+      console.warn('[badgeService] Badge sync failed; retrying without sync.', error.message);
+      try {
+        const fallbackPayload = await authenticatedRequest(`/user-progress/badges/?${compactParam}${languageParam}_=${Date.now()}`, requestOptions);
+        const badges = normalizeBadgeList(fallbackPayload);
+        lastGoodBadgeListsByLanguage[languageKey] = badges;
+        return badges;
+      } catch (fallbackError) {
+        const cachedBadges = lastGoodBadgeListsByLanguage[languageKey] || [];
+        if (cachedBadges.length > 0) {
+          console.warn(`[badgeService] Returning cached ${languageKey} badges after sync and fallback failed.`);
+          return cachedBadges;
+        }
+        throw fallbackError;
+      }
+    }
   },
 
   /**
    * Get user's badge progress
    */
   getUserBadges: async () => {
-    return authenticatedFetch(`/user-progress/my-badges/?_=${Date.now()}`);
+    const payload = await authenticatedRequest(`/user-progress/my-badges/?_=${Date.now()}`);
+    return Array.isArray(payload) ? payload : (payload?.results || []);
   },
 
   /**
    * Get single badge details
    */
   getBadge: async (badgeId) => {
-    return authenticatedFetch(`/user-progress/badges/${badgeId}/?_=${Date.now()}`);
+    const payload = await authenticatedRequest(`/user-progress/badges/${badgeId}/?_=${Date.now()}`);
+    return normalizeBadge(payload);
   },
 
   /**

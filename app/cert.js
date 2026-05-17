@@ -113,6 +113,10 @@ const normalizeBadgeStatus = (badge) => String(
 ).toLowerCase();
 
 const isBadgeRequirementComplete = (badge) => {
+  const progressRequired = Number(badge?.progress_required || 0);
+  const progressCurrent = Number(badge?.progress_current || 0);
+  if (progressRequired > 0) return progressCurrent >= progressRequired;
+
   const explicitProgress = Number(
     badge?.progress_percentage ??
     badge?.completion_percentage ??
@@ -136,14 +140,13 @@ const badgeHasAnyDate = (badge, fields) => fields.some((field) => Boolean(badge?
 const isBadgeEarned = (badge) => {
   const status = normalizeBadgeStatus(badge);
   return Boolean(
+    status === 'granted' ||
     badge?.earned ||
     badge?.granted ||
     badge?.is_granted ||
     badge?.is_earned ||
     badge?.obtained ||
-    badge?.approved ||
-    ['granted', 'earned', 'obtained', 'awarded', 'approved', 'completed'].includes(status) ||
-    badgeHasAnyDate(badge, ['earned_at', 'granted_at', 'awarded_at', 'approved_at', 'obtained_at'])
+    badge?.approved
   );
 };
 
@@ -153,16 +156,6 @@ const isBadgePending = (badge) => {
     badge?.pending ||
     badge?.is_pending ||
     ['pending', 'pending_approval', 'waiting_approval', 'submitted', 'requested'].includes(status)
-  );
-};
-
-const isBadgeReadyForReview = (badge) => {
-  const status = normalizeBadgeStatus(badge);
-  return Boolean(
-    badge?.eligible ||
-    badge?.is_eligible ||
-    ['eligible', 'ready', 'ready_for_review', 'in_progress'].includes(status) ||
-    isBadgeRequirementComplete(badge)
   );
 };
 
@@ -185,12 +178,14 @@ export default function Certification() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allBadges, setAllBadges] = useState([]);
+  const [badgeLoadError, setBadgeLoadError] = useState('');
   const [selectedBadge, setSelectedBadge] = useState(null);
   const [tiltEnabled, setTiltEnabled] = useState(false);
   const [profile, setProfile] = useState(null);
   const badgeTiltEnabled = true;
   const caseTiltX = useRef(new Animated.Value(0)).current;
   const caseTiltY = useRef(new Animated.Value(0)).current;
+  const activeLanguage = useMemo(() => normalizeLanguageCode(i18n.language || i18n.resolvedLanguage), [i18n.language, i18n.resolvedLanguage]);
 
   const palette = useMemo(() => {
     const surface = theme.colors.surface;
@@ -217,12 +212,14 @@ export default function Certification() {
       glareSecondary: withAlpha('#FFFFFF', 0.02),
       badgeLocked: withAlpha(onSurfaceVariant, 0.34),
       badgeLockedBorder: withAlpha(onSurfaceVariant, 0.54),
-      badgePending: '#8D7344',
-      badgeEarned: '#E7CF95',
+      badgePending: '#F6C343',
+      badgePendingBorder: '#B87800',
+      badgeEarned: '#38A169',
+      badgeEarnedBorder: '#1F7A4B',
       progressTrack: withAlpha(onSurface, 0.12),
       progressLocked: withAlpha(onSurface, 0.24),
-      progressEarned: '#D5B165',
-      progressPending: '#C5963E',
+      progressEarned: '#2F9E5B',
+      progressPending: '#F0B429',
       overlay: withAlpha('#10141A', 0.82),
       modalBackground: surface,
       modalAccentSoft: withAlpha(primary, 0.12),
@@ -251,21 +248,23 @@ export default function Certification() {
 
       const loadCertificationData = async () => {
         setLoading(true);
+        setBadgeLoadError('');
         try {
-          const allBadgesData = await badgeService.getAllBadges();
-          const normalizedBadges = Array.isArray(allBadgesData)
-            ? allBadgesData
-            : (allBadgesData?.results || []);
+          const normalizedBadges = await badgeService.getAllBadges({ sync: true, language: activeLanguage });
 
           if (!isActive) return;
           setAllBadges(normalizedBadges);
         } catch (err) {
-          if (err.status === 401 || err.status === 403) {
+          const status = err.status || err.response?.status;
+          if (status === 401 || status === 403 || err.isSessionExpired) {
             showSessionExpiredAlert();
             return;
           }
-          console.error('Failed loading certifications:', err.message);
-          if (isActive) setAllBadges([]);
+          console.error('Failed loading certifications:', err?.message || err);
+          if (isActive) {
+            setAllBadges([]);
+            setBadgeLoadError(err?.message || t('badgeLoadFailedDesc'));
+          }
         } finally {
           if (isActive) setLoading(false);
         }
@@ -277,7 +276,7 @@ export default function Certification() {
       return () => {
         isActive = false;
       };
-    }, [showSessionExpiredAlert])
+    }, [activeLanguage, showSessionExpiredAlert, t])
   );
 
   useEffect(() => {
@@ -378,8 +377,6 @@ export default function Certification() {
 
   const isEarnedBadge = useCallback(isBadgeEarned, []);
   const isPendingBadge = useCallback(isBadgePending, []);
-  const isReadyBadge = useCallback((badge) => !isBadgeEarned(badge) && !isBadgePending(badge) && isBadgeReadyForReview(badge), []);
-  const activeLanguage = useMemo(() => normalizeLanguageCode(i18n.resolvedLanguage || i18n.language), [i18n.language, i18n.resolvedLanguage]);
   const getLocalizedObjectText = useCallback((value, fallback = '') => {
     const parsed = parseMaybeJson(value);
     if (!parsed) return fallback;
@@ -402,6 +399,9 @@ export default function Certification() {
   }, [activeLanguage, getLocalizedObjectText]);
 
   const getLocalizedBadgeText = useCallback((badge, field) => {
+    const localizedValue = badge?.[`localized_${field}`] || badge?.[`badge_localized_${field}`];
+    if (localizedValue) return localizedValue;
+
     const directValue = badge?.[field] || badge?.[`badge_${field}`];
 
     const translationCandidates = [
@@ -444,6 +444,10 @@ export default function Certification() {
   }, [activeLanguage, getLocalizedObjectText, t]);
 
   const getLocalizedBadgeCourseTitle = useCallback((badge) => {
+    if (badge?.localized_course_title || badge?.badge_localized_course_title) {
+      return badge.localized_course_title || badge.badge_localized_course_title;
+    }
+
     return getLocalizedObjectText(
       badge?.course_title_translations ||
         badge?.badge_course_title_translations ||
@@ -454,6 +458,11 @@ export default function Certification() {
   }, [getLocalizedObjectText, t]);
 
   const getLocalizedBadgeArray = useCallback((badge, field) => {
+    const localizedItems = parseMaybeJson(badge?.[`localized_${field}`] || badge?.[`badge_localized_${field}`]);
+    if (Array.isArray(localizedItems) && localizedItems.length > 0) {
+      return localizedItems.map(translateBadgeArrayItem).filter(Boolean);
+    }
+
     const translatedItems = parseMaybeJson(
       badge?.[`${field}_translations`] ||
         badge?.[`badge_${field}_translations`] ||
@@ -476,17 +485,15 @@ export default function Certification() {
   const getBadgeStatusLabel = useCallback((badge) => {
     if (isEarnedBadge(badge)) return t('badgeStatusObtained');
     if (isPendingBadge(badge)) return t('badgeStatusPendingApproval');
-    if (isReadyBadge(badge)) return t('badgeStatusReadyForReview');
     if (badge.rejected || badge.status === 'rejected') return t('badgeStatusRetryNeeded');
     return t('badgeStatusLocked');
-  }, [isEarnedBadge, isPendingBadge, isReadyBadge, t]);
+  }, [isEarnedBadge, isPendingBadge, t]);
 
   const getBadgeStatusTone = useCallback((badge) => {
-    if (isEarnedBadge(badge)) return { chip: theme.colors.primary, text: theme.colors.onPrimary, progress: palette.progressEarned };
-    if (isPendingBadge(badge)) return { chip: '#8D7344', text: '#FFF7E6', progress: palette.progressPending };
-    if (isReadyBadge(badge)) return { chip: withAlpha(theme.colors.primary, 0.8), text: theme.colors.onPrimary, progress: withAlpha(theme.colors.primary, 0.8) };
+    if (isEarnedBadge(badge)) return { chip: palette.badgeEarned, text: '#FFFFFF', progress: palette.progressEarned };
+    if (isPendingBadge(badge)) return { chip: palette.badgePending, text: '#2B2110', progress: palette.progressPending };
     return { chip: withAlpha(theme.colors.onSurfaceVariant || theme.colors.onSurface, 0.7), text: theme.colors.surface, progress: palette.progressLocked };
-  }, [isEarnedBadge, isPendingBadge, isReadyBadge, palette.progressEarned, palette.progressLocked, palette.progressPending, theme.colors]);
+  }, [isEarnedBadge, isPendingBadge, palette.badgeEarned, palette.badgePending, palette.progressEarned, palette.progressLocked, palette.progressPending, theme.colors]);
 
   const getBadgeImageUri = useCallback((badge) => {
     if (badge?.badge_image_url) return badge.badge_image_url;
@@ -498,6 +505,10 @@ export default function Certification() {
 
   const getBadgeProgressValue = useCallback((badge) => {
     if (isEarnedBadge(badge) || isBadgeRequirementComplete(badge)) return 1;
+
+    const progressRequired = Number(badge?.progress_required || 0);
+    const progressCurrent = Number(badge?.progress_current || 0);
+    if (progressRequired > 0) return Math.min(1, progressCurrent / progressRequired);
 
     const explicitProgress = Number(
       badge?.progress_percentage ??
@@ -524,17 +535,15 @@ export default function Certification() {
   const badgeSummary = useMemo(() => {
     const earned = allBadges.filter((badge) => isEarnedBadge(badge)).length;
     const pending = allBadges.filter((badge) => isPendingBadge(badge)).length;
-    const locked = allBadges.filter((badge) => !isEarnedBadge(badge) && !isPendingBadge(badge) && !isReadyBadge(badge)).length;
-    const ready = allBadges.filter((badge) => isReadyBadge(badge)).length;
+    const locked = allBadges.filter((badge) => !isEarnedBadge(badge) && !isPendingBadge(badge)).length;
 
     return {
       total: allBadges.length,
       earned,
       pending,
       locked,
-      ready,
     };
-  }, [allBadges, isEarnedBadge, isPendingBadge, isReadyBadge]);
+  }, [allBadges, isEarnedBadge, isPendingBadge]);
 
   const displayBadges = useMemo(() => {
     return [...allBadges].sort((a, b) => {
@@ -553,6 +562,14 @@ export default function Certification() {
     if (loading || badgeSummary.total === 0) return false;
     return badgeSummary.earned === badgeSummary.total;
   }, [loading, badgeSummary]);
+
+  useEffect(() => {
+    if (!selectedBadge) return;
+    const refreshedBadge = allBadges.find((badge) => badge.id === selectedBadge.id);
+    if (refreshedBadge && refreshedBadge !== selectedBadge) {
+      setSelectedBadge(refreshedBadge);
+    }
+  }, [allBadges, selectedBadge]);
 
   const handleOpenImageSource = useCallback(async () => {
     if (!selectedBadge?.badge_image_source) return;
@@ -584,7 +601,6 @@ export default function Certification() {
   const renderBadgeTile = useCallback((badge) => {
     const earned = isEarnedBadge(badge);
     const pending = isPendingBadge(badge);
-    const ready = isReadyBadge(badge);
     const imageUri = getBadgeImageUri(badge);
     const progress = getBadgeProgressValue(badge);
     const tone = getBadgeStatusTone(badge);
@@ -613,19 +629,19 @@ export default function Certification() {
               style={[
                 styles.badgeEmblemFrame,
                 {
-                  borderColor: earned ? palette.caseFrameBorder : pending || ready ? palette.badgePending : palette.badgeLockedBorder,
-                  backgroundColor: earned ? palette.badgeEarned : pending || ready ? palette.badgePending : palette.badgeLocked,
-                  opacity: earned ? 1 : pending || ready ? 0.88 : 0.58,
+                  borderColor: earned ? palette.badgeEarnedBorder : pending ? palette.badgePendingBorder : palette.badgeLockedBorder,
+                  backgroundColor: earned ? palette.badgeEarned : pending ? palette.badgePending : palette.badgeLocked,
+                  opacity: earned ? 1 : pending ? 0.92 : 0.58,
                 },
               ]}
             >
               <Image
                 source={{ uri: imageUri }}
-                style={[styles.badgeEmblem, !earned && !pending && !ready && styles.badgeEmblemMuted]}
+                style={[styles.badgeEmblem, !earned && !pending && styles.badgeEmblemMuted]}
               />
               {!earned ? (
                 <View style={[styles.lockBadgePill, { backgroundColor: palette.overlay }]}>
-                  <Text style={styles.lockBadgePillText}>{pending ? t('badgePillPending') : ready ? t('badgePillReady') : t('badgePillLocked')}</Text>
+                  <Text style={styles.lockBadgePillText}>{pending ? t('badgePillPending') : t('badgePillLocked')}</Text>
                 </View>
               ) : null}
             </View>
@@ -641,7 +657,7 @@ export default function Certification() {
         </View>
       </TouchableOpacity>
     );
-  }, [badgeRotateX, badgeRotateY, badgeShiftX, badgeShiftY, badgeTiltEnabled, getBadgeImageUri, getBadgeProgressValue, getBadgeStatusTone, handleBadgePress, isEarnedBadge, isPendingBadge, isReadyBadge, palette, t]);
+  }, [badgeRotateX, badgeRotateY, badgeShiftX, badgeShiftY, badgeTiltEnabled, getBadgeImageUri, getBadgeProgressValue, getBadgeStatusTone, handleBadgePress, isEarnedBadge, isPendingBadge, palette, t]);
 
   return (
     <ScrollView
@@ -694,7 +710,6 @@ export default function Certification() {
           <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>{t('badgeSummaryPending', { count: badgeSummary.pending })}</Chip>
         </View>
         <View style={styles.summaryRow}>
-          <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>{t('badgeSummaryReady', { count: badgeSummary.ready })}</Chip>
           <Chip style={[styles.summaryChip, { backgroundColor: palette.summaryChip }]} textStyle={[styles.summaryChipText, { color: palette.summaryChipText }]}>{t('badgeSummaryLocked', { count: badgeSummary.locked })}</Chip>
         </View>
       </Card>
@@ -704,13 +719,18 @@ export default function Certification() {
       </Text>
 
       {loading ? (
-        <Card style={[styles.loadingCard, { backgroundColor: palette.summaryBackground, borderColor: palette.summaryBorder }]}> 
+        <Card style={[styles.loadingCard, { backgroundColor: palette.summaryBackground, borderColor: palette.summaryBorder }]}>
           <View style={styles.loadingBox}>
             <ActivityIndicator animating color={theme.colors.primary} />
           </View>
         </Card>
+      ) : badgeLoadError ? (
+        <Card style={[styles.loadingCard, { backgroundColor: palette.summaryBackground, borderColor: palette.summaryBorder }]}>
+          <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>{t('badgeLoadFailed')}</Text>
+          <Text style={[styles.emptyBody, { color: theme.colors.onSurfaceVariant }]}>{t('badgeLoadFailedDesc')}</Text>
+        </Card>
       ) : displayBadges.length === 0 ? (
-        <Card style={[styles.loadingCard, { backgroundColor: palette.summaryBackground, borderColor: palette.summaryBorder }]}> 
+        <Card style={[styles.loadingCard, { backgroundColor: palette.summaryBackground, borderColor: palette.summaryBorder }]}>
           <Text style={[styles.emptyTitle, { color: theme.colors.onSurface }]}>{t('noBadgesEarnedYet')}</Text>
           <Text style={[styles.emptyBody, { color: theme.colors.onSurfaceVariant }]}>{t('completeMoreModulesEarnBadges')}</Text>
         </Card>
@@ -795,16 +815,14 @@ export default function Certification() {
               <Text style={[styles.modalLabel, { color: theme.colors.onSurfaceVariant }]}>{t('badgeProgressLabel')}</Text>
               <Text style={[styles.modalBody, { color: theme.colors.onSurface }]}>
                 {isEarnedBadge(selectedBadge)
-                  ? t('badgeProgressEarned', { count: selectedBadge.completed_modules || selectedBadge.completed_badges || 0 })
+                  ? t('badgeProgressEarned', { count: selectedBadge.progress_current || selectedBadge.completed_modules || selectedBadge.completed_badges || 0 })
                   : isPendingBadge(selectedBadge)
                     ? t('badgeProgressPending')
-                    : isReadyBadge(selectedBadge)
-                      ? t('badgeProgressReady')
-                      : t('badgeProgressCurrent', { completed: selectedBadge.completed_modules || selectedBadge.completed_badges || 0, total: selectedBadge.required_completed_modules || selectedBadge.required_badges_count || 1 })}
+                    : t('badgeProgressCurrent', { completed: selectedBadge.progress_current || selectedBadge.completed_modules || selectedBadge.completed_badges || 0, total: selectedBadge.progress_required || selectedBadge.required_completed_modules || selectedBadge.required_badges_count || 1 })}
               </Text>
               <ProgressBar
                 progress={getBadgeProgressValue(selectedBadge)}
-                color={theme.colors.primary}
+                color={getBadgeStatusTone(selectedBadge).progress}
                 style={[styles.modalProgressBar, { backgroundColor: palette.progressTrack }]}
               />
 
