@@ -11,7 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import AuthScreenLayout from "../components/AuthScreenLayout";
-import api from "../utils/api";
+import api, { ensureFreshSession } from "../utils/api";
 import { clearAuthTokens, getAccessToken, getMustChangePassword, getRefreshToken, getUserRole, setAccessToken, setMustChangePassword, setRefreshToken, setUserRole } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
 import { getModuleMapping } from "../utils/moduleMapping";
@@ -113,7 +113,20 @@ export default function Login() {
           return;
         }
 
-        await api.get("/courses/");
+        if (!access && refresh) {
+          const refreshed = await ensureFreshSession();
+          if (!refreshed) {
+            await clearAuthTokens();
+            await clearProgressData();
+            setCheckingAuth(false);
+            return;
+          }
+        }
+
+        const profileResponse = await api.get("/accounts/profile/");
+        if (profileResponse?.data) {
+          await saveProfileSnapshotFromAuthPayload({ user: profileResponse.data, role });
+        }
         
         // Build module ID mapping from backend courses
         getModuleMapping().catch(err => console.log('Module mapping build failed (non-critical):', err.message));

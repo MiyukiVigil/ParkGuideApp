@@ -195,11 +195,11 @@ export default function RootLayout() {
 
         sessionAlertShown.current = true;
         Alert.alert(
-          "Session expired",
-          "Your session has expired. Please log in again.",
+          i18n.t("sessionExpired"),
+          i18n.t("sessionHasExpired"),
           [
             {
-              text: "OK",
+              text: i18n.t("ok"),
               onPress: () => {
                 sessionAlertShown.current = false;
                 router.replace("/");
@@ -224,6 +224,10 @@ export default function RootLayout() {
 
   // Setup push notifications
   useEffect(() => {
+    if (Platform.OS === "web") {
+      return undefined;
+    }
+
     let disposePushListeners = null;
 
     const setupNotifications = async () => {

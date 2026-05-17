@@ -26,9 +26,10 @@ import { Accelerometer } from 'expo-sensors';
 import * as Haptics from 'expo-haptics';
 
 import badgeService from '../services/badgeService';
-import { getAvatarUrl } from '../constants/config';
+import { getAvatarUrl, getBackendAssetUrl } from '../constants/config';
 import { getProfile } from '../services/profileService';
 import { useScreenSpeech } from '../contexts/ScreenSpeechContext';
+import ProfileAvatar from '../components/ProfileAvatar';
 
 const BADGE_IMAGE_PLACEHOLDER = 'https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=900&q=80';
 const TILT_LIMIT = 0.18;
@@ -650,7 +651,11 @@ export default function Certification() {
     >
       <Card style={[styles.idCard, { backgroundColor: theme.colors.primary }]}> 
         <View style={styles.idContent}>
-          <Avatar.Image size={80} source={{ uri: profile?.profile_image_url || getAvatarUrl(profile?.name || profile?.email || t('parkGuide')) }} />
+          <ProfileAvatar
+            size={80}
+            uri={profile?.profile_image_url ? getBackendAssetUrl(profile.profile_image_url) : ''}
+            seed={profile?.name || profile?.email || t('parkGuide')}
+          />
           <View style={styles.idText}>
             <Text variant="titleLarge" style={{ color: theme.colors.onPrimary, fontWeight: 'bold' }}>
               {(profile?.name || t('parkGuide')).toUpperCase()}

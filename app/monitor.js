@@ -4,6 +4,7 @@ import { ActivityIndicator, Avatar, Button, Chip, Modal, Portal, Surface, Text, 
 import { WebView } from "react-native-webview";
 import { useLocalSearchParams } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
+import { useTranslation } from "react-i18next";
 
 import AppHeader from "../components/AppHeader";
 import ThemedBackground from "../components/ThemedBackground";
@@ -15,6 +16,7 @@ import * as OfflineEvidenceQueue from "../services/offlineEvidenceQueue";
 
 export default function Monitor() {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { width, height } = useWindowDimensions();
   const params = useLocalSearchParams();
   const {
@@ -62,14 +64,14 @@ export default function Monitor() {
       setClips(nextClips);
     } catch (err) {
       console.log("Monitor load error:", err?.response?.data || err?.message || err);
-      setError("Unable to load live monitor data from the backend.");
+      setError(t("monitorLoadError"));
       setAlerts([]);
       setClips([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadMonitor();
@@ -402,9 +404,9 @@ export default function Monitor() {
       await MonitorService.deleteMonitorClip(clip.id);
       setClips((items) => items.filter((item) => item.id !== clip.id));
       await loadMonitor({ showLoader: false });
-      setEsp32Message("Recorded footage deleted.");
+      setEsp32Message(t("recordedFootageDeleted"));
     } catch (err) {
-      const detail = err?.response?.data?.detail || err?.message || "Unable to delete recorded footage.";
+      const detail = err?.response?.data?.detail || err?.message || t("deleteRecordedFootageFailed");
       setEsp32Message(detail);
     } finally {
       setDeletingClipId(null);
@@ -413,12 +415,12 @@ export default function Monitor() {
 
   const confirmDeleteRecordedClip = (clip) => {
     NativeAlert.alert(
-      "Delete footage?",
-      "This removes the saved recording from the backend and Firebase storage.",
+      t("deleteFootageTitle"),
+      t("deleteFootageMessage"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("deleteAction"),
           style: "destructive",
           onPress: () => deleteRecordedClip(clip),
         },

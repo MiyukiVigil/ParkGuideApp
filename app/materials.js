@@ -167,7 +167,7 @@ export default function Materials() {
         const mapped = rows.map((row) => ({
           id: String(row.id),
           fileId: row.id,
-          title: row.original_name || `File ${row.id}`,
+          title: row.original_name || t("fileNameFallback", { id: row.id }),
           sub: `${(row.content_type || "FILE").toUpperCase()} • ${formatBytes(row.size)}`,
           category: row.category || row.file_category || row.tags?.[0] || "All",
           tags: Array.isArray(row.tags) ? row.tags : [],
@@ -202,7 +202,7 @@ export default function Materials() {
     };
 
     loadStudyMaterials();
-  }, [router]);
+  }, [router, t]);
 
   const filtered = useMemo(() => {
     return studyMaterials.filter((item) => {
@@ -224,11 +224,11 @@ export default function Materials() {
 
   useScreenSpeech(
     loadingMaterials
-      ? 'Materials are loading.'
+      ? `${t("matHeadline")}. ${t("loadingMaterials")}`
       : [
-          'Materials',
-          activeCategory !== 'All' ? `Category: ${activeCategory}` : '',
-          query ? `Search: ${query}` : '',
+          t("matHeadline"),
+          activeCategory !== 'All' ? `${t("category")}: ${activeCategory}` : '',
+          query ? `${t("search")}: ${query}` : '',
           ...filtered.map((item, index) => `${index + 1}. ${item.title}. ${item.sub}`),
         ]
           .filter(Boolean)

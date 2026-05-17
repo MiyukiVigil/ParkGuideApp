@@ -23,9 +23,11 @@ import { getProfile, updateProfile, uploadProfileImage } from "../services/profi
 import { changePassword } from "../services/authService";
 import { clearAuthTokens } from "../utils/tokenStorage";
 import { clearProgressData } from "../utils/progressSync";
+import { getBackendAssetUrl } from "../constants/config";
 import { unregisterPushNotifications } from "../services/notificationService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
+import ProfileAvatar from "../components/ProfileAvatar";
 
 export default function AccountScreen() {
   const { t } = useTranslation();
@@ -266,16 +268,11 @@ export default function AccountScreen() {
           elevation={2}
         >
           <View style={styles.avatarColumn}>
-            {profile.profile_image_url ? (
-              <Avatar.Image size={76} source={{ uri: profile.profile_image_url }} />
-            ) : (
-              <Avatar.Icon
-                size={76}
-                icon="account"
-                style={{ backgroundColor: theme.colors.primaryContainer }}
-                color={theme.colors.primary}
-              />
-            )}
+            <ProfileAvatar
+              size={76}
+              uri={profile.profile_image_url ? getBackendAssetUrl(profile.profile_image_url) : ""}
+              seed={profile?.name || profile?.email || t("parkGuide")}
+            />
             <Button
               mode="text"
               compact

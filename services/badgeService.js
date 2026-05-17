@@ -97,36 +97,21 @@ export const badgeService = {
    * Get all available badges
    */
   getAllBadges: async () => {
-    return authenticatedFetch(`/user-progress/badges/?sync=1&_=${Date.now()}`, {
-      headers: {
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    });
+    return authenticatedFetch(`/user-progress/badges/?sync=1&_=${Date.now()}`);
   },
 
   /**
    * Get user's badge progress
    */
   getUserBadges: async () => {
-    return authenticatedFetch(`/user-progress/my-badges/?_=${Date.now()}`, {
-      headers: {
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    });
+    return authenticatedFetch(`/user-progress/my-badges/?_=${Date.now()}`);
   },
 
   /**
    * Get single badge details
    */
   getBadge: async (badgeId) => {
-    return authenticatedFetch(`/user-progress/badges/${badgeId}/?_=${Date.now()}`, {
-      headers: {
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    });
+    return authenticatedFetch(`/user-progress/badges/${badgeId}/?_=${Date.now()}`);
   },
 
   /**

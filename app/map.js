@@ -126,10 +126,10 @@ export default function GuideMap() {
     [
       t("map"),
       t("mapDesc"),
-      guideCount > 0 ? `${guideCount} active guide${guideCount === 1 ? "" : "s"} on the map` : "No guide locations are available right now.",
+      guideCount > 0 ? t("activeGuideCount", { count: guideCount }) : t("noGuideLocationsAvailable"),
       locationStatus,
       error,
-      lastUpdatedAt ? `Last updated at ${formatLastUpdated(lastUpdatedAt)}` : "",
+      lastUpdatedAt ? t("lastUpdatedAt", { time: formatLastUpdated(lastUpdatedAt) }) : "",
     ]
       .filter(Boolean)
       .join(". "),
@@ -164,12 +164,12 @@ export default function GuideMap() {
       setError("");
     } catch (err) {
       console.log("Failed to load guide locations", err.response?.data || err.message || err);
-      setError("Guide locations are not available yet.");
+      setError(t("guideLocationsUnavailable"));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   const publishCurrentLocation = useCallback(async () => {
     if (Platform.OS === "web") return false;
@@ -177,7 +177,7 @@ export default function GuideMap() {
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
-        setLocationStatus("Location permission is needed to share your live position.");
+        setLocationStatus(t("locationPermissionRequired"));
         return false;
       }
 
@@ -198,10 +198,10 @@ export default function GuideMap() {
       return true;
     } catch (err) {
       console.log("Failed to publish guide location", err.response?.data || err.message || err);
-      setLocationStatus("Your location could not be shared right now.");
+      setLocationStatus(t("locationShareFailed"));
       return false;
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -324,10 +324,10 @@ export default function GuideMap() {
             elevation={1}
           >
             <Text style={[styles.messageTitle, { color: theme.colors.onSurface }]}> 
-              Embedded map preview is available on Android or iOS.
+              {t("mapPhoneOnlyTitle")}
             </Text>
             <Text style={[styles.messageBody, { color: theme.colors.onSurfaceVariant }]}> 
-              Run the app on a phone or emulator to view guide locations without opening Google Maps.
+              {t("mapPhoneOnlyBody")}
             </Text>
           </Surface>
         </View>
@@ -357,8 +357,8 @@ export default function GuideMap() {
               <Marker
                 key={guide.id}
                 coordinate={{ latitude: guide.markerLatitude, longitude: guide.markerLongitude }}
-                title={isCurrentUser ? "You" : guide.name}
-                description={guide.lastSeen ? `Last seen ${formatLastUpdated(guide.lastSeen)}` : "Live location"}
+                title={isCurrentUser ? t("you") : guide.name}
+                description={guide.lastSeen ? t("lastSeen", { time: formatLastUpdated(guide.lastSeen) }) : t("liveLocation")}
                 tracksViewChanges={false}
                 anchor={{ x: 0.5, y: 0.5 }}
               >
@@ -394,10 +394,10 @@ export default function GuideMap() {
                       </View>
                     <View style={styles.calloutText}>
                       <Text style={[styles.calloutTitle, { color: theme.colors.onSurface }]}> 
-                        {isCurrentUser ? "You" : guide.name}
+                        {isCurrentUser ? t("you") : guide.name}
                       </Text>
                       <Text style={[styles.calloutSubtitle, { color: theme.colors.onSurfaceVariant }]}> 
-                        {guide.lastSeen ? `Last seen ${formatLastUpdated(guide.lastSeen)}` : "Live location"}
+                        {guide.lastSeen ? t("lastSeen", { time: formatLastUpdated(guide.lastSeen) }) : t("liveLocation")}
                       </Text>
                     </View>
                   </View>
@@ -420,11 +420,11 @@ export default function GuideMap() {
           >
             <View style={styles.statusText}>
               <Text style={[styles.statusTitle, { color: theme.colors.onSurface }]}> 
-                {loading ? "Loading guides" : `${guides.length} guides visible`}
+                {loading ? t("loadingGuides") : t("guidesVisible", { count: guides.length })}
               </Text>
               {!!lastUpdatedAt && !loading && (
                 <Text style={[styles.statusBody, { color: theme.colors.onSurfaceVariant }]}> 
-                  Updated {formatLastUpdated(lastUpdatedAt)}
+                  {t("updatedAt", { time: formatLastUpdated(lastUpdatedAt) })}
                 </Text>
               )}
               {!!locationStatus && (
@@ -439,7 +439,7 @@ export default function GuideMap() {
               )}
               {!error && !locationStatus && !loading && guides.length === 0 && (
                 <Text style={[styles.statusBody, { color: theme.colors.onSurfaceVariant }]}> 
-                  No live guide coordinates found.
+                  {t("noLiveGuideCoordinates")}
                 </Text>
               )}
             </View>

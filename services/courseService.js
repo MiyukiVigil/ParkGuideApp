@@ -4,8 +4,7 @@
  */
 
 import CONFIG from '../constants/config';
-import { getAccessToken } from '../utils/tokenStorage';
-import { ensureFreshSession } from '../utils/api';
+import api from '../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   AR_CHAPTER_ID,
@@ -19,6 +18,7 @@ import {
 const API_URL = CONFIG.API_BASE_URL;
 const CACHE_PREFIX = 'courseServiceCache:';
 const LOCAL_AR_COMPLETED_KEY = 'courseServiceLocalArCompletedLessons';
+const ENROLLMENTS_CACHE_KEY = 'enrollments:me';
 
 const readCache = async (key) => {
   const cached = await AsyncStorage.getItem(`${CACHE_PREFIX}${key}`);
@@ -98,82 +98,110 @@ const appendLocalArCourse = async (data, search = '') => {
   };
 };
 
+const getEnrollmentProgressPercentage = (enrollment = {}) => {
+  const direct = Number(
+    enrollment.progress_percentage ??
+    enrollment.completion_percentage ??
+    enrollment.progress_percent ??
+    enrollment.progress
+  );
+  if (Number.isFinite(direct)) return Math.max(0, Math.min(100, direct));
+
+  const nested = Number(
+    enrollment.progress_data?.progress_percentage ??
+    enrollment.course_progress?.progress_percentage ??
+    enrollment.progress_summary?.progress_percentage
+  );
+  if (Number.isFinite(nested)) return Math.max(0, Math.min(100, nested));
+
+  const completedLessons = Number(
+    enrollment.completed_lessons ??
+    enrollment.lessons_completed ??
+    enrollment.progress_data?.completed_lessons ??
+    enrollment.course_progress?.completed_lessons
+  );
+  const totalLessons = Number(
+    enrollment.total_lessons ??
+    enrollment.lessons_count ??
+    enrollment.progress_data?.total_lessons ??
+    enrollment.course_progress?.total_lessons
+  );
+
+  if (Number.isFinite(completedLessons) && Number.isFinite(totalLessons) && totalLessons > 0) {
+    return Math.round((completedLessons / totalLessons) * 100);
+  }
+
+  return 0;
+};
+
+const normalizeEnrollment = (enrollment = {}) => {
+  const progressPercentage = getEnrollmentProgressPercentage(enrollment);
+  const status = String(enrollment.status || enrollment.enrollment_status || '').toLowerCase();
+
+  return {
+    ...enrollment,
+    status: status || (progressPercentage >= 100 ? 'completed' : progressPercentage > 0 ? 'in_progress' : 'enrolled'),
+    progress_percentage: progressPercentage,
+    course_title:
+      enrollment.course_title ??
+      enrollment.title ??
+      enrollment.course?.title ??
+      enrollment.course_details?.title,
+    course_code:
+      enrollment.course_code ??
+      enrollment.code ??
+      enrollment.course?.code ??
+      enrollment.course_details?.code,
+  };
+};
+
+const getAxiosData = (error) => {
+  const data = error?.response?.data;
+  if (!data) return '';
+  return typeof data === 'string' ? data : JSON.stringify(data);
+};
+
+const getErrorMessage = (error, fallback) => {
+  const data = error?.response?.data;
+  if (data?.course && Array.isArray(data.course)) return data.course[0];
+  if (data?.detail) return data.detail;
+  if (data?.error) return data.error;
+  if (typeof data === 'string' && data.trim()) return data;
+  return fallback || error?.message || 'Network request failed';
+};
+
 // Helper function to make authenticated requests
 const authenticatedFetch = async (endpoint, options = {}) => {
   const fullUrl = `${API_URL}${endpoint}`;
-  const buildHeaders = async () => {
-    const token = await getAccessToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
-  };
-
-  const performRequest = async () => {
-    const headers = await buildHeaders();
-
-    console.log(`[courseService] Fetching: ${fullUrl}`);
-    return fetch(fullUrl, {
-      ...options,
-      headers,
-    });
-  };
 
   try {
-    let response = await performRequest();
-
-    if (response.status === 401) {
-      const refreshed = await ensureFreshSession();
-      if (refreshed) {
-        response = await performRequest();
-      }
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (response.status !== 401) {
-        console.error(`[courseService] API Error: ${response.status} ${response.statusText}`, errorText);
-      }
-      
-      // Try to parse error details from response
-      let errorMessage = `API Error: ${response.status} ${response.statusText}`;
-      try {
-        const errorData = JSON.parse(errorText);
-        
-        // Handle prerequisite errors
-        if (errorData.course && Array.isArray(errorData.course)) {
-          errorMessage = errorData.course[0];
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
-        } else if (errorData.error) {
-          errorMessage = errorData.error;
-        }
-      } catch (e) {
-        // If JSON parsing fails, use generic error message
-      }
-      
-      const error = new Error(errorMessage);
-      error.status = response.status;
-      error.originalMessage = errorText;
-      throw error;
-    }
-
-    return response.json();
+    console.log(`[courseService] Fetching: ${fullUrl}`);
+    const response = await api.request({
+      url: endpoint,
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      data: options.body,
+    });
+    return response.data;
   } catch (error) {
-    if (error.status !== 401) {
-      console.error(`[courseService] Network error for ${fullUrl}:`, error.message);
+    const status = error?.response?.status || error.status;
+    if (status !== 401) {
+      const detail = getAxiosData(error);
+      if (status) {
+        console.warn(`[courseService] API Error: ${status}`, detail || error.message);
+      } else {
+        console.warn(`[courseService] Network error for ${fullUrl}:`, error.message);
+      }
     }
-    if (!error.status) {
-      error.message = error.message || 'Network request failed';
-      error.isNetworkError = true;
-    }
-    throw error;
+
+    const nextError = new Error(getErrorMessage(error, status ? `API Error: ${status}` : 'Network request failed'));
+    nextError.status = status;
+    nextError.originalMessage = getAxiosData(error);
+    nextError.isNetworkError = !status;
+    throw nextError;
   }
 };
 
@@ -267,16 +295,13 @@ export const courseService = {
     };
 
     try {
-      const response = await authenticatedFetch(`/enrollments/?_=${Date.now()}`, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
-        },
-      });
+      const response = await withOfflineCache(ENROLLMENTS_CACHE_KEY, () => authenticatedFetch(`/enrollments/?_=${Date.now()}`));
       const rows = Array.isArray(response) ? response : (response?.results || []);
-      return [localEnrollment, ...rows.filter((item) => item?.course !== AR_COURSE_ID && item?.course_code !== localCourse.code)];
+      return [localEnrollment, ...rows.map(normalizeEnrollment).filter((item) => item?.course !== AR_COURSE_ID && item?.course_code !== localCourse.code)];
     } catch (error) {
-      return [localEnrollment];
+      const cached = await readCache(ENROLLMENTS_CACHE_KEY);
+      const rows = Array.isArray(cached) ? cached : (cached?.results || []);
+      return [localEnrollment, ...rows.map(normalizeEnrollment).filter((item) => item?.course !== AR_COURSE_ID && item?.course_code !== localCourse.code)];
     }
   },
 

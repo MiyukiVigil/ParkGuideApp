@@ -1,15 +1,16 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { ScrollView, View, StyleSheet, Platform, useWindowDimensions, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text, Avatar, Surface, TouchableRipple, IconButton, Chip, useTheme } from "react-native-paper";
+import { Text, Avatar, Surface, TouchableRipple, IconButton, useTheme } from "react-native-paper";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import * as Haptics from "expo-haptics";
 import ThemedBackground from "../components/ThemedBackground";
 import AnimatedHeaderBackground from "../components/AnimatedHeaderBackground";
+import ProfileAvatar from "../components/ProfileAvatar";
 import { useThemeContext } from "../contexts/ThemeContext";
 import { useScreenSpeech } from "../contexts/ScreenSpeechContext";
-import CONFIG, { getAvatarUrl } from "../constants/config";
+import CONFIG, { getAvatarUrl, getBackendAssetUrl } from "../constants/config";
 import * as NotificationService from "../services/notificationService";
 import courseService from "../services/courseService";
 import { getProfile } from "../services/profileService";
@@ -17,6 +18,14 @@ import * as MonitorService from "../services/monitorService";
 
 const withCacheBust = (url, version) => {
   if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes("googleapis.com")) {
+      return url;
+    }
+  } catch {
+    // Keep the original cache-busting behavior for relative/non-standard URLs.
+  }
   const separator = url.includes("?") ? "&" : "?";
   return `${url}${separator}v=${version}`;
 };
@@ -238,7 +247,7 @@ export default function Home() {
 
   const completedCount = completedModules.length;
   const profileImageUri = profile?.profile_image_url
-    ? withCacheBust(profile.profile_image_url, profileImageVersion)
+    ? withCacheBust(getBackendAssetUrl(profile.profile_image_url), profileImageVersion)
     : getAvatarUrl(profile?.name || profile?.email || t("parkGuide"));
 
   const barWidth = barAnim.interpolate({
@@ -281,11 +290,10 @@ export default function Home() {
             borderRadius={30}
             style={{ borderRadius: 30 }}
           >
-            <Avatar.Image
+            <ProfileAvatar
               size={54}
-              source={{
-                uri: profileImageUri,
-              }}
+              uri={profileImageUri}
+              seed={profile?.name || profile?.email || t("parkGuide")}
             />
           </TouchableRipple>
 
@@ -373,13 +381,11 @@ export default function Home() {
             >
               <View>
                 <View style={styles.heroTopRow}>
-                  <Chip
-                    compact
-                    style={{ backgroundColor: theme.colors.primaryContainer }}
-                    textStyle={{ color: theme.colors.onPrimaryContainer, fontWeight: "800" }}
-                  >
-                    {t("inProgress").toUpperCase()}
-                  </Chip>
+                  <View style={[styles.heroStatusPill, { backgroundColor: theme.colors.primaryContainer }]}>
+                    <Text style={[styles.heroStatusText, { color: theme.colors.onPrimaryContainer }]}>
+                      {t("inProgress").toUpperCase()}
+                    </Text>
+                  </View>
                   <Text style={[styles.percentText, { color: theme.colors.tertiary }]}>
                     {Math.round(trainingProgress * 100)}%
                   </Text>
@@ -476,23 +482,27 @@ export default function Home() {
             subtitle={t("badgesEarned")}
             onPress={() => router.push("/cert")}
           />
-          <OperationCard
-            theme={theme}
-            icon="map-marker-radius"
-            label={t("map")}
-            subtitle={t("mapDesc")}
-            onPress={() => router.push("/map")}
-          />
-          <OperationCard
-            theme={theme}
-            icon="video-check"
-            label={t("tourMonitor")}
-            subtitle={
-              monitorStatus.isLive? t("liveForestMonitor") : t("monitorOffline", { defaultValue: t("monitorOfflineDefault") })
-            }
-            status={monitorStatus.state}
-            onPress={() => router.push("/monitor")}
-          />
+          {!isWeb && (
+            <OperationCard
+              theme={theme}
+              icon="map-marker-radius"
+              label={t("map")}
+              subtitle={t("mapDesc")}
+              onPress={() => router.push("/map")}
+            />
+          )}
+          {!isWeb && (
+            <OperationCard
+              theme={theme}
+              icon="video-check"
+              label={t("tourMonitor")}
+              subtitle={
+                monitorStatus.isLive ? t("liveForestMonitor") : t("monitorOffline", { defaultValue: t("monitorOfflineDefault") })
+              }
+              status={monitorStatus.state}
+              onPress={() => router.push("/monitor")}
+            />
+          )}
           <OperationCard
             theme={theme}
             icon="cog"
@@ -719,6 +729,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  heroStatusPill: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  heroStatusText: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   featureTitle: {
     fontWeight: "900",

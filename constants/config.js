@@ -138,6 +138,29 @@ export const getAvatarUrl = (seed = CONFIG.DEFAULT_AVATAR_SEED) => {
   return `${CONFIG.AVATAR_API_URL}?seed=${encodeURIComponent(seed)}`;
 };
 
+export const getBackendOrigin = () => {
+  const apiUrl = normalizeUrl(CONFIG.API_BASE_URL || "");
+  if (!apiUrl) return "";
+
+  try {
+    const parsed = new URL(apiUrl);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return apiUrl.replace(/\/api\/?$/i, "");
+  }
+};
+
+export const getBackendAssetUrl = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+
+  const origin = getBackendOrigin();
+  if (!origin) return raw;
+
+  return `${origin.replace(/\/+$/, "")}/${raw.replace(/^\/+/, "")}`;
+};
+
 // Validate critical configuration on app start
 export const validateConfig = () => {
   const criticalVars = ["API_BASE_URL", "EXPO_PROJECT_ID", "DASHBOARD_BASE_URL"];

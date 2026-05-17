@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import api from '../utils/api';
-import CONFIG from '../constants/config';
+import CONFIG, { getBackendAssetUrl } from '../constants/config';
 import { getAccessToken } from '../utils/tokenStorage';
 
 const PROFILE_KEY = 'userProfile';
@@ -41,7 +41,7 @@ const normalizeProfile = (payload = {}) => {
     phone: String(payload.phone || payload.phone_number || DEFAULT_PROFILE.phone || '').trim(),
     role: rawRole === 'admin' ? 'Administrator' : rawRole === 'learner' ? 'Official Park Guide' : (payload.role || DEFAULT_PROFILE.role),
     user_type: payload.user_type || rawRole || 'learner',
-    profile_image_url: String(payload.profile_image_url || '').trim(),
+    profile_image_url: getBackendAssetUrl(payload.profile_image_url),
   };
 };
 
