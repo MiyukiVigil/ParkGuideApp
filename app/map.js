@@ -40,14 +40,16 @@ const getGuideList = (payload) => {
 const normalizeGuide = (guide, index) => {
   const latitude = Number(guide.latitude ?? guide.lat);
   const longitude = Number(guide.longitude ?? guide.lng ?? guide.lon);
+  const userId = guide.user_id ?? guide.guide_id ?? guide.id;
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return null;
   }
 
   return {
-    id: guide.id ?? guide.user_id ?? `${latitude}-${longitude}-${index}`,
-    name: guide.name ?? guide.full_name ?? guide.username ?? "Park Guide",
+    id: userId ?? `${latitude}-${longitude}-${index}`,
+    locationId: guide.location_id ?? guide.locationId ?? guide.id,
+    name: guide.name ?? guide.guide_name ?? guide.full_name ?? guide.username ?? "Park Guide",
     latitude,
     longitude,
     lastSeen: guide.last_seen ?? guide.updated_at ?? guide.timestamp,
@@ -113,9 +115,11 @@ export default function GuideMap() {
   const [error, setError] = useState("");
   const [locationStatus, setLocationStatus] = useState("");
   const [workTrackingEnabled, setWorkTrackingEnabled] = useState(false);
+  const [locationAction, setLocationAction] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const guideCount = guides.length;
+  const locationActionPending = locationAction !== null;
   useScreenSpeech(
     [
       t("map"),
@@ -140,7 +144,7 @@ export default function GuideMap() {
     }
 
     try {
-      const response = await api.get("/guides/locations/");
+      const response = await api.get("/accounts/guides/locations/");
       const nextGuides = getGuideList(response.data).map(normalizeGuide).filter(Boolean);
 
       console.log(
@@ -166,6 +170,8 @@ export default function GuideMap() {
   }, []);
 
   const handleStartWorkTracking = useCallback(async () => {
+    if (locationActionPending) return;
+    setLocationAction("start");
     try {
       await startGuideWorkLocationSharing();
       setWorkTrackingEnabled(true);
@@ -175,20 +181,38 @@ export default function GuideMap() {
       console.log("Failed to start work location sharing:", err.message || err);
       setWorkTrackingEnabled(false);
       setLocationStatus("Unable to start work location sharing. Please check location permissions.");
+    } finally {
+      setLocationAction(null);
     }
-  }, [loadGuideLocations]);
+  }, [loadGuideLocations, locationActionPending]);
 
   const handleStopWorkTracking = useCallback(async () => {
+    if (locationActionPending) return;
+    setLocationAction("stop");
     try {
       await stopGuideWorkLocationSharing();
       setWorkTrackingEnabled(false);
       setLocationStatus("Work location sharing is disabled.");
+      setGuides((previousGuides) =>
+        currentUserId === null
+          ? previousGuides
+          : previousGuides.filter((guide) => String(guide.id) !== String(currentUserId))
+      );
       await loadGuideLocations({ silent: true });
     } catch (err) {
       console.log("Failed to stop work location sharing:", err.message || err);
-      setLocationStatus("Unable to stop work location sharing.");
+      const enabled = await isGuideWorkLocationSharingEnabled();
+      setWorkTrackingEnabled(enabled);
+      setLocationStatus(
+        enabled
+          ? "Unable to stop work location sharing."
+          : "Work location sharing stopped, but your last location could not be removed from the map."
+      );
+      await loadGuideLocations({ silent: true });
+    } finally {
+      setLocationAction(null);
     }
-  }, [loadGuideLocations]);
+  }, [currentUserId, loadGuideLocations, locationActionPending]);
 
   useEffect(() => {
     let isMounted = true;
@@ -444,27 +468,33 @@ export default function GuideMap() {
             <View style={styles.statusActions}>
               <IconButton icon="crosshairs-gps" size={22} iconColor={theme.colors.primary} onPress={recenterMap}/>
 
+              <Button
+                mode={workTrackingEnabled ? "contained-tonal" : "contained"}
+                compact
+                disabled={loading || refreshing || locationActionPending}
+                loading={locationActionPending}
+                icon={workTrackingEnabled ? "map-marker-off" : "map-marker-check"}
+                onPress={workTrackingEnabled ? handleStopWorkTracking : handleStartWorkTracking}
+              >
+                {locationAction === "start" ? "Starting" : locationAction === "stop" ? "Stopping" : workTrackingEnabled ? "Stop" : "Start"}
+              </Button>
+
               {loading || refreshing ? (
                 <ActivityIndicator color={theme.colors.primary} />
               ) : (
-                <>
-                  <Button mode={workTrackingEnabled ? "contained-tonal" : "contained"} compact disabled={loading || refreshing} icon={workTrackingEnabled ? "map-marker-off" : "map-marker-check"} onPress={workTrackingEnabled ? handleStopWorkTracking : handleStartWorkTracking}>
-                    {workTrackingEnabled ? "Stop" : "Start"}
-                  </Button>
-                  <IconButton
-                    icon="refresh"
-                    mode="contained-tonal"
-                    disabled={loading || refreshing}
-                    onPress={async () => {
-                      setRefreshing(true);
-                      try {
-                        await loadGuideLocations({ silent: true });
-                      } finally {
-                        setRefreshing(false);
-                      }
-                    }}
-                  />
-                </>
+                <IconButton
+                  icon="refresh"
+                  mode="contained-tonal"
+                  disabled={locationActionPending}
+                  onPress={async () => {
+                    setRefreshing(true);
+                    try {
+                      await loadGuideLocations({ silent: true });
+                    } finally {
+                      setRefreshing(false);
+                    }
+                  }}
+                />
               )}
             </View>
           </Surface>
