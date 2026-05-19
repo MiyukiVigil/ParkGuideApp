@@ -1,4 +1,7 @@
 require("dotenv/config");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 
 const getAbsoluteUrl = (value) => {
   if (!value) return "";
@@ -22,6 +25,26 @@ const androidGoogleMapsApiKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY || "";
 const iosGoogleMapsApiKey = process.env.GOOGLE_MAPS_IOS_API_KEY || "";
 
 const associatedWebHost = getHostFromUrl(apiBaseUrl);
+
+const getGoogleServicesFile = () => {
+  const rawGoogleServicesJson = process.env.GOOGLE_SERVICES_JSON;
+  const base64GoogleServicesJson = process.env.GOOGLE_SERVICES_JSON_BASE64;
+
+  if (rawGoogleServicesJson || base64GoogleServicesJson) {
+    const decodedJson = base64GoogleServicesJson
+      ? Buffer.from(base64GoogleServicesJson, "base64").toString("utf8")
+      : rawGoogleServicesJson;
+    const outputDir = path.join(os.tmpdir(), "parkguideapp-expo");
+    const outputFile = path.join(outputDir, "google-services.json");
+
+    fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(outputFile, decodedJson);
+
+    return outputFile;
+  }
+
+  return "./google-services.json";
+};
 
 module.exports = {
   expo: {
@@ -53,7 +76,7 @@ module.exports = {
     },
     android: {
       package: process.env.PACKAGE_NAME || "com.miyukivigil.parkguideapp",
-      googleServicesFile: "./google-services.json",
+      googleServicesFile: getGoogleServicesFile(),
       adaptiveIcon: {
         foregroundImage: "./assets/android-icon-foreground.png",
         backgroundColor: "#ffffff",
