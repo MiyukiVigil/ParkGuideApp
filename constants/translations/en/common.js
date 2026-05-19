@@ -206,6 +206,7 @@ export default {
     missingDownloadURL: "Missing download URL",
 
     // Login page
+    signInWithGoogle: "Sign in with Google",
     signInWithPasskey: "Sign in with passkey",
     checkingPasskey: "Checking passkey...",
     applyForAccount: "Apply for account",

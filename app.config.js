@@ -23,6 +23,8 @@ const dashboardUrl = process.env.DASHBOARD_URL || "http://localhost:8000/dashboa
 const ssoUrl = process.env.SSO_URL || "http://localhost:8000/dashboard/sso";
 const androidGoogleMapsApiKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY || "";
 const iosGoogleMapsApiKey = process.env.GOOGLE_MAPS_IOS_API_KEY || "";
+const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
+const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 
 const associatedWebHost = getHostFromUrl(apiBaseUrl);
 
@@ -119,6 +121,8 @@ module.exports = {
       firebaseProjectNumber: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_NUMBER || "",
       firebaseStorageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
       firebaseAndroidAppId: process.env.EXPO_PUBLIC_FIREBASE_ANDROID_APP_ID || "",
+      googleWebClientId,
+      googleIosClientId,
       associatedWebHost,
       router: {
         origin: false,
@@ -155,6 +159,7 @@ module.exports = {
       "expo-localization",
       "expo-notifications",
       "expo-router",
+      "@react-native-google-signin/google-signin",
       [
         "react-native-maps",
         {

@@ -131,6 +131,8 @@ const CONFIG = {
   FIREBASE_PROJECT_NUMBER: getConfigValue("firebaseProjectNumber", "EXPO_PUBLIC_FIREBASE_PROJECT_NUMBER", ""),
   FIREBASE_STORAGE_BUCKET: getConfigValue("firebaseStorageBucket", "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET", ""),
   FIREBASE_ANDROID_APP_ID: getConfigValue("firebaseAndroidAppId", "EXPO_PUBLIC_FIREBASE_ANDROID_APP_ID", ""),
+  GOOGLE_WEB_CLIENT_ID: getConfigValue("googleWebClientId", "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID", ""),
+  GOOGLE_IOS_CLIENT_ID: getConfigValue("googleIosClientId", "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID", ""),
 };
 
 // Helper function to get avatar URL with seed

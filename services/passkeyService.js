@@ -55,6 +55,16 @@ const getErrorMessage = (error) => {
   return "";
 };
 
+const summarizePasskeyError = (error) => ({
+  name: error?.name,
+  code: error?.code,
+  message: error?.message,
+  nativeStackAndroid: error?.nativeStackAndroid,
+  status: error?.response?.status,
+  responseCode: error?.response?.data?.code,
+  detail: error?.response?.data?.detail,
+});
+
 const isNotFound = (error) => error?.response?.status === 404;
 
 const requestWithFallback = async (method, endpoints, data) => {
@@ -180,7 +190,13 @@ export async function registerPasskey({ currentPassword, label }) {
 
   const requestPayload = extractRequestPayload(startResponse.data);
   logPasskey("register request payload", summarizeObject(requestPayload));
-  const credential = await Passkey.create(requestPayload);
+  let credential;
+  try {
+    credential = await Passkey.create(requestPayload);
+  } catch (error) {
+    logPasskey("register native error", summarizePasskeyError(error));
+    throw error;
+  }
   logPasskey("register credential result", summarizeObject(credential));
 
   const confirmResponse = await requestWithFallback("post", PASSKEY_REGISTER_CONFIRM_ENDPOINTS, {
@@ -230,7 +246,13 @@ export async function signInWithPasskey(email) {
 
   const requestPayload = extractRequestPayload(startResponse.data);
   logPasskey("login request payload", summarizeObject(requestPayload));
-  const credential = await Passkey.get(requestPayload);
+  let credential;
+  try {
+    credential = await Passkey.get(requestPayload);
+  } catch (error) {
+    logPasskey("login native error", summarizePasskeyError(error));
+    throw error;
+  }
   logPasskey("login credential result", summarizeObject(credential));
 
   const confirmResponse = await requestWithFallback("post", PASSKEY_CONFIRM_ENDPOINTS, {

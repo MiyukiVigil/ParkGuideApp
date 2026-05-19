@@ -170,6 +170,7 @@ export default {
     missingDownloadURL: "URL muat turun hilang",
 
     // Halaman log masuk
+    signInWithGoogle: "Log masuk dengan Google",
     signInWithPasskey: "Log masuk dengan kunci laluan",
     checkingPasskey: "Menyemak kunci laluan...",
     applyForAccount: "Permohonan akaun baharu",

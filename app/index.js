@@ -17,6 +17,7 @@ import { clearProgressData } from "../utils/progressSync";
 import { getModuleMapping } from "../utils/moduleMapping";
 import * as NotificationService from "../services/notificationService";
 import { getFriendlyPasskeyError, isPasskeySupported, signInWithPasskey } from "../services/passkeyService";
+import { getFriendlyGoogleSignInError, isGoogleSignInConfigured, signInWithGoogle } from "../services/googleAuthService";
 import { getFriendlyTwoFactorError, verifyTwoFactorLogin } from "../services/twoFactorService";
 import { saveProfileSnapshotFromAuthPayload } from "../services/profileService";
 import { useAppAlert } from "../components/AppAlertProvider";
@@ -30,6 +31,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [twoFactorVisible, setTwoFactorVisible] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState("");
@@ -243,6 +245,18 @@ export default function Login() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      setGoogleLoading(true);
+      const payload = await signInWithGoogle();
+      await completeLogin(payload);
+    } catch (err) {
+      showAlert(t("error"), getFriendlyGoogleSignInError(err, t("somethingWentWrong")));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   if (checkingAuth) {
     return (
       <AuthScreenLayout maxWidth={360}>
@@ -333,7 +347,7 @@ export default function Login() {
             mode="contained"
             onPress={handleLogin}
             loading={loading}
-            disabled={loading || passkeyLoading}
+            disabled={loading || passkeyLoading || googleLoading}
             style={styles.button}
             contentStyle={styles.buttonContent}
             buttonColor="#D6B36A"
@@ -344,12 +358,27 @@ export default function Login() {
 
           {error ? <Text style={styles.inlineError}>{error}</Text> : null}
 
+          {isGoogleSignInConfigured() ? (
+            <Button
+              mode="outlined"
+              icon="google"
+              onPress={handleGoogleLogin}
+              loading={googleLoading}
+              disabled={loading || passkeyLoading || googleLoading}
+              style={styles.passkeyButton}
+              contentStyle={styles.buttonContent}
+              textColor="#E6F2EA"
+            >
+              {googleLoading ? t("signingIn") : t("signInWithGoogle")}
+            </Button>
+          ) : null}
+
           {isPasskeySupported() ? (
             <Button
               mode="outlined"
               onPress={handlePasskeyLogin}
               loading={passkeyLoading}
-              disabled={loading || passkeyLoading}
+              disabled={loading || passkeyLoading || googleLoading}
               style={styles.passkeyButton}
               contentStyle={styles.buttonContent}
               textColor="#E6F2EA"
@@ -383,7 +412,7 @@ export default function Login() {
             {t("protectedSession")}
           </Text>
           <Text variant="labelSmall" style={styles.footerSub}>
-            1.6.2
+            1.7.0
           </Text>
         </View>
       </Animated.View>

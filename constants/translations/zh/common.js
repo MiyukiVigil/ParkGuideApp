@@ -206,6 +206,7 @@ export default {
     missingDownloadURL: "缺少下载链接",
 
     // 登录页面
+    signInWithGoogle: "使用 Google 登录",
     signInWithPasskey: "使用通行密钥登录",
     checkingPasskey: "正在验证通行密钥...",
     applyForAccount: "申请账户",
