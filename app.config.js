@@ -26,7 +26,7 @@ const associatedWebHost = getHostFromUrl(apiBaseUrl);
 module.exports = {
   expo: {
     name: "ParkGuideApp",
-    slug: "parkguideapp",
+    slug: "park-guide-app",
     scheme: "parkguideapp",
     version: "1.6.2",
     orientation: "portrait",
