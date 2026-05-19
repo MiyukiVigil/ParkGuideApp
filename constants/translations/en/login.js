@@ -1,6 +1,8 @@
 export default {
     loginHeadline: "SFC Guide Portal",
     loginMedium: "Secure Access for Park Professionals",
+    login: "Login",
+    loginMethods: "Login methods",
     loginEmail: "Guide Email",
     loginPassword: "Guide Password",
     loginButton: "Secure Login",

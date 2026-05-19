@@ -3,6 +3,8 @@
 export default {
     loginHeadline: "SFC 导览员门户",
     loginMedium: "为公园专业人员提供安全访问",
+    login: "登录",
+    loginMethods: "登录方式",
     loginEmail: "导览员邮箱",
     loginPassword: "导览员密码",
     loginButton: "安全登录",

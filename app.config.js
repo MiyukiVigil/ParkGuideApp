@@ -55,7 +55,7 @@ module.exports = {
     scheme: "parkguideapp",
     version: "1.6.2",
     orientation: "portrait",
-    icon: "./assets/android-icon-foreground.png",
+    icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
     splash: {
       image: "./assets/icon.png",

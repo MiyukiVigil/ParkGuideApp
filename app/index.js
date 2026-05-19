@@ -316,6 +316,9 @@ export default function Login() {
         </View>
 
         <Surface style={styles.formCard} elevation={2}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            {t("login")}
+          </Text>
           <TextInput
             label={t("loginEmail")}
             mode="outlined"
@@ -358,33 +361,42 @@ export default function Login() {
 
           {error ? <Text style={styles.inlineError}>{error}</Text> : null}
 
-          {isGoogleSignInConfigured() ? (
-            <Button
-              mode="outlined"
-              icon="google"
-              onPress={handleGoogleLogin}
-              loading={googleLoading}
-              disabled={loading || passkeyLoading || googleLoading}
-              style={styles.passkeyButton}
-              contentStyle={styles.buttonContent}
-              textColor="#E6F2EA"
-            >
-              {googleLoading ? t("signingIn") : t("signInWithGoogle")}
-            </Button>
-          ) : null}
+          {(isGoogleSignInConfigured() || isPasskeySupported()) ? (
+            <View style={styles.loginMethodsSection}>
+              <View style={styles.divider} />
+              <Text variant="titleSmall" style={styles.sectionTitle}>
+                {t("loginMethods")}
+              </Text>
 
-          {isPasskeySupported() ? (
-            <Button
-              mode="outlined"
-              onPress={handlePasskeyLogin}
-              loading={passkeyLoading}
-              disabled={loading || passkeyLoading || googleLoading}
-              style={styles.passkeyButton}
-              contentStyle={styles.buttonContent}
-              textColor="#E6F2EA"
-            >
-              {passkeyLoading ? t("checkingPasskey") : t("signInWithPasskey")}
-            </Button>
+              {isGoogleSignInConfigured() ? (
+                <Button
+                  mode="outlined"
+                  icon="google"
+                  onPress={handleGoogleLogin}
+                  loading={googleLoading}
+                  disabled={loading || passkeyLoading || googleLoading}
+                  style={styles.methodButton}
+                  contentStyle={styles.buttonContent}
+                  textColor="#E6F2EA"
+                >
+                  {googleLoading ? t("signingIn") : t("signInWithGoogle")}
+                </Button>
+              ) : null}
+
+              {isPasskeySupported() ? (
+                <Button
+                  mode="outlined"
+                  onPress={handlePasskeyLogin}
+                  loading={passkeyLoading}
+                  disabled={loading || passkeyLoading || googleLoading}
+                  style={styles.methodButton}
+                  contentStyle={styles.buttonContent}
+                  textColor="#E6F2EA"
+                >
+                  {passkeyLoading ? t("checkingPasskey") : t("signInWithPasskey")}
+                </Button>
+              ) : null}
+            </View>
           ) : null}
 
           <View style={styles.helperRow}>
@@ -510,6 +522,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(24,54,40,0.95)",
     borderColor: "rgba(127,169,138,0.16)",
   },
+  sectionTitle: {
+    color: "#F4F7F2",
+    fontWeight: "800",
+    marginBottom: 14,
+  },
+  loginMethodsSection: {
+    marginTop: 18,
+  },
+  divider: {
+    height: 1,
+    marginBottom: 18,
+    backgroundColor: "rgba(127,169,138,0.18)",
+  },
   inlineError: {
     color: "#FFB4AB",
     marginTop: 12,
@@ -537,7 +562,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     borderRadius: 18,
   },
-  passkeyButton: {
+  methodButton: {
     marginTop: 10,
     borderRadius: 18,
     borderColor: "rgba(214,179,106,0.45)",

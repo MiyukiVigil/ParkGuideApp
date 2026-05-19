@@ -3,6 +3,8 @@
 export default {
     loginHeadline: "Portal Panduan SFC",
     loginMedium: "Akses Selamat untuk Profesional Taman",
+    login: "Log Masuk",
+    loginMethods: "Kaedah log masuk",
     loginEmail: "Emel Panduan",
     loginPassword: "Kata Laluan Panduan",
     loginButton: "Log Masuk Selamat",
