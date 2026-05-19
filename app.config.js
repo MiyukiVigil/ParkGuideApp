@@ -21,8 +21,14 @@ const passkeyApiBaseUrl = process.env.EXPO_PUBLIC_PASSKEY_API_BASE_URL || proces
 const dashboardBaseUrl = process.env.DASHBOARD_BASE_URL || "http://10.0.2.2:8000";
 const dashboardUrl = process.env.DASHBOARD_URL || "http://localhost:8000/dashboard";
 const ssoUrl = process.env.SSO_URL || "http://localhost:8000/dashboard/sso";
-const androidGoogleMapsApiKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY || "";
-const iosGoogleMapsApiKey = process.env.GOOGLE_MAPS_IOS_API_KEY || "";
+const androidGoogleMapsApiKey =
+  process.env.GOOGLE_MAPS_ANDROID_API_KEY ||
+  process.env.GOOGLE_MAPS_API_KEY_ANDROID ||
+  "";
+const iosGoogleMapsApiKey =
+  process.env.GOOGLE_MAPS_IOS_API_KEY ||
+  process.env.GOOGLE_MAPS_API_KEY_IOS ||
+  "";
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
 const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 
@@ -53,7 +59,7 @@ module.exports = {
     name: "ParkGuideApp",
     slug: "park-guide-app",
     scheme: "parkguideapp",
-    version: "1.6.2",
+    version: "1.7.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
@@ -79,6 +85,11 @@ module.exports = {
     android: {
       package: process.env.PACKAGE_NAME || "com.miyukivigil.parkguideapp",
       googleServicesFile: getGoogleServicesFile(),
+      config: {
+        googleMaps: {
+          apiKey: androidGoogleMapsApiKey,
+        },
+      },
       adaptiveIcon: {
         foregroundImage: "./assets/android-icon-foreground.png",
         backgroundColor: "#ffffff",
