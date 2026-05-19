@@ -30,7 +30,7 @@ module.exports = {
     scheme: "parkguideapp",
     version: "1.6.2",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/android-icon-foreground.png",
     userInterfaceStyle: "automatic",
     splash: {
       image: "./assets/icon.png",
@@ -40,8 +40,6 @@ module.exports = {
     assetBundlePatterns: ["**/*"],
     ios: {
       bundleIdentifier: process.env.IOS_BUNDLE_ID || "com.miyukivigil.parkguideapp",
-      supportsTabletMode: true,
-      supportsUpsideDownOrientation: false,
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           "This app needs your location while using the app to show your position on the live park map.",
@@ -56,9 +54,8 @@ module.exports = {
     android: {
       package: process.env.PACKAGE_NAME || "com.miyukivigil.parkguideapp",
       googleServicesFile: "./google-services.json",
-      usesCleartextTraffic: true,
       adaptiveIcon: {
-        foregroundImage: "./assets/icon.png",
+        foregroundImage: "./assets/android-icon-foreground.png",
         backgroundColor: "#ffffff",
       },
       permissions: [
